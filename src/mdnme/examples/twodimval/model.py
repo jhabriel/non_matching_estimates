@@ -21,8 +21,8 @@ import numpy as np
 import porepy as pp
 
 import mdamr
-from mdamr.examples.example_1.exact_solution import Varela2023JNumExactSolution2d
-from mdamr.examples.example_1.geometry import Varela2023JNumGeometry
+from mdnme.examples.example_1.exact_solution import Varela2023JNumExactSolution2d
+from mdnme.examples.example_1.geometry import Varela2023JNumGeometry
 
 # Material constants for the verification setup. Constants with (**) cannot be
 # changed since the manufactured solution implicitly assume such values.
