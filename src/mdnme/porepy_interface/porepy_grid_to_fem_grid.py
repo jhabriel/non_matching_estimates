@@ -5,7 +5,7 @@ Converter between PorePy and Coordinate-Elements grid formats.
 # Import modules
 import numpy as np
 
-import mdamr
+import mdnme
 import porepy as pp
 import scipy.sparse as sps
 
