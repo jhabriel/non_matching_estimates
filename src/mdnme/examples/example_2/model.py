@@ -4,13 +4,13 @@ This module contains the model for the Example 2 of the manuscript.
 from typing import Callable
 
 import porepy as pp
-import mdamr
+import mdenme
 
 from porepy.examples.flow_benchmark_2d_case_3 import (
     FlowBenchmark2dCase3bModel,
     solid_constants,
 )
-from mdamr.estimates.helpers import ErrorEstimatesSaveData
+from mdenme.estimates.helpers import ErrorEstimatesSaveData
 
 
 class ComplexNetworkSolutionStrategy(
