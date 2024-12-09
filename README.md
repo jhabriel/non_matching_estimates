@@ -4,6 +4,10 @@
 
 # mdnme: Mixed-Dimensional Error Estimates on Non-Matching Grids
 
+<p align="center">
+  <img src="./mdnme_logo.png" alt="Repository Logo" width="400" height="300">
+</p>
+
 **mdnme** is a Python package created to perform adaptive mesh refinement on mixed-dimensional unstructured simplicial grids. The package is build on top of [PorePy](https://github.com/pmgbergen/porepy) and employs [mdestimates](https://github.com/jhabriel/mixdim-estimates) to obtain local error indicators in order to guide the adaptive mesh refinement.
 
 ## Installation from source
