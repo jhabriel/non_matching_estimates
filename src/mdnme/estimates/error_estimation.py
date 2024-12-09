@@ -3,10 +3,10 @@ from typing import Callable
 import numpy as np
 import porepy as pp
 
-from mdamr.estimates.diffusive_error import compute_diffusive_error
-from mdamr.estimates.flux_extension import extend_fv_fluxes
-from mdamr.estimates.pressure_reconstruction import reconstruct_pressure
-from mdamr.estimates.residual_error import compute_residual_error
+from mdnme.estimates.diffusive_error import compute_diffusive_error
+from mdnme.estimates.flux_extension import extend_fv_fluxes
+from mdnme.estimates.pressure_reconstruction import reconstruct_pressure
+from mdnme.estimates.residual_error import compute_residual_error
 
 SpatialFunction = Callable[..., np.ndarray]
 

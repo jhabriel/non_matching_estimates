@@ -18,7 +18,7 @@ import porepy as pp
 import quadpy
 import scipy.sparse as sps
 
-import mdamr as amr
+import mdnme as amr
 
 
 def compute_diffusive_error(mdg: pp.MixedDimensionalGrid) -> None:

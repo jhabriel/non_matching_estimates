@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import numpy as np
-from mdamr.amr.refinement_utils import get_edge_data_2d
+from mdnme.amr.refinement_utils import get_edge_data_2d
 
 
 def test_single_triangle_no_extra_args():
@@ -179,6 +179,3 @@ def test_unit_square_two_triangles_mixed_bc():
     np.testing.assert_equal(dir2edges, desired_dir2edges)
     np.testing.assert_equal(neu2edges, desired_neu2edges)
     np.testing.assert_equal(int2edges, desired_int2edges)
-
-
-

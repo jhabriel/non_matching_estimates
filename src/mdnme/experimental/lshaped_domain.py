@@ -12,13 +12,13 @@ Boundary conditions:
 import numpy as np
 import scipy.sparse as sps
 import porepy as pp
-import mdamr
+import mdnme
 
-from mdamr.estimates.error_estimation import estimate_errors
+from mdnme.estimates.error_estimation import estimate_errors
 
-from mdamr.amr.refinement_utils import plot_fem_mesh
-from mdamr.porepy_interface.porepy_grid_to_fem_grid import porepy_grid_to_fem_grid
-from mdamr.porepy_interface.fem_grid_to_porepy_grid import fem_grid_to_sd_grid_2d
+from mdnme.amr.refinement_utils import plot_fem_mesh
+from mdnme.porepy_interface.porepy_grid_to_fem_grid import porepy_grid_to_fem_grid
+from mdnme.porepy_interface.fem_grid_to_porepy_grid import fem_grid_to_sd_grid_2d
 
 # STEP 1 -> Create initial grid
 
@@ -105,6 +105,3 @@ estimate_errors(
     sources=None,
     quadrature_degree_for_residual_error=None
 )
-
-
-

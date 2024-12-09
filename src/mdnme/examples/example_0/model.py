@@ -11,7 +11,7 @@ from porepy.models.fluid_mass_balance import (
     BoundaryConditionsSinglePhaseFlow,
 )
 
-from mdamr.estimates.error_estimation import estimate_errors, compute_error_indicators
+from mdnme.estimates.error_estimation import estimate_errors, compute_error_indicators
 
 from typing import Callable
 
@@ -149,7 +149,7 @@ class LShapedModel(
     LShapedGeometry,
     LShapedBoundaryConditions,
     LShapedSolutionStrategy,
-    mdamr.ErrorEstimatesSaveData,
+    mdnme.ErrorEstimatesSaveData,
     SinglePhaseFlow,
 ):
     """L-shaped domain model."""
@@ -215,7 +215,7 @@ while refinement_step < max_refinement_steps:
         print(f"Stopping refinement: max error {max_error} < tolerance {tol}.")
         break
 
-    marked_elements = mdamr.doerfler_marking(indicators, theta=0.6)
+    marked_elements = mdnme.doerfler_marking(indicators, theta=0.6)
 
     # threshold = indicators > 0.8 * np.max(indicators)
     # marked_elements = np.zeros(g.num_cells, dtype=bool)
@@ -225,7 +225,7 @@ while refinement_step < max_refinement_steps:
     coordinates, elements = porepy_grid_to_fem_grid(g)
 
     # Use RGB
-    new_coordinates, new_elements, *_ = mdamr.refine_rgb(
+    new_coordinates, new_elements, *_ = mdnme.refine_rgb(
         coordinates=coordinates,
         elements=elements,
         marked_elements=marked_elements,
@@ -248,4 +248,3 @@ while refinement_step < max_refinement_steps:
 
     # INCREMENT COUNTER
     refinement_step += 1
-

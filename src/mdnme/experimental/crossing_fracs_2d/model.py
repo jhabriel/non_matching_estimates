@@ -13,7 +13,7 @@ from exact_sol import TwoCrossingExactSolution
 from geometry import TwoFullyEmbeddedCrossingFractures
 from porepy.utils.examples_utils import VerificationUtils
 
-import mdamr as amr
+import mdnme as amr
 
 # PorePy typings
 number = pp.number

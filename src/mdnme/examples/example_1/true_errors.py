@@ -10,8 +10,8 @@ import quadpy
 import scipy.sparse as sps
 import sympy as sym
 
-import mdamr
-from mdamr.examples.example_1.exact_solution import Varela2023JNumExactSolution2d
+import mdnme
+from mdnme.examples.example_1.exact_solution import Varela2023JNumExactSolution2d
 
 
 class Varela2023JNumTrueErrors2d(Varela2023JNumExactSolution2d):
@@ -92,11 +92,11 @@ class Varela2023JNumTrueErrors2d(Varela2023JNumExactSolution2d):
 
         # ---> Obtain reconstructed pressure and create list of coefficients
         recon_p = d_matrix["estimates"]["recon_sd_pressure"]
-        pr = mdamr.utils.poly2col(recon_p)
+        pr = mdnme.utils.poly2col(recon_p)
 
         # ---> Obtain elements and declare integration method
         method = quadpy.t2.get_good_scheme(10)
-        elements = mdamr.utils.get_quadpy_elements(sd_matrix)
+        elements = mdnme.utils.get_quadpy_elements(sd_matrix)
 
         # ---> Compute the true error for each subregion
         integral = np.zeros(sd_matrix.num_cells)
@@ -142,11 +142,11 @@ class Varela2023JNumTrueErrors2d(Varela2023JNumExactSolution2d):
 
         # ---> Get hold of reconstructed pressure and create list of coefficients
         recon_p = d_fracture["estimates"]["recon_sd_pressure"]
-        pr = mdamr.utils.poly2col(recon_p)
+        pr = mdnme.utils.poly2col(recon_p)
 
         # ---> Obtain elements and declare integration method
         method = quadpy.c1.newton_cotes_closed(10)
-        elements = mdamr.utils.get_quadpy_elements(sd_fracture)
+        elements = mdnme.utils.get_quadpy_elements(sd_fracture)
         elements *= -1  # we have to use the real `y` coordinates here
 
         # ---> Compute true error
@@ -200,7 +200,7 @@ class Varela2023JNumTrueErrors2d(Varela2023JNumExactSolution2d):
 
         """
 
-        from mdamr.estimates.diffusive_error import (
+        from mdnme.estimates.diffusive_error import (
             _get_high_pressure_trace,
             _get_low_pressure,
         )
@@ -230,7 +230,7 @@ class Varela2023JNumTrueErrors2d(Varela2023JNumExactSolution2d):
 
             # Declare integration method
             method = quadpy.c1.newton_cotes_closed(10)
-            elements = mdamr.utils.get_quadpy_elements(sidegrid)
+            elements = mdnme.utils.get_quadpy_elements(sidegrid)
             elements *= -1  # We need to use real coordinates
 
             # Project relevant quantities to the side grid
@@ -244,7 +244,7 @@ class Varela2023JNumTrueErrors2d(Varela2023JNumExactSolution2d):
             # Declare integrand
             def integrand(x):
                 coors = x[np.newaxis, :, :]  # this is needed for 1D grids
-                recon_p_jump = mdamr.utils.evaluate_p1(
+                recon_p_jump = mdnme.utils.evaluate_p1(
                     recon_deltap_side,
                     -coors,  # negate due to rotation
                 )

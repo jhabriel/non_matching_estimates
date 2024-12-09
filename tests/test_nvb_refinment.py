@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-from mdamr.amr.nvb import refine_nvb
+from mdnme.amr.nvb import refine_nvb
 
 
 class TestRefineNVBSingleCell:
@@ -865,7 +865,3 @@ class TestRefineNVBTwoCellsWithRepeatedNodes:
         )
         np.testing.assert_equal(new_coordinates, scenario_data['new_coordinates'])
         np.testing.assert_equal(new_elements, scenario_data['new_elements'])
-
-
-
-

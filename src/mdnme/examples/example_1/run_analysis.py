@@ -14,13 +14,13 @@ import numpy as np
 import porepy as pp
 from porepy.utils.txt_io import TxtData, export_data_to_txt
 
-import mdamr
-from mdamr.examples.example_1.model import (
+import mdnme
+from mdnme.examples.example_1.model import (
     VarelaJNum2023Setup,
     manu_incomp_fluid,
     manu_incomp_solid,
 )
-from mdamr.examples.example_1.true_errors import Varela2023JNumTrueErrors2d
+from mdnme.examples.example_1.true_errors import Varela2023JNumTrueErrors2d
 
 pickle_mdg = False
 print_to_console = True
@@ -69,7 +69,7 @@ for mesh_size in mesh_sizes:
             mdg = pickle.load(handle)
 
     # %% Estimate errors
-    mdamr.estimate_errors(
+    mdnme.estimate_errors(
         mdg, pressure_reconstruction_method="keilegavlen_p1"
     )  # Assume no sources and compute residual error separately
 

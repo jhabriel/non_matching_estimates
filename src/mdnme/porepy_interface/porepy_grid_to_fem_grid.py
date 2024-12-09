@@ -9,7 +9,7 @@ import mdnme
 import porepy as pp
 import scipy.sparse as sps
 
-from mdamr.amr.refinement_utils import enforce_positive_orientation
+from mdnme.amr.refinement_utils import enforce_positive_orientation
 
 
 def porepy_grid_to_fem_grid(g: pp.GridLike) -> tuple[np.ndarray, np.ndarray]:
@@ -89,7 +89,7 @@ def subdomain_grid_2d_to_fem_grid(g: pp.TriangleGrid) -> tuple[np.ndarray, np.nd
 
 def subdomain_grid_1d_to_fem_grid(g: pp.Grid) -> tuple[np.ndarray, np.ndarray]:
 
-    g_rot = mdamr.RotatedGrid(g)
+    g_rot = mdnme.RotatedGrid(g)
     coordinates = g_rot.nodes.transpose()[:, :1]
     elements = np.reshape(sps.find(g.cell_nodes())[0], [g.num_cells, 2])
 
@@ -114,8 +114,8 @@ def mortar_grid_1d_to_fem_grid(intf: pp.MortarGrid) -> tuple[np.ndarray, np.ndar
     g_side1 = side1[1]
 
     # Now we need to rotate the grids
-    g_side0_rot = mdamr.RotatedGrid(g_side0)
-    g_side1_rot = mdamr.RotatedGrid(g_side1)
+    g_side0_rot = mdnme.RotatedGrid(g_side0)
+    g_side1_rot = mdnme.RotatedGrid(g_side1)
 
     # Obtain the coordinates
     coordinates_side0 = g_side0_rot.nodes.transpose()[:, :1]
@@ -135,7 +135,6 @@ def mortar_grid_1d_to_fem_grid(intf: pp.MortarGrid) -> tuple[np.ndarray, np.ndar
     elements_side0 += cells_side0[0]
     elements_side1 += cells_side1[0] + 1
     elements = np.vstack((elements_side0, elements_side1))
-
 
     # TODO: Check for positive orientation?
 

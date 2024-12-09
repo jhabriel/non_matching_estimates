@@ -3,7 +3,7 @@ import pickle
 import porepy as pp
 from model import TwoCrossingSetup, manu_incomp_fluid, manu_incomp_solid
 
-import mdamr as amr
+import mdnme as amr
 
 pickle_mdg = False
 

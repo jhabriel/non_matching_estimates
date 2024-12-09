@@ -18,7 +18,7 @@ import numpy as np
 import porepy as pp
 import quadpy
 
-import mdamr as amr
+import mdnme as amr
 
 SpatialFunction = Callable[..., np.ndarray]
 

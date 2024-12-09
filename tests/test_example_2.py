@@ -7,8 +7,8 @@ import numpy as np
 
 import porepy as pp
 
-import mdamr
-from mdamr.examples.example_2.model import ComplexNetworkModel, solid_constants
+import mdnme
+from mdnme.examples.example_2.model import ComplexNetworkModel, solid_constants
 
 
 def test_example_2_with_mesh_size_005() -> None:
@@ -27,7 +27,7 @@ def test_example_2_with_mesh_size_005() -> None:
     mdg = model.mdg
 
     # Estimate errors
-    mdamr.estimate_errors(
+    mdnme.estimate_errors(
         mdg,
         pressure_reconstruction_method="keilegavlen_p1",
     )
@@ -38,5 +38,5 @@ def test_example_2_with_mesh_size_005() -> None:
     assert np.isclose(norm_p_num, 107.17457971877116)
 
     # Check majorant
-    majorant = mdamr.get_majorant(mdg)
+    majorant = mdnme.get_majorant(mdg)
     assert np.isclose(majorant, 866.5296233755787)

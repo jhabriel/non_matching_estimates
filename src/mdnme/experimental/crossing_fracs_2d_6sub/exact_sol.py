@@ -5,7 +5,7 @@ import porepy as pp
 import quadpy
 import sympy as sym
 
-import mdamr as amr
+import mdnme as amr
 
 
 class TwoCrossingExactSolution:

@@ -63,10 +63,8 @@ def refine_sd_2d(
 
     # Perform refinement
     # TODO: Eventually, we can handle boundary conditions in a more effective way
-    new_coordinates, new_elements, *_ = mdamr.refine_rgb(
-        coordinates,
-        positively_oriented_elements,
-        marked_elements
+    new_coordinates, new_elements, *_ = mdnme.refine_rgb(
+        coordinates, positively_oriented_elements, marked_elements
     )
 
     # Now, we need to produce back a valid TriangleGrid
@@ -153,15 +151,15 @@ def refine_sd_1d(
 
     # Refinement in x-direction
     coo_x = sd.nodes.transpose()[:, 0:1]
-    new_coo_x, _ = mdamr.refine_red_1d(coo_x, elements, marked_elements)
+    new_coo_x, _ = mdnme.refine_red_1d(coo_x, elements, marked_elements)
 
     # Refinement in y-direction
     coo_y = sd.nodes.transpose()[:, 1:2]
-    new_coo_y, _ = mdamr.refine_red_1d(coo_y, elements, marked_elements)
+    new_coo_y, _ = mdnme.refine_red_1d(coo_y, elements, marked_elements)
 
     # Refinement in z-direction
     coo_z = sd.nodes.transpose()[:, 2:3]
-    new_coo_z, _ = mdamr.refine_red_1d(coo_z, elements, marked_elements)
+    new_coo_z, _ = mdnme.refine_red_1d(coo_z, elements, marked_elements)
 
     # New coordinates
     new_coo = np.array([new_coo_x.T[0], new_coo_y.T[0], new_coo_z.T[0]])

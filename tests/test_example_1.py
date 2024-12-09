@@ -8,13 +8,13 @@ from __future__ import annotations
 import numpy as np
 import porepy as pp
 
-import mdamr
-from mdamr.examples.example_1.model import (
+import mdnme
+from mdnme.examples.example_1.model import (
     VarelaJNum2023Setup,
     manu_incomp_fluid,
     manu_incomp_solid,
 )
-from mdamr.examples.example_1.true_errors import Varela2023JNumTrueErrors2d
+from mdnme.examples.example_1.true_errors import Varela2023JNumTrueErrors2d
 
 
 def test_example_1_with_mesh_size_0125() -> None:
@@ -42,7 +42,7 @@ def test_example_1_with_mesh_size_0125() -> None:
     intf, d_intf = mdg.interfaces(return_data=True, dim=1)[0]
 
     # Estimate errors
-    mdamr.estimate_errors(mdg)  # Assume no sources
+    mdnme.estimate_errors(mdg)  # Assume no sources
     d_matrix["estimates"]["residual_error"] = setup.exact_sol.residual_error_matrix(
         sd_matrix, d_matrix
     )

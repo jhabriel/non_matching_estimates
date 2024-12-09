@@ -10,7 +10,7 @@ import numpy as np
 import porepy as pp
 import scipy.sparse as sps
 
-import mdamr as amr
+import mdnme as amr
 
 
 def extend_fv_fluxes(mdg: pp.MixedDimensionalGrid) -> None:

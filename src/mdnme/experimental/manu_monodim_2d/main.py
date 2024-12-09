@@ -3,7 +3,7 @@ import pickle
 import porepy as pp
 from model import Mono2d, manu_incomp_fluid, manu_incomp_solid
 
-import mdamr as amr
+import mdnme as amr
 
 pickle_mdg = False
 

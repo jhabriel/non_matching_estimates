@@ -21,17 +21,13 @@ def fem_grid_to_sd_grid_1d(
                 Shape is (num_vertices + 1, num_cells).
             original_grid: Original (coarsest) grid. An instance of pp.Grid.
     """
-    g_rot = mdamr.RotatedGrid(original_grid)
+    g_rot = mdnme.RotatedGrid(original_grid)
     active_dimension = int(np.where(g_rot.dim_bool)[0])
     R = g_rot.rotation_matrix
     local_coordinates = np.zeros([coordinates.shape[0], 3]).T
     local_coordinates[active_dimension] = coordinates.T[0]
     global_coordinates_active_dim = np.dot(np.linalg.inv(R), local_coordinates)
     print("Here")
-
-
-
-
 
 
 def fem_grid_to_sd_grid_2d(

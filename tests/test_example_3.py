@@ -7,8 +7,8 @@ from __future__ import annotations
 import numpy as np
 import porepy as pp
 
-import mdamr
-from mdamr.examples.example_3.model import SmallFeaturesModel, solid_constants
+import mdnme
+from mdnme.examples.example_3.model import SmallFeaturesModel, solid_constants
 
 
 def test_example_3_with_refinement_level_0() -> None:
@@ -23,7 +23,7 @@ def test_example_3_with_refinement_level_0() -> None:
     mdg = model.mdg
 
     # Estimate errors
-    mdamr.estimate_errors(
+    mdnme.estimate_errors(
         mdg,
         pressure_reconstruction_method="keilegavlen_p1",
     )
@@ -34,5 +34,5 @@ def test_example_3_with_refinement_level_0() -> None:
     assert np.isclose(norm_p_num, 13.337947636529996, atol=1e0)
 
     # Check majorant
-    majorant = mdamr.get_majorant(mdg)
+    majorant = mdnme.get_majorant(mdg)
     assert np.isclose(majorant, 17.621880418006178, atol=1e0)

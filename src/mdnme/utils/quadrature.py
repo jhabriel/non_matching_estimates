@@ -4,7 +4,7 @@ import numpy as np
 import porepy as pp
 import scipy.sparse as sps
 
-import mdamr as amr
+import mdnme as amr
 
 
 def get_quadpy_elements(sd: pp.Grid, rotate_grid=True) -> np.ndarray:

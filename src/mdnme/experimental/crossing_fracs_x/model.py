@@ -23,7 +23,7 @@ from exact_sol import TwoCrossingExactSolution
 from geometry import TwoCrossingFractures
 from viz import TwoCrossingUtils
 
-import mdamr as amr
+import mdnme as amr
 
 # PorePy typings
 number = pp.number

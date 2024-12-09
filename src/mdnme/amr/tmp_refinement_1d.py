@@ -13,13 +13,13 @@ import pickle
 import numpy as np
 import porepy as pp
 
-import mdamr
-from mdamr.examples.example_1.model import (
+import mdnme
+from mdnme.examples.example_1.model import (
     VarelaJNum2023Setup,
     manu_incomp_fluid,
     manu_incomp_solid,
 )
-from mdamr.amr.pp_refinements import refine_sd_1d, refine_intf_1d
+from mdnme.amr.pp_refinements import refine_sd_1d, refine_intf_1d
 
 
 pickle_mdg = False
@@ -63,7 +63,7 @@ marked_elements = None
 new_intf = refine_intf_1d(intf, marked_elements=marked_elements)
 
 # Now, replace the grid in the mixed-dimensional grid
-#mdg.replace_subdomains_and_interfaces(sd_map={sd_frac:new_sd_frac})
+# mdg.replace_subdomains_and_interfaces(sd_map={sd_frac:new_sd_frac})
 mdg.replace_subdomains_and_interfaces(intf_map={intf: new_intf})
 
 new_sd_matrix, new_d_matrix = mdg.subdomains(return_data=True, dim=2)[0]

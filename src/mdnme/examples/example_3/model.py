@@ -8,7 +8,7 @@ from typing import Callable
 import porepy as pp
 import mdnme
 
-from mdamr.estimates.helpers import ErrorEstimatesSaveData
+from mdnme.estimates.helpers import ErrorEstimatesSaveData
 
 from porepy.examples.flow_benchmark_3d_case_3 import (
     FlowBenchmark3dCase3Model,

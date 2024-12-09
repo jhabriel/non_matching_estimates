@@ -14,8 +14,8 @@ import numpy as np
 import porepy as pp
 from porepy.utils.txt_io import TxtData, export_data_to_txt
 
-import mdamr
-from mdamr.estimates.error_estimation import (
+import mdnme
+from mdnme.estimates.error_estimation import (
     compute_error_indicators,
     get_majorant,
     transfer_errors_iterate_solutions,

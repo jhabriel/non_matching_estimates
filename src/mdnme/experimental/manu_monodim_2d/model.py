@@ -27,7 +27,7 @@ from porepy.applications.md_grids.domains import nd_cube_domain
 from porepy.utils.examples_utils import VerificationUtils
 from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
-import mdamr as amr
+import mdnme as amr
 
 # PorePy typings
 number = pp.number

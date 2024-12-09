@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from mdamr.amr.refinement_utils import hash_to_map
+from mdnme.amr.refinement_utils import hash_to_map
 
 
 def test_nvb_map_2d():
@@ -111,4 +111,3 @@ def test_green_refinement_map_2d():
     # Test
     np.testing.assert_equal(hash_map, desired_hash_map)
     np.testing.assert_equal(value, desired_values)
-
