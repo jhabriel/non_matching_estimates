@@ -183,3 +183,6 @@ nbproject/
 *.py_o
 *.txt
 *.lprof
+
+# Do not ignore specific files
+!/mdnme_logo.png
