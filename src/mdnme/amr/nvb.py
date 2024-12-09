@@ -1,7 +1,7 @@
 """Newest-Vertex Bisection algorithm in 2D."""
 
 import numpy as np
-from mdamr.amr.refinement_utils import hash_to_map, get_edge_data_2d
+from mdnme.amr.refinement_utils import hash_to_map, get_edge_data_2d
 
 
 def refine_nvb(
