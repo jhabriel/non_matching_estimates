@@ -4,11 +4,11 @@ Module for refinement of PorePy grids.
 
 import numpy as np
 
-import mdamr
+import mdnme
 import porepy as pp
 import scipy.sparse as sps
 
-from mdamr.amr.refinement_utils import enforce_positive_orientation
+from mdnme.amr.refinement_utils import enforce_positive_orientation
 
 from porepy.grids.mortar_grid import MortarSides
 
