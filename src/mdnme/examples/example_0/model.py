@@ -3,7 +3,7 @@
 
 import porepy as pp
 import numpy as np
-import mdamr
+import mdnme
 
 
 from porepy.models.fluid_mass_balance import (
@@ -15,9 +15,9 @@ from mdamr.estimates.error_estimation import estimate_errors, compute_error_indi
 
 from typing import Callable
 
-from mdamr.porepy_interface.fem_grid_to_porepy_grid import fem_grid_to_sd_grid_2d
-from mdamr.porepy_interface.porepy_grid_to_fem_grid import porepy_grid_to_fem_grid
-from mdamr.amr.refinement_utils import plot_fem_mesh
+from mdnme.porepy_interface.fem_grid_to_porepy_grid import fem_grid_to_sd_grid_2d
+from mdnme.porepy_interface.porepy_grid_to_fem_grid import porepy_grid_to_fem_grid
+from mdnme.amr.refinement_utils import plot_fem_mesh
 
 class LShapedGeometry:
 
