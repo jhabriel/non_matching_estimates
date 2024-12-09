@@ -6,7 +6,7 @@ import sys
 from typing import Callable
 
 import porepy as pp
-import mdamr
+import mdnme
 
 from mdamr.estimates.helpers import ErrorEstimatesSaveData
 
