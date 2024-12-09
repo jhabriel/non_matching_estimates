@@ -25,7 +25,7 @@ setup(
     description="A posteriori error estimates on mixed-dimensional non-matching grids",  # Optional
     long_description=long_description,  # Optional
     long_description_content_type="text/markdown",  # Optional (see note above)
-    url="https://github.com/jhabriel/mdamr",  # Optional
+    url="https://github.com/jhabriel/non_matching_estimates",  # Optional
     author="Jhabriel Varela, Christian Schaerer, Eirik Keilegavlen, Inga Berre",  # Optional
     author_email="jhabriel@pol.una.py",  # Optional
     keywords="error estimation, non-matching grids, fractured porous media, porepy",  # Optional
@@ -34,5 +34,5 @@ setup(
     python_requires=">=3.11",
     install_requires=required,  # Optional
     extras_require={"dev": ["check-manifest"], "test": ["coverage"]},  # Optional
-    package_data={"mdamr": ["py.typed"]},  # Optional
+    package_data={"mdnme": ["py.typed"]},  # Optional
 )
