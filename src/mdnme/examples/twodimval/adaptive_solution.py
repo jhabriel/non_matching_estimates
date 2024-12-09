@@ -14,20 +14,20 @@ import numpy as np
 import porepy as pp
 from porepy.utils.txt_io import TxtData, export_data_to_txt
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
-from mdamr.amr.refinement_utils import enforce_positive_orientation
+from mdnme.amr.refinement_utils import enforce_positive_orientation
 
 
-import mdamr
-from mdamr.examples.example_1.model import (
+import mdnme
+from mdnme.examples.example_1.model import (
     VarelaJNum2023Setup,
     manu_incomp_fluid,
     manu_incomp_solid,
 )
-from mdamr.examples.example_1.true_errors import Varela2023JNumTrueErrors2d
+from mdnme.examples.example_1.true_errors import Varela2023JNumTrueErrors2d
 
-from mdamr.porepy_interface.fem_grid_to_porepy_grid import fem_grid_to_sd_grid_2d, fem_grid_to_sd_grid_1d
-from mdamr.porepy_interface.porepy_grid_to_fem_grid import porepy_grid_to_fem_grid
-from mdamr.amr.pp_refinements import refine_sd_1d, refine_intf_1d, refine_sd_2d
+from mdnme.porepy_interface.fem_grid_to_porepy_grid import fem_grid_to_sd_grid_2d, fem_grid_to_sd_grid_1d
+from mdnme.porepy_interface.porepy_grid_to_fem_grid import porepy_grid_to_fem_grid
+from mdnme.amr.pp_refinements import refine_sd_1d, refine_intf_1d, refine_sd_2d
 
 class VarelaJNum2023SetupAdaptive(VarelaJNum2023Setup):
 
