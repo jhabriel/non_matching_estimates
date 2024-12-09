@@ -51,8 +51,8 @@ jobs:
     - name: Install PorePy
       run: conda run -n estimesh --no-capture-output bash -c "cd packages/porepy && pip install ."
 
-    - name: Install mdamr
+    - name: Install mdnme
       run: conda run -n estimesh --no-capture-output bash -c "pip install --no-deps ."
 
-    - name: Run pytest for mdamr package
+    - name: Run pytest for mdnme package
       run: conda run -n estimesh --no-capture-output bash -c "pytest tests"
