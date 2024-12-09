@@ -25,7 +25,7 @@ from mdnme.estimates.error_estimation import (
 #     Flemisch2018Case3Model,
 #     solid_constants,
 # )
-from examples.flow_benchmark_2d_case_3 import (
+from mdnme.examples.example_2 import (
     FlowBenchmark2dCase3bModel,
     solid_constants,
 )

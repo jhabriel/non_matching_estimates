@@ -119,7 +119,7 @@ class Varela2023JNumSolutionStrategy(
     exact_sol: Varela2023JNumExactSolution2d
     """Exact solution object."""
 
-    fluid: pp.FluidConstants
+    fluid: pp.Fluid
     """Object containing the fluid constants."""
 
     solid: pp.SolidConstants

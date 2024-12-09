@@ -22,8 +22,8 @@ def test_example_1_with_mesh_size_0125() -> None:
     Test whether we obtain the majorant and true errors for the first example.
 
     """
-    solid_constants = pp.SolidConstants(manu_incomp_solid)
-    fluid_constants = pp.FluidConstants(manu_incomp_fluid)
+    solid_constants = pp.SolidConstants(**manu_incomp_solid)
+    fluid_constants = pp.FluidComponent(**manu_incomp_fluid)
     material_constants = {"solid": solid_constants, "fluid": fluid_constants}
     params = {
         "grid_type": "simplex",

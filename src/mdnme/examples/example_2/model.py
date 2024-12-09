@@ -21,7 +21,7 @@ class ComplexNetworkSolutionStrategy(
     mdg: pp.MixedDimensionalGrid
     """Mixed-dimensional grid."""
 
-    fluid: pp.FluidConstants
+    fluid: pp.FluidComponent
     """Object containing the fluid constants."""
 
     solid: pp.SolidConstants

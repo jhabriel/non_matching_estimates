@@ -14,7 +14,7 @@ import porepy as pp
 import quadpy
 import sympy as sym
 
-import mdmne as amr
+import mdnme as amr
 
 
 class Varela2023JNumExactSolution2d:

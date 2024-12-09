@@ -24,7 +24,7 @@ class SmallFeaturesSolutionStrategy(
     mdg: pp.MixedDimensionalGrid
     """Mixed-dimensional grid."""
 
-    fluid: pp.FluidConstants
+    fluid: pp.Fluid
     """Object containing the fluid constants."""
 
     solid: pp.SolidConstants
