@@ -20,18 +20,18 @@ with open("requirements.txt") as f:
     required = f.read().splitlines()
 
 setup(
-    name="mdamr",  # Required
+    name="mdnme",  # Required
     version="0.0.1",  # Required
-    description="Adaptive mesh refinement for mixed-dimensional elliptic equations",  # Optional
+    description="A posteriori error estimates on mixed-dimensional non-matching grids",  # Optional
     long_description=long_description,  # Optional
     long_description_content_type="text/markdown",  # Optional (see note above)
     url="https://github.com/jhabriel/mdamr",  # Optional
-    author="Jhabriel Varela, Eirik Keilegavlen, Inga Berre",  # Optional
+    author="Jhabriel Varela, Christian Schaerer, Eirik Keilegavlen, Inga Berre",  # Optional
     author_email="jhabriel@pol.una.py",  # Optional
-    keywords="adaptive mesh refinement, error estimation, fractured porous media, porepy",  # Optional
+    keywords="error estimation, non-matching grids, fractured porous media, porepy",  # Optional
     package_dir={"": "src"},  # Optional
     packages=find_packages(where="src"),  # Required
-    python_requires="~=3.11",
+    python_requires=">=3.11",
     install_requires=required,  # Optional
     extras_require={"dev": ["check-manifest"], "test": ["coverage"]},  # Optional
     package_data={"mdamr": ["py.typed"]},  # Optional
