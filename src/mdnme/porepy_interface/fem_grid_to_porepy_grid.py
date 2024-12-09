@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-import mdamr
+import mdnme
 import porepy as pp
 
 
