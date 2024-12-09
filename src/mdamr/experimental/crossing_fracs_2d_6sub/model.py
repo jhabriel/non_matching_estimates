@@ -1,0 +1,204 @@
+"""
+Two-crossing fractures with manufactured solution model.
+
+"""
+from __future__ import annotations
+
+from typing import Callable
+
+import numpy as np
+import porepy as pp
+from data_saving import TwoCrossingDataSaving, TwoCrossingSaveData
+from exact_sol import TwoCrossingExactSolution
+from geometry import TwoFullyEmbeddedCrossingFractures
+from viz import TwoCrossingUtils
+
+import mdamr as amr
+
+# PorePy typings
+number = pp.number
+grid = pp.GridLike
+
+# Material constants for the verification setup. Constants with (**) cannot be
+# changed since the manufactured solution implicitly assume such values.
+manu_incomp_fluid: dict[str, number] = {
+    "compressibility": 0,  # (**)
+    "density": 1.0,  # (**)
+    "viscosity": 1.0,  # (**)
+}
+
+manu_incomp_solid: dict[str, number] = {
+    "residual_aperture": 1.0,  # (**)
+    "permeability": 1.0,  # (**)
+    "normal_permeability": 0.5,  # (**) counteracts division by a/2 in interface law
+}
+
+
+# -----> Boundary conditions
+class TwoCrossingBoundaryConditions(
+    pp.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow
+):
+    """Set boundary conditions for the simulation model."""
+
+    exact_sol: TwoCrossingExactSolution
+    """Exact solution object."""
+
+    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        """Set boundary condition type."""
+        if sd.dim == self.mdg.dim_max():  # Dirichlet for the matrix
+            boundary_faces = self.domain_boundary_sides(sd).all_bf
+            return pp.BoundaryCondition(sd, boundary_faces, "dir")
+        else:  # Neumann for the fracture tips
+            boundary_faces = self.domain_boundary_sides(sd).all_bf
+            return pp.BoundaryCondition(sd, boundary_faces, "neu")
+
+    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        """Analytical boundary condition values for Darcy flux.
+
+        Parameters:
+            boundary_grid: Boundary grid for which to define boundary conditions.
+
+        Returns:
+            Boundary condition values array.
+
+        """
+        vals = np.zeros(boundary_grid.num_cells)
+        if boundary_grid.dim == (self.mdg.dim_max() - 1):
+            # Dirichlet for matrix
+            vals[:] = self.exact_sol.boundary_values(bg_2d=boundary_grid)
+        return vals
+
+
+# -----> Balance equations
+class TwoCrossingBalanceEquation(pp.fluid_mass_balance.MassBalanceEquations):
+    """Modify balance equation to account for external sources."""
+
+    exact_sol: TwoCrossingExactSolution
+    """Exact solution object."""
+
+    def fluid_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Contribution of mass fluid sources to the mass balance equation.
+
+        Parameters:
+            subdomains: List of subdomains.
+
+        Returns:
+            Cell-wise Ad operator containing the fluid source contributions.
+
+        """
+        # Retrieve internal sources (jump in mortar fluxes) from the base class
+        internal_sources: pp.ad.Operator = super().fluid_source(subdomains)
+
+        # Retrieve external (integrated) sources from the exact solution.
+        values = []
+        for sd in subdomains:
+            if sd.dim == 2:
+                values.append(self.exact_sol.f_2d(sd))
+            elif sd.dim == 1 and sd.label == "west":
+                values.append(self.exact_sol.f_1d_west(sd))
+            elif sd.dim == 1 and sd.label == "east":
+                values.append(self.exact_sol.f_1d_east(sd))
+            elif sd.dim == 1 and sd.label == "south":
+                values.append(self.exact_sol.f_1d_south(sd))
+            elif sd.dim == 1 and sd.label == "north":
+                values.append(self.exact_sol.f_1d_north(sd))
+            elif sd.dim == 0:
+                values.append(self.exact_sol.f_0d(sd))
+            else:
+                raise ValueError()
+
+        external_sources = pp.wrap_as_ad_array(np.hstack(values))
+
+        # Add up both contributions
+        source = internal_sources + external_sources
+        source.set_name("fluid sources")
+
+        return source
+
+
+# -----> Solution strategy
+class TwoCrossingSolutionStrategy(
+    pp.fluid_mass_balance.SolutionStrategySinglePhaseFlow
+):
+    """Modified solution strategy for the verification setup."""
+
+    mdg: pp.MixedDimensionalGrid
+    """Mixed-dimensional grid."""
+
+    exact_sol: TwoCrossingExactSolution
+    """Exact solution object."""
+
+    fluid: pp.FluidConstants
+    """Object containing the fluid constants."""
+
+    plot_results: Callable
+    """Method to plot results of the verification setup. Usually provided by the
+    mixin class :class:`SetupUtilities`.
+
+    """
+
+    solid: pp.SolidConstants
+    """Object containing the solid constants."""
+
+    results: list[TwoCrossingSaveData]
+    """List of SaveData objects."""
+
+    error_estimates_data_saving: Callable
+    """Method to save solution data to be used in a posteriori error estimation."""
+
+    def __init__(self, params: dict):
+        """Constructor for the class."""
+
+        super().__init__(params)
+
+        self.exact_sol: TwoCrossingExactSolution
+        """Exact solution object."""
+
+        self.results: list[TwoCrossingSaveData] = []
+        """Results object that stores exact and approximated solutions and errors."""
+
+    def set_materials(self):
+        """Set material constants for the verification setup."""
+        super().set_materials()
+
+        # Sanity checks to guarantee the validity of the manufactured solution
+        assert self.fluid.density() == 1
+        assert self.fluid.viscosity() == 1
+        assert self.fluid.compressibility() == 0
+        assert self.solid.permeability() == 1
+        assert self.solid.residual_aperture() == 1
+        assert self.solid.normal_permeability() == 0.5
+
+        # Instantiate exact solution object after materials have been set
+        self.exact_sol = TwoCrossingExactSolution()
+
+    def after_simulation(self) -> None:
+        """Method to be called after the simulation has finished."""
+        if self.params.get("plot_results", False):
+            self.plot_results()
+        # Save error estimates data
+        self.error_estimates_data_saving()
+
+    def _is_nonlinear_problem(self) -> bool:
+        """The problem is linear."""
+        return False
+
+    def _is_time_dependent(self) -> bool:
+        """The problem is stationary."""
+        return False
+
+
+# -----> Mixer
+class TwoCrossingSetup(  # type: ignore[misc]
+    TwoFullyEmbeddedCrossingFractures,
+    TwoCrossingBalanceEquation,
+    TwoCrossingBoundaryConditions,
+    TwoCrossingSolutionStrategy,
+    TwoCrossingUtils,
+    TwoCrossingDataSaving,
+    amr.ErrorEstimatesSaveData,
+    pp.fluid_mass_balance.SinglePhaseFlow,
+):
+    """
+    Mixer class for the 2d incompressible flow setup with two crossing fractures.
+    """
