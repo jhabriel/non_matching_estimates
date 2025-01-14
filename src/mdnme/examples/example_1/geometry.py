@@ -79,7 +79,10 @@ class Varela2023JNumGeometry:
 
         # If `non_matching_cell_sizes` is not given, then the mdg is matching, and
         # we create it in the usual way
-        if self.params.get("non_matching_cell_sizes") is None:
+        if (
+                self.params.get("non_matching_cell_sizes") is None and
+                self.params.get("full_non_matching_cell_sizes") is None
+            ):
 
             mdg_final = pp.create_mdg(
                 self.grid_type(),
@@ -89,7 +92,7 @@ class Varela2023JNumGeometry:
             )
 
         # If `non_matching_cell_sizes` is given, we create the non-matching mdg
-        else:
+        elif self.params.get("non_matching_cell_sizes") is not None:
 
             # Retrieve the non-matching cell sizes. This is 3-tuple of floats. The
             # first element is the target cell size for the matrix, the second
@@ -120,6 +123,75 @@ class Varela2023JNumGeometry:
             mdg_final.replace_subdomains_and_interfaces(
                 sd_map={mdg_final.subdomains()[1]: mdgs[2].subdomains()[1]},
                 intf_map={mdg_final.interfaces()[0]: mdgs[1].interfaces()[0]},
+            )
+
+            # Make sure the geometry of the replaced boundary grids are computed.
+            # TODO: This has to be taken care by PorePy.
+            for sd in mdg_final.subdomains():
+                bg = mdg_final.subdomain_to_boundary_grid(sd)
+                bg.compute_geometry()
+
+        else:
+
+            # Retrieve the non-matching cell sizes. This is 3-tuple of floats. The
+            # first element is the target cell size for the matrix, the second
+            # element is the target cell size for the interface grid, and the third
+            # element is the target cell size for the fracture grid
+            cell_sizes: tuple[float, float, float, float, float] = self.params[
+                "full_non_matching_cell_sizes"
+            ]
+            assert len(cell_sizes) == 5
+
+            # Make sure the matrix size is of the same size at both sides of the
+            # interface
+            assert cell_sizes[0] == cell_sizes[-1]
+
+            # The idea is to create four different fully matching mdgs and then
+            # retrieve the fracture and interface side grids from these mdgs and replace
+            # into the mdg containing the "correct" higher-dimensional subdomain
+            # This is quite a lazy solution, but it works.
+            mdgs: list[pp.MixedDimensionalGrid] = []
+            for cell_size in cell_sizes:
+                mdg = pp.create_mdg(
+                    self.grid_type(),
+                    {"cell_size": cell_size},
+                    self.fracture_network,
+                    **self.meshing_kwargs(),
+                )
+                mdgs.append(mdg)
+
+            # Retrieve grids to be replaced
+            # 0 : matrix grid
+            # 1 : left interface grid
+            # 2 : fracture grid
+            # 3 : right interface grid
+            # 4 : matrix grid
+
+            # Get left interface side grid
+            left_intf = mdgs[1].interfaces()[0]
+            left_mortar_side =  left_intf.sides[0]
+            left_side_grid = left_intf.side_grids[left_mortar_side]
+
+            # Get fracture grid
+            frac_grid = mdgs[2].subdomains()[1]
+
+            # Get right interface side grid
+            right_intf = mdgs[3].interfaces()[0]
+            right_mortar_side = right_intf.sides[1]
+            right_side_grid = right_intf.side_grids[right_mortar_side]
+
+            # Now we replace the grids and produce the non-matching mixed-dimensional
+            # grid. We keep the matrix fixed, and replace the fractures and mortar grids
+            mdg_final = mdgs[0]
+            mdg_final.replace_subdomains_and_interfaces(
+                sd_map={mdg_final.subdomains()[1]: frac_grid},
+                intf_map={mdg_final.interfaces()[0]:
+                              {
+                                  left_mortar_side: left_side_grid,
+                                  right_mortar_side: right_side_grid,
+                              }
+                         }
+                ,
             )
 
             # Make sure the geometry of the replaced boundary grids are computed.
