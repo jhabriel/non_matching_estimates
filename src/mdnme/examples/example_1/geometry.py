@@ -15,7 +15,6 @@ from typing import Callable, Literal
 
 import numpy as np
 import porepy as pp
-from porepy.utils.default_domains import UnitSquareDomain
 
 
 class Varela2023JNumGeometry:
@@ -50,7 +49,7 @@ class Varela2023JNumGeometry:
 
     def set_domain(self) -> None:
         """Set domain."""
-        self._domain = pp.Domain(UnitSquareDomain())
+        self._domain = pp.Domain({"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1})
 
     def meshing_arguments(self) -> dict[str, float]:
         """Define mesh arguments for meshing."""
