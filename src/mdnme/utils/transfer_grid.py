@@ -10,6 +10,14 @@ from scipy.sparse import lil_matrix
 
 
 class TransferGrid:
+    """
+    Transfer grid between source and target grids.
+
+    Assumes source and target lie on the same geometric plane. All geometric
+    intersection and connectivity computations are done in their shared rotated
+    2D parameterization (via mdnme.RotatedGrid), which is cached internally.
+
+    """
     def __init__(self,
                  g_source: pp.GridLike,
                  g_target: pp.GridLike,
