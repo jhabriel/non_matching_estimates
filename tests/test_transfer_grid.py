@@ -1,8 +1,76 @@
 import numpy as np
 import porepy as pp
 import scipy.sparse as sps
+import pytest
+import mdnme
 
 from mdnme.utils.transfer_grid import TransferGrid, refine_grid
+
+def perturb_in_plane(grid, frac=0.5):
+    """Perturb internal nodes in the intrinsic 2D plane of the grid."""
+    from mdnme import RotatedGrid
+
+    rot = RotatedGrid(grid)
+    # active 2D coordinates of nodes
+    coords2d = rot.to_2d(grid.nodes)  # shape (2, N)
+    # compute mean diameter in 2D (should match original)
+    mean_diam = np.mean(grid.cell_diameters())
+    shift = frac * mean_diam
+
+    # perturb internal nodes in the 2D active plane
+    int_nodes = grid.get_internal_nodes()
+    # add shift along both in-plane directions for those internal nodes
+    coords2d[:, int_nodes] += shift
+
+    # lift back to 3D and assign to grid
+    lifted = rot.to_3d(coords2d)  # (3, N)
+    grid.nodes = lifted
+    grid.compute_geometry()
+    return grid
+
+
+@pytest.fixture(scope="module")
+def base_subdomain() -> pp.Grid:
+    domain = pp.Domain({"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1})
+    fn = pp.create_fracture_network([], domain)
+    mdg = pp.create_mdg("simplex", {"cell_size": 0.1}, fn)
+    return mdg.subdomains()[0]
+
+
+@pytest.fixture(scope="module")
+def coarse_fracture() -> pp.Grid:
+    domain = pp.Domain(
+        {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1}
+    )
+    frac = pp.PlaneFracture(np.array([[0.50, 0.50, 0.50, 0.50],
+                                      [0.25, 0.75, 0.75, 0.25],
+                                      [0.25, 0.25, 0.75, 0.75]]))
+    fn = pp.create_fracture_network([frac], domain)
+    mesh_args = {
+        "cell_size_boundary": 1.0,
+        "cell_size_fracture": 0.1,
+        "cell_size_min": 0.02,
+    }
+    mdg = pp.create_mdg("simplex", mesh_args, fn)
+    return mdg.subdomains()[1]
+
+
+@pytest.fixture(scope="module")
+def fine_fracture() -> pp.Grid:
+    domain = pp.Domain(
+        {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1}
+    )
+    frac = pp.PlaneFracture(np.array([[0.50, 0.50, 0.50, 0.50],
+                                      [0.25, 0.75, 0.75, 0.25],
+                                      [0.25, 0.25, 0.75, 0.75]]))
+    fn = pp.create_fracture_network([frac], domain)
+    mesh_args = {
+        "cell_size_boundary": 1.0,
+        "cell_size_fracture": 0.05,
+        "cell_size_min": 0.02,
+    }
+    mdg = pp.create_mdg("simplex", mesh_args, fn)
+    return mdg.subdomains()[1]
 
 
 domain = pp.Domain({'xmin': 0, 'xmax': 1, 'ymin': 0, 'ymax': 1})
@@ -183,4 +251,60 @@ def test_perturbed_target_wrt_source():
     # Check that each transfer cell maps to exactly one target cell
     tra2tgt = tgo.transfer_to_target
     tgt_counts = tra2tgt.sum(axis=1).A1
+    assert np.all(tgt_counts == 1)
+
+
+@pytest.mark.parametrize("fracture", ['coarse_fracture', 'fine_fracture'])
+def test_embedded_identical_source_and_target_grids(fracture, request):
+    """
+    Checks transfer grid generation for a single identical fracture grid.
+    """
+    src = request.getfixturevalue(fracture).copy()
+    tgt = src.copy()
+    tfo = TransferGrid(src, tgt)
+    tg = tfo.transfer
+
+    # Same number of cells, faces and nodes
+    assert tg.num_cells == src.num_cells and tg.num_cells == tgt.num_cells
+    assert tg.num_faces == src.num_faces and tg.num_faces == tgt.num_faces
+    assert tg.num_nodes == src.num_nodes and tg.num_nodes == tgt.num_nodes
+
+    # Same domain volume
+    np.testing.assert_approx_equal(src.cell_volumes.sum(), tg.cell_volumes.sum(), 7)
+    np.testing.assert_approx_equal(tgt.cell_volumes.sum(), tg.cell_volumes.sum(), 7)
+
+
+#@pytest.mark.parametrize("fracture", ["coarse_fracture", "fine_fracture"])
+@pytest.mark.parametrize("fracture", ["fine_fracture"])
+def test_embedded_perturbed_source_and_target(fracture, request):
+
+    src = request.getfixturevalue(fracture).copy()
+
+    tgt = src.copy()
+    tol = 1e-8  # geometric tolerance
+    y = tgt.nodes[1]  # y-coordinates
+    z = tgt.nodes[2]  # z-coordinates
+    # Since the fracture is fully embedded, we need to manually identify the
+    # "boundary" and "internal" nodes
+    mask_y = np.isclose(y, 0.25, atol=tol) | np.isclose(y, 0.75, atol=tol)
+    mask_z = np.isclose(z, 0.25, atol=tol) | np.isclose(z, 0.75, atol=tol)
+    pseudo_bnd_nodes = np.nonzero(mask_y | mask_z)[0]
+    pseudo_int_nodes = np.setdiff1d(np.arange(tgt.num_nodes), pseudo_bnd_nodes)
+    mean_diam = np.mean(tgt.cell_diameters())  # get the average cell-diameter
+    shift = 0.5 * mean_diam  # shift half a mean diameter
+    tgt.nodes[1][pseudo_int_nodes] += shift  # perturb in y-axis
+    tgt.nodes[2][pseudo_int_nodes] += shift  # perturb in z-axis
+    tgt.compute_geometry()  # recompute geometry
+
+    tfo = TransferGrid(src, tgt)
+    tg = tfo.transfer
+
+    # Volume preservation
+    np.testing.assert_allclose(src.cell_volumes.sum(), tg.cell_volumes.sum(), rtol=1e-7)
+    np.testing.assert_allclose(tgt.cell_volumes.sum(), tg.cell_volumes.sum(), rtol=1e-7)
+
+    # Uniqueness / connectivity sanity
+    src_counts = tfo.transfer_to_source.sum(axis=1).A1
+    tgt_counts = tfo.transfer_to_target.sum(axis=1).A1
+    assert np.all(src_counts == 1)
     assert np.all(tgt_counts == 1)

@@ -110,6 +110,13 @@ class TransferGrid:
         self._all_triangles = all_triangles
 
     def _assemble_transfer_grid(self):
+        # Sanity check
+        if not self._all_triangles:
+            total_area = sum(p.area for p in self._intersection_polys)
+            raise RuntimeError(
+                f"No intersection triangles (total intersection area={total_area:.3e}). "
+                "Likely the source and target are not coplanar or overlap is degenerate."
+            )
         raw_verts = []
         for tri in self._all_triangles:
             for p in tri:
@@ -259,6 +266,13 @@ def merge_close_vertices(verts, cells, tol=1e-8):
         new_cells: list of [i0,i1,i2] with reindexed vertices
     """
     arr = np.array(verts)  # shape (N,2)
+    if arr.size == 0:
+        raise ValueError(
+            "merge_close_vertices: received empty vertex list (no intersection triangles).")
+    if arr.ndim != 2 or arr.shape[1] != 2:
+        raise ValueError(
+            f"merge_close_vertices: expected verts to be (N,2), got array shape {arr.shape}.")
+
     tree = cKDTree(arr)
     groups = tree.query_ball_tree(tree, r=tol)
 
