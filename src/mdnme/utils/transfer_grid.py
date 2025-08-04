@@ -1,4 +1,6 @@
 import numpy as np
+
+import mdnme
 import porepy as pp
 from shapely.geometry import Polygon, Point
 from shapely.prepared import prep
@@ -27,26 +29,54 @@ class TransferGrid:
         self.g_target = g_target
         """Target grid."""
 
+        # Dummy holders for rotated grids
+        self._src_rot = None
+        self._tgt_rot = None
+
         self._build_intersection_polygons()
         self._triangulate_intersections()
         self._assemble_transfer_grid()
         self._build_connectivity_matrices()
 
     # ---- internal extraction ----
-    def _extract_triangles(self, sd):
-        nodes = sd.nodes
-        cn = sd.cell_nodes().tocsc()
-        cn_arr = cn.indices.reshape((3, sd.num_cells), order="F")
-        tris = []
-        for i in range(sd.num_cells):
+    def _get_rotated_grid(self, grid: pp.Grid):
+        """Caching of rotated grids"""
+        if grid is self.g_source:
+            if self._src_rot is None:
+                self._src_rot = mdnme.RotatedGrid(grid)
+            return self._src_rot
+        if grid is self.g_target:
+            if self._tgt_rot is None:
+                self._tgt_rot = mdnme.RotatedGrid(grid)
+            return self._tgt_rot
+        # fallback
+        return mdnme.RotatedGrid(grid)
+
+    def _extract_triangles(self, grid: pp.GridLike):
+        """Extract triangles of source and target grids.
+
+        Note:
+        -----
+            Geometric computations are done using rotated grids. Note that this
+            assumes that both source and target grids represent the same surface in 3D
+            space. To avoid expensive computations, no check is done to assure that this
+            is indeed the case.
+
+        """
+        grid_rot = self._get_rotated_grid(grid)  # rotate grid
+        nodes = grid_rot.nodes  # retrieve nodes (from rotated grid)
+        cn = grid.cell_nodes().tocsc()  # cell-nodes connectivity
+        cn_arr = cn.indices.reshape((3, grid.num_cells), order="F")  # make it an array
+        tris = []  # prepare list to retrieve triangles
+        for i in range(grid.num_cells):
             idx = cn_arr[:, i]
             coords_xy = nodes[:2, idx].T
             tris.append((i, Polygon(coords_xy)))
         return tris
 
     def _build_intersection_polygons(self):
-        tris_source = self._extract_triangles(self.g_source)
-        tris_target = self._extract_triangles(self.g_target)
+        tris_source = self._extract_triangles(self.g_source)  # source grid triangles
+        tris_target = self._extract_triangles(self.g_target)  # target grid triangles
 
         intersections = []
         for _, poly_s in tris_source:
@@ -320,7 +350,7 @@ def refine_grid(g: pp.TriangleGrid) -> tuple[pp.TriangleGrid, np.ndarray]:
     offset = g.num_nodes
 
     # Red refinement combinations in 2D: each original triangle produces 4 children
-    binom = ((1, 0), (2, 1), (0, 2))  # three of the subtriangles; fourth is face centers
+    binom = ((1, 0), (2, 1), (0, 2))  # 3 of the subtriangles; 4 is face-centers
 
     # Holder: shape (nd+1, n_cells, nd+2) -> (3, n_cells, 4)
     new_tri = np.empty(shape=(nd + 1, g.num_cells, nd + 2), dtype=int)
@@ -339,7 +369,9 @@ def refine_grid(g: pp.TriangleGrid) -> tuple[pp.TriangleGrid, np.ndarray]:
             # find first place where diff is zero
             row_hits = np.where(diffs[:, cell] == 0)[0]
             if len(row_hits) == 0:
-                raise RuntimeError(f"Could not find duplicated vertex for cell {cell} during refinement.")
+                msg = (f"Could not find duplicated vertex for cell {cell} during"
+                       f" refinement.")
+                raise RuntimeError(msg)
             row = row_hits[0]
             dup_node[cell] = loc_n[row, cell]
 
@@ -356,7 +388,8 @@ def refine_grid(g: pp.TriangleGrid) -> tuple[pp.TriangleGrid, np.ndarray]:
     # Enforce consistent CCW orientation using existing helper
     # ensure_ccw expects list of [i0,i1,i2] so transpose appropriately
     cells_list = new_tri.T.tolist()  # list of [i0,i1,i2]
-    corrected = ensure_ccw(cells_list, new_nodes[:2, :])  # returns list of corrected triples
+    # returns list of corrected triples
+    corrected = ensure_ccw(cells_list, new_nodes[:2, :])
     corrected_arr = np.array(corrected).T  # back to shape (3, Nnew_cells)
 
     # Parent mapping: each original cell gives (nd+2) children
