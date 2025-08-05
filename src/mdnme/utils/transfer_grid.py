@@ -40,6 +40,7 @@ class TransferGrid:
         # Dummy holders for rotated grids
         self._src_rot = None
         self._tgt_rot = None
+        self._rot_matrix = None
 
         self._build_intersection_polygons()
         self._triangulate_intersections()
@@ -52,10 +53,21 @@ class TransferGrid:
         if grid is self.g_source:
             if self._src_rot is None:
                 self._src_rot = mdnme.RotatedGrid(grid)
+                # Use the rotation matrix of the source grid as the reference
+                # parametrization. We MUST do this, otherwise, source and target
+                # grids might have different parameterizations of the same surface (
+                # for planar fracture) or lines (for line fractures).
+                self._rot_matrix = self._src_rot.rotation_matrix
             return self._src_rot
         if grid is self.g_target:
             if self._tgt_rot is None:
-                self._tgt_rot = mdnme.RotatedGrid(grid)
+                # Strongly imposed that the rotation matrix is avaible
+                if self._rot_matrix is None:
+                    msg = ("Target grid requires the rotation matrix (obtained while "
+                           "rotating the source grid) to perform the rotation "
+                           "consistently.")
+                    raise ValueError(msg)
+                self._tgt_rot = mdnme.RotatedGrid(grid, self._rot_matrix)
             return self._tgt_rot
         # fallback
         return mdnme.RotatedGrid(grid)

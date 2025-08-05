@@ -274,8 +274,7 @@ def test_embedded_identical_source_and_target_grids(fracture, request):
     np.testing.assert_approx_equal(tgt.cell_volumes.sum(), tg.cell_volumes.sum(), 7)
 
 
-#@pytest.mark.parametrize("fracture", ["coarse_fracture", "fine_fracture"])
-@pytest.mark.parametrize("fracture", ["fine_fracture"])
+@pytest.mark.parametrize("fracture", ["coarse_fracture", "fine_fracture"])
 def test_embedded_perturbed_source_and_target(fracture, request):
 
     src = request.getfixturevalue(fracture).copy()
