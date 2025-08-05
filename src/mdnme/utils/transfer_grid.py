@@ -2,11 +2,15 @@ import numpy as np
 
 import mdnme
 import porepy as pp
+import matplotlib.pyplot as plt
+
+from matplotlib.collections import PolyCollection
 from shapely.geometry import Polygon, Point
 from shapely.prepared import prep
 from shapely.strtree import STRtree
 from scipy.spatial import cKDTree
 from scipy.sparse import lil_matrix
+from itertools import combinations, chain
 
 
 class TransferGrid:
@@ -249,6 +253,88 @@ class TransferGrid:
             "n_transfer_nodes": self.transfer.num_nodes,
         }
 
+    def plot(self, ax=None, base_cmap="rainbow", alpha=1.0):
+        """
+        Plot the transfer mesh with a proper 4-coloring (no two neighbors share a color).
+
+        Parameters
+        ----------
+        ax : matplotlib.axes.Axes, optional
+            Axes to draw on. If None, a new figure+axes is created.
+        base_cmap : str or Colormap, optional
+            A Matplotlib colormap to draw from (should have >=4 distinct colors).
+        alpha : float, optional
+            Face alpha for the polygons.
+        Returns
+        -------
+        fig, ax : tuple
+            The figure and axes containing the plot.
+        """
+        # 1) prepare axes
+        if ax is None:
+            fig, ax = plt.subplots()
+        else:
+            fig = ax.get_figure()
+
+        # 2) get the 2D nodes and cells
+        nodes2d = self.transfer.nodes[:2, :]
+        cn = self.transfer.cell_nodes().tocsc()
+        cells = cn.indices.reshape((3, self.transfer.num_cells), order="F").T  # (n_tri, 3)
+
+        # 3) build edge→triangles lookup
+        edge_to_tris: dict[tuple[int,int], list[int]] = {}
+        for t_idx, tri in enumerate(cells):
+            for edge in combinations(tri, 2):
+                e = tuple(sorted(edge))
+                edge_to_tris.setdefault(e, []).append(t_idx)
+
+        # 4) build adjacency list
+        n_tri = len(cells)
+        neighbors = [set() for _ in range(n_tri)]
+        for tris in edge_to_tris.values():
+            if len(tris) == 2:
+                i, j = tris
+                neighbors[i].add(j)
+                neighbors[j].add(i)
+
+        # 5) greedy graph-coloring
+        colors = [-1] * n_tri
+        for t in range(n_tri):
+            used = {colors[nbr] for nbr in neighbors[t] if colors[nbr] >= 0}
+            # assign smallest non-negative integer not in used
+            c = 0
+            while c in used:
+                c += 1
+            colors[t] = c
+        n_colors = max(colors) + 1
+
+        # 6) sample RGBA’s from colormap
+        cmap = plt.get_cmap(base_cmap)
+        # for categorical colors, take indices 0, 1/(n_colors-1),...,1
+        color_vals = cmap(np.linspace(0, 1, n_colors))
+
+        # 7) build the polygons
+        verts = [nodes2d[:, tri].T for tri in cells]
+
+        # 8) build collection with facecolors by triangle-color
+        facecolors = [color_vals[c] for c in colors]
+        coll = PolyCollection(
+            verts,
+            facecolors=facecolors,
+            edgecolors="none",
+            alpha=alpha,
+        )
+        ax.add_collection(coll)
+
+        # 9) finalize
+        ax.autoscale()
+        ax.set_aspect("equal", "box")
+        ax.set_xticks([])
+        ax.set_yticks([])
+
+        # 10) save figure
+        fig = ax.get_figure()
+        fig.savefig("transfer_grid.pdf")
 
 # ---------- Utility triangulation helpers ----------
 def is_ccw(coords):
@@ -280,10 +366,12 @@ def merge_close_vertices(verts, cells, tol=1e-8):
     arr = np.array(verts)  # shape (N,2)
     if arr.size == 0:
         raise ValueError(
-            "merge_close_vertices: received empty vertex list (no intersection triangles).")
+            "merge_close_vertices: received empty vertex list"
+            " (no intersection triangles).")
     if arr.ndim != 2 or arr.shape[1] != 2:
         raise ValueError(
-            f"merge_close_vertices: expected verts to be (N,2), got array shape {arr.shape}.")
+            f"merge_close_vertices: expected verts to be (N,2),"
+            f" got array shape {arr.shape}.")
 
     tree = cKDTree(arr)
     groups = tree.query_ball_tree(tree, r=tol)

@@ -297,6 +297,7 @@ def test_embedded_perturbed_source_and_target(fracture, request):
 
     tfo = TransferGrid(src, tgt)
     tg = tfo.transfer
+    tfo.plot()
 
     # Volume preservation
     np.testing.assert_allclose(src.cell_volumes.sum(), tg.cell_volumes.sum(), rtol=1e-7)
