@@ -4,6 +4,7 @@ transfer grid."""
 import numpy as np
 import porepy as pp
 import pytest
+import mdnme
 
 from mdnme.utils.transfer_grid import TransferGrid
 from mdnme.utils.primal_projections import restrict_to_transfer
@@ -71,34 +72,52 @@ def test_local_linear_field(coarse_fracture, fine_fracture):
     np.testing.assert_array_almost_equal(transfer_p1, desired, 10)
 
 
-def test_global_linear_field(coarse_fracture, fine_fracture):
+@pytest.mark.parametrize("alpha, beta, gamma", [
+    # pure x‐dependence
+    (1.0, 0.0, 0.0),
+    # pure y‐dependence
+    (0.0, 1.0, 0.0),
+    # drop from y=0.25→y=0.75
+    (0.0, -2.0, 1.5),
+    # diagonal slope
+    (1.5, -0.5, 0.2),
+    # arbitrary
+    (-2.3,  4.7, -1.1),
+])
+def test_global_linear_field_param(
+    coarse_fracture, fine_fracture, alpha, beta, gamma
+):
     """
-    Impose a linear drop from u=1 at y=0.25 down to u=0 at y=0.75 on the source grid,
-    then check that cell‐wise restriction onto the transfer grid reproduces the same
-    line.
+    Parametrized check that a global P(x,y)=αx+βy+γ on the source grid
+    is exactly reconstructed cell‐wise on the transfer grid.
     """
-    transfer = TransferGrid(coarse_fracture, fine_fracture)
+    # 1) Build transfer grid
+    tg = TransferGrid(coarse_fracture, fine_fracture)
 
-    # Build global P(x,y) = α·x + β·y + γ such that
-    #   P(y=0.25) = 1  and  P(y=0.75) = 0, independent of x.
-    β = (0.0 - 1.0) / (0.75 - 0.25)    # = -2.0
-    α = 0.0                            # no x‐dependence
-    γ = 1.0 - β * 0.25                 # = 1.5
+    # 2) Build C_src by fitting P to each coarse cell
+    src_rot = mdnme.RotatedGrid(coarse_fracture)
+    Xc = src_rot.nodes[:2, :]
+    cn = coarse_fracture.cell_nodes().tocsc()
+    cells = cn.indices.reshape((3, coarse_fracture.num_cells), order="F").T
 
-    # Source cell‐wise coefficients: same for all source cells
-    C_src = np.tile([α, β, γ], (coarse_fracture.num_cells, 1))
+    C_src = np.empty((coarse_fracture.num_cells, 3))
+    for k, verts in enumerate(cells):
+        xy   = Xc[:, verts]                    # (2×3)
+        uvals = alpha*xy[0,:] + beta*xy[1,:] + gamma
+        V    = np.vstack((xy, np.ones(3)))     # (3×3)
+        C_src[k,:] = np.linalg.solve(V.T, uvals)
 
-    # Restrict to transfer cells
-    C_tr = restrict_to_transfer(transfer, C_src)
+    # 3) Restrict to transfer cells
+    C_tr = restrict_to_transfer(tg, C_src)
 
-    # Evaluate each transfer‐cell polynomial at its centroid
-    cc = transfer.transfer.cell_centers   # shape (>=2, n_tr_cells)
-    x_tr = cc[0, :]
-    y_tr = cc[1, :]
-    u_tr = C_tr[:, 0] * x_tr + C_tr[:, 1] * y_tr + C_tr[:, 2]
+    # 4) Evaluate at transfer‐cell centroids
+    cc   = tg.transfer.cell_centers
+    x_tr = cc[0,:]
+    y_tr = cc[1,:]
+    u_tr = C_tr[:,0]*x_tr + C_tr[:,1]*y_tr + C_tr[:,2]
 
-    # True line value at those centroids
-    u_true = α * x_tr + β * y_tr + γ
+    # 5) True P at centroids
+    u_true = alpha*x_tr + beta*y_tr + gamma
 
-    # Should match to machine precision
+    # 6) Assert exactness
     np.testing.assert_allclose(u_tr, u_true, atol=1e-12, rtol=0)
