@@ -184,7 +184,7 @@ class Varela2023JNumGeometry:
             mdg_final = mdgs[0]
             mdg_final.replace_subdomains_and_interfaces(
                 sd_map={mdg_final.subdomains()[1]: frac_grid},
-                intf_map={mdg_final.interfaces()[0]:
+                interface_map={mdg_final.interfaces()[0]:
                               {
                                   left_mortar_side: left_side_grid,
                                   right_mortar_side: right_side_grid,
