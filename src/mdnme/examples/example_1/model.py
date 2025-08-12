@@ -73,7 +73,7 @@ class Varela2023JNumBoundaryConditions(
         return vals
 
 
-class Varela2023JNumBalanceEquation(pp.fluid_mass_balance.MassBalanceEquations):
+class Varela2023JNumBalanceEquation(pp.fluid_mass_balance.FluidMassBalanceEquations):
     """Modify balance equation to account for external sources."""
 
     exact_sol: Varela2023JNumExactSolution2d
