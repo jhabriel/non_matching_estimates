@@ -15,7 +15,10 @@ def test_example_3_with_refinement_level_0() -> None:
     """Test whether we obtain the pressure norm and majorant for the third example."""
 
     # Declare model parameters
-    params = {"material_constants": {"solid": solid_constants} }
+    params = {
+        "material_constants": {"solid": solid_constants},
+        "supress_outputs_for_tests": [],  # Supress outputs for tests
+    }
 
     # Run the model
     model = SmallFeaturesModel(params)
