@@ -19,6 +19,7 @@ def test_example_2_with_mesh_size_005() -> None:
         "material_constants": {"solid": solid_constants},
         "grid_type": "simplex",
         "meshing_arguments": {"cell_size": 0.05},
+        "supress_outputs_for_tests": [],  # Supress outputs for tests
     }
 
     # Run the model

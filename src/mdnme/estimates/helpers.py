@@ -113,7 +113,7 @@ class ErrorEstimatesSaveData:
         subdomains = self.interfaces_to_subdomains(interfaces)
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
         normal_gradient = pp.ad.Scalar(2) * (
-            projection.secondary_to_mortar_avg
+            projection.secondary_to_mortar_avg()
             @ self.aperture(subdomains) ** pp.ad.Scalar(-1)
         )
         effective_normal_permeability = (
