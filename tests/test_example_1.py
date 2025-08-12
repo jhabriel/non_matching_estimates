@@ -33,6 +33,7 @@ def test_example_1_with_mesh_size_0125() -> None:
         "grid_type": "simplex",
         "material_constants": material_constants,
         "meshing_arguments": {"cell_size": 0.125},
+        "times_to_export": [],  # Suppress outputs for tests
     }
 
     # Run the model
@@ -96,6 +97,7 @@ def test_example_1_with_mesh_size_0125_nonmatching() -> None:
         "grid_type": "simplex",
         "material_constants": material_constants,
         "non_matching_cell_sizes": (0.125, 0.125, 0.125),
+        "times_to_export": [],  # Suppress outputs for tests
     }
 
     # Run the model
@@ -146,7 +148,6 @@ def test_example_1_with_mesh_size_0125_nonmatching() -> None:
     np.testing.assert_allclose(efficiency_index, 1.1272297096130979)
 
 
-
 @pytest.mark.parametrize(
     "intbound_cell_size, interface_cell_size, fracture_cell_size",
     [
@@ -174,6 +175,7 @@ def test_non_matching_grids(intbound_cell_size, interface_cell_size, fracture_ce
         "grid_type": "simplex",
         "material_constants": material_constants,
         "non_matching_cell_sizes": coupling_triplet_cell_size,
+        "times_to_export": [],  # Supress outputs for tests
     }
     setup = VarelaJNum2023Setup(params)
     setup.prepare_simulation()
@@ -236,6 +238,7 @@ def test_full_non_matching_side_grids(
         "grid_type": "simplex",
         "material_constants": material_constants,
         "full_non_matching_cell_sizes": coupling_quintuplet_cell_size,
+        "supress_outputs_for_tests": [],  # Supress outputs for tests
     }
     setup = VarelaJNum2023Setup(params)
     setup.prepare_simulation()
