@@ -7,7 +7,7 @@ import pytest
 import mdnme
 
 from mdnme.utils.transfer_grid import TransferGrid
-from mdnme.utils.primal_projections import restrict_to_transfer
+from mdnme.utils.primal_projections import restrict_to_transfer, scott_zhang_quasi_interpolant
 
 
 @pytest.fixture(scope="module")
@@ -121,3 +121,83 @@ def test_global_linear_field_param(
 
     # 6) Assert exactness
     np.testing.assert_allclose(u_tr, u_true, atol=1e-12, rtol=0)
+
+@pytest.fixture(scope="module")
+def coarse_fracture() -> pp.Grid:
+    domain = pp.Domain(
+        {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1}
+    )
+    frac = pp.PlaneFracture(np.array([
+        [0.50, 0.50, 0.50, 0.50],
+        [0.25, 0.75, 0.75, 0.25],
+        [0.25, 0.25, 0.75, 0.75],
+    ]))
+    fn = pp.create_fracture_network([frac], domain)
+    mesh_args = {
+        "cell_size_boundary": 1.0,
+        "cell_size_fracture": 0.1,
+        "cell_size_min": 0.02,
+    }
+    mdg = pp.create_mdg("simplex", mesh_args, fn)
+    return mdg.subdomains()[1]
+
+@pytest.fixture(scope="module")
+def fine_fracture() -> pp.Grid:
+    domain = pp.Domain(
+        {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1}
+    )
+    frac = pp.PlaneFracture(np.array([
+        [0.50, 0.50, 0.50, 0.50],
+        [0.25, 0.75, 0.75, 0.25],
+        [0.25, 0.25, 0.75, 0.75],
+    ]))
+    fn = pp.create_fracture_network([frac], domain)
+    mesh_args = {
+        "cell_size_boundary": 1.0,
+        "cell_size_fracture": 0.05,
+        "cell_size_min": 0.02,
+    }
+    mdg = pp.create_mdg("simplex", mesh_args, fn)
+    return mdg.subdomains()[1]
+
+def test_sz_global_linear_drop(coarse_fracture, fine_fracture):
+    """
+    Impose P(x,y)=−2y+1.5 on the source grid, restrict to transfer, then
+    apply the robust v2 Scott–Zhang on transfer→target. Assert exact reproduction
+    of (α,β,γ)= (0,−2,1.5) on each target cell.
+    """
+    α, β, γ = 0.0, -2.0, 1.5
+
+    # 1) build transfer grid
+    tg = TransferGrid(coarse_fracture, fine_fracture)
+
+    # 2) build source cell‐wise P1 coefficients by fitting P to each coarse cell
+    src_rot = mdnme.RotatedGrid(coarse_fracture)
+    Xc = src_rot.nodes[:2,:]
+    cn = coarse_fracture.cell_nodes().tocsc()
+    cells = cn.indices.reshape((3, coarse_fracture.num_cells), order="F").T
+    C_src = np.empty((coarse_fracture.num_cells, 3))
+    for k, verts in enumerate(cells):
+        xy    = Xc[:, verts]
+        uvals = α*xy[0,:] + β*xy[1,:] + γ
+        V     = np.vstack((xy, np.ones(3)))
+        C_src[k,:] = np.linalg.solve(V.T, uvals)
+
+    # 3) restrict to transfer cells
+    C_tr = restrict_to_transfer(tg, C_src)
+
+    # 4) build transfer‐node values u_tr by evaluating P at each transfer node
+    tr_rot = mdnme.RotatedGrid(tg.transfer)
+    Xn = tr_rot.nodes[:2,:]
+    u_tr = α*Xn[0,:] + β*Xn[1,:] + γ
+
+    # 5) apply robust SZ‐v2
+    C_tgt = scott_zhang_quasi_interpolant(tg, u_tr)
+
+    # 6) assert exact coefficients on each target cell
+    desired = np.tile([α, β, γ], (fine_fracture.num_cells, 1))
+    np.testing.assert_allclose(
+        C_tgt, desired,
+        atol=1e-12, rtol=0,
+        err_msg="SZ‐v2 failed to reproduce global linear drop exactly"
+    )

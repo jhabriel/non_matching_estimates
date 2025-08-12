@@ -12,7 +12,7 @@ The two main projection steps are:
 import numpy as np
 import porepy as pp
 
-from shapely.geometry import Point
+from shapely.geometry import Point, Polygon
 from shapely.prepared import prep
 from shapely.strtree import STRtree
 
@@ -137,6 +137,95 @@ def scott_zhang_on_transfer(tg: TransferGrid, u_tr: np.ndarray) -> np.ndarray:
 
     return u_tgt
 
+def scott_zhang_quasi_interpolant(tg, u_tr):
+    """
+    Robust Scott–Zhang using coarse-cell quadrature + transfer-mesh point
+    evaluations. Exact on P1.
+
+    Returns cell-wise P1 coefficients on target.
+    """
+    g_tr  = tg.transfer
+    g_tgt = tg.g_target
+
+    # 1) Precompute coarse-cell data
+    cn_tgt   = g_tgt.cell_nodes().tocsc()
+    tri_tgt  = cn_tgt.indices.reshape((3, g_tgt.num_cells), order="F").T
+    tgt_rot  = tg._get_rotated_grid(g_tgt)
+    X_tgt    = tgt_rot.nodes[:2, :]
+
+    coarse_data = []
+    for verts in tri_tgt:
+        p0, p1, p2 = X_tgt[:, verts[0]], X_tgt[:, verts[1]], X_tgt[:, verts[2]]
+        A = np.column_stack((p1 - p0, p2 - p0))
+        area = abs(np.linalg.det(A)) * 0.5
+        M_inv = (1.0/area) * np.array([[ 9, -3, -3],[-3, 9, -3],[-3, -3, 9]])
+        coarse_data.append((verts, p0, A, M_inv, area))
+
+    # 2) Build transfer-mesh STRtree + barycentric helpers
+    cn_tr   = g_tr.cell_nodes().tocsc()
+    tri_tr  = cn_tr.indices.reshape((3, g_tr.num_cells), order="F").T
+    tr_rot  = tg._get_rotated_grid(g_tr)
+    X_tr    = tr_rot.nodes[:2, :]
+
+    # Polygons and map
+    tr_polygons = [Polygon(X_tr[:, verts].T) for verts in tri_tr]
+    poly_to_j   = {poly: j for j, poly in enumerate(tr_polygons)}
+    tree        = STRtree(tr_polygons)
+    prepared    = [prep(p) for p in tr_polygons]
+
+    # Inverses for barycentric in transfer cells
+    V_inv_tr = []
+    for verts in tri_tr:
+        V = np.vstack((X_tr[:, verts], np.ones(3)))
+        V_inv_tr.append(np.linalg.inv(V))
+
+    # 3) Prepare storage
+    n_tgt_nodes = g_tgt.num_nodes
+    u_tgt_nodes = np.empty(n_tgt_nodes)
+    n2c = g_tgt.cell_nodes().tocsr()
+    quadrature = [(1/6,1/6),(2/3,1/6),(1/6,2/3)]
+
+    # 4) Loop over target nodes
+    for i in range(n_tgt_nodes):
+        adj = n2c[i].nonzero()[1]
+        if adj.size == 0:
+            raise RuntimeError(f"Target node {i} has no adjacent cell")
+        k = adj[0]
+        verts_k, p0, A, M_inv, area = coarse_data[k]
+
+        # Build RHS b
+        b = np.zeros(3)
+        for r, s in quadrature:
+            xq = p0 + A.dot([r, s])
+            pt = Point(*xq)
+
+            # Locate transfer cell j
+            j = None
+            for cand in tree.query(pt):
+                if isinstance(cand, (int, np.integer)):
+                    j0 = int(cand)
+                else:
+                    j0 = poly_to_j[cand]
+                if prepared[j0].contains(pt) or prepared[j0].touches(pt):
+                    j = j0
+                    break
+            if j is None:
+                raise RuntimeError("Quadrature point not found in any transfer cell")
+
+            # Evaluate u_tr at xq via barycentric in j
+            lam_tr = V_inv_tr[j].dot([xq[0], xq[1], 1.0])[:3]
+            uq     = u_tr[tri_tr[j]].dot(lam_tr)
+
+            w = area/3.0
+            lam_coarse = np.array([1 - r - s, r, s])
+            b += w * uq * lam_coarse
+
+        coeffs = M_inv.dot(b)
+        local_i = list(verts_k).index(i)
+        u_tgt_nodes[i] = coeffs[local_i]
+
+    # 5) Reconstruct cell-wise and return
+    return _reconstruct_cellwise_on_target(tg, u_tgt_nodes)
 
 def project_p1(source: pp.GridLike,
                target: pp.GridLike,
@@ -152,3 +241,40 @@ def project_p1(source: pp.GridLike,
     u_tr = restrict_to_transfer(tg, u_source)
     u_tgt = scott_zhang_on_transfer(tg, u_tr)
     return u_tgt
+
+def _reconstruct_cellwise_on_target(tg, u_tgt):
+    """
+    Given:
+      - tg: a TransferGrid with tg.g_target set
+      - u_tgt: ndarray of length tg.g_target.num_nodes holding the nodal values
+               of the Scott–Zhang interpolant
+
+    Returns:
+      - C_tgt: ndarray of shape (n_tgt_cells, 3) with the local P1 coefficients
+               [c0, c1, c2] on each target cell, so that
+               u(x,y)|_{K} = c0*x + c1*y + c2 on that triangle.
+    """
+    g_tgt = tg.g_target
+
+    # 1) get rotated 2D coords of target nodes
+    tgt_rot = tg._get_rotated_grid(g_tgt)
+    Xn = tgt_rot.nodes[:2, :]   # shape (2, n_tgt_nodes)
+
+    # 2) cell->node incidence for target grid
+    cn = g_tgt.cell_nodes().tocsc()
+    cells = cn.indices.reshape((3, g_tgt.num_cells), order="F").T  # (n_tgt_cells, 3)
+
+    # 3) solve a small Vandermonde per cell
+    C_tgt = np.empty((g_tgt.num_cells, 3))
+    for k, verts in enumerate(cells):
+        # collect the 3 node coordinates
+        xy = Xn[:, verts]          # shape (2,3)
+        # collect the 3 nodal values
+        uvals = u_tgt[verts]       # length-3
+
+        # build 3×3 system: [x y 1]^T * c = uvals
+        V = np.vstack((xy, np.ones(3)))  # (3,3)
+        # solve V^T * [c0 c1 c2]^T = uvals
+        C_tgt[k,:] = np.linalg.solve(V.T, uvals)
+
+    return C_tgt
