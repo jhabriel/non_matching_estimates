@@ -18,12 +18,12 @@ from mdnme.amr.refinement_utils import enforce_positive_orientation
 
 
 import mdnme
-from mdnme.examples.example_1.model import (
+from mdnme.examples.varela_jnum_2d.model import (
     VarelaJNum2023Setup,
     manu_incomp_fluid,
     manu_incomp_solid,
 )
-from mdnme.examples.example_1.true_errors import Varela2023JNumTrueErrors2d
+from mdnme.examples.varela_jnum_2d.true_errors import Varela2023JNumTrueErrors2d
 
 from mdnme.porepy_interface.fem_grid_to_porepy_grid import fem_grid_to_sd_grid_2d, fem_grid_to_sd_grid_1d
 from mdnme.porepy_interface.porepy_grid_to_fem_grid import porepy_grid_to_fem_grid

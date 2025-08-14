@@ -11,7 +11,7 @@ import scipy.sparse as sps
 import sympy as sym
 
 import mdnme
-from mdnme.examples.example_1.exact_solution import Varela2023JNumExactSolution2d
+from mdnme.examples.varela_jnum_2d.exact_solution import Varela2023JNumExactSolution2d
 
 
 class Varela2023JNumTrueErrors2d(Varela2023JNumExactSolution2d):

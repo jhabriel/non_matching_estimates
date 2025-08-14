@@ -14,7 +14,7 @@ import numpy as np
 import porepy as pp
 
 import mdnme
-from mdnme.examples.example_1.model import (
+from mdnme.examples.varela_jnum_2d.model import (
     VarelaJNum2023Setup,
     manu_incomp_fluid,
     manu_incomp_solid,

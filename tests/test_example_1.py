@@ -13,12 +13,12 @@ import mdnme
 
 from porepy.grids.mortar_grid import MortarSides
 
-from mdnme.examples.example_1.model import (
+from mdnme.examples.varela_jnum_2d.model import (
     VarelaJNum2023Setup,
     manu_incomp_fluid,
     manu_incomp_solid,
 )
-from mdnme.examples.example_1.true_errors import Varela2023JNumTrueErrors2d
+from mdnme.examples.varela_jnum_2d.true_errors import Varela2023JNumTrueErrors2d
 
 
 def test_example_1_with_mesh_size_0125() -> None:

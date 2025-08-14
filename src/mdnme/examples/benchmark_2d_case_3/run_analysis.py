@@ -21,11 +21,11 @@ from mdnme.estimates.error_estimation import (
     transfer_errors_iterate_solutions,
 )
 
-# from mdamr.examples.example_2.model import (
+# from mdamr.examples.benchmark_2d_case_3.model import (
 #     Flemisch2018Case3Model,
 #     solid_constants,
 # )
-from mdnme.examples.example_2 import (
+from mdnme.examples.benchmark_2d_case_3 import (
     FlowBenchmark2dCase3bModel,
     solid_constants,
 )
