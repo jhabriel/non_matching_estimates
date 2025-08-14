@@ -39,7 +39,7 @@ def tri_3pt():  # degree-2 exact (perfect for H1 error of quadratics)
 
 
 def quad_u_and_grad(a, b, c, d, e, f):
-    def u(x, y):  return a * x * x + b * x * y + c * y * y + d * x + e * y + f
+    def u(x, y): return a * x * x + b * x * y + c * y * y + d * x + e * y + f
 
     def gx(x, y): return 2 * a * x + b * y + d
 
@@ -87,7 +87,7 @@ def grid_sequence():
     # u(x,y) = x^2 + y^2 + x
     (1.0, 0.0, 1.0, 1.0, 0.0, 0.0),
 ])
-def test_sz_v2_quadratic_convergence(grid_sequence, coeffs):
+def test_sz_quadratic_convergence(grid_sequence, coeffs):
     """
     Expect ||u - I_h u||_{L2} ~ O(h^2), |u - I_h u|_{H1} ~ O(h) for quadratics.
     """
@@ -157,7 +157,7 @@ def test_sz_v2_quadratic_convergence(grid_sequence, coeffs):
                 H1_sq += w * area * (dux * dux + duy * duy)
         eH1s.append(np.sqrt(H1_sq))
 
-    # --- check observed rates via least squares on log-log ---
+    # --- check observed rates via least-squares on log-log ---
     hs = np.array(hs)
     eL2s = np.array(eL2s)
     eH1s = np.array(eH1s)
@@ -168,5 +168,3 @@ def test_sz_v2_quadratic_convergence(grid_sequence, coeffs):
     # slopes should be ~2 (L2) and ~1 (H1)
     assert 1.6 <= p_L2 <= 2.4, f"L2 slope off: {p_L2:.2f}"
     assert 0.7 <= p_H1 <= 1.3, f"H1 slope off: {p_H1:.2f}"
-
-    assert True

@@ -19,9 +19,7 @@ from shapely.strtree import STRtree
 from mdnme.utils.transfer_grid import TransferGrid
 
 
-from scipy.sparse import csr_matrix
-
-def restrict_to_transfer(tg, C_src):
+def restrict_to_transfer(tg: TransferGrid, C_src: np.ndarray) -> np.ndarray:
     """
     From source cell-wise P1 (C_src shape = (n_src_cells,3))
     build transfer cell-wise P1 (C_tr shape = (n_tr_cells,3)) by
@@ -55,89 +53,7 @@ def restrict_to_transfer(tg, C_src):
     return C_tr
 
 
-
-def scott_zhang_on_transfer(tg: TransferGrid, u_tr: np.ndarray) -> np.ndarray:
-    """
-    Scott–Zhang quasi‐interpolation from u_tr on tg.transfer to P1 values
-    on tg.g_target.
-
-    Parameters
-    ----------
-    tg : TransferGrid
-      Must have tg.transfer and tg.transfer_to_target and tg.g_target set.
-    u_tr : array_like, shape (tg.transfer.num_nodes,)
-      Nodal values on the transfer grid.
-
-    Returns
-    -------
-    u_tgt : np.ndarray, shape (tg.g_target.num_nodes,)
-      Nodal P1 values on the target grid.
-    """
-    g_tr = tg.transfer
-    g_tgt = tg.g_target
-    t2tgt = tg.transfer_to_target.tocsr()  # (n_tr_cells × n_tgt_cells)
-
-    # 1) cell→node connectivity
-    cn_tr = g_tr.cell_nodes().tocsc()
-    tri_tr = cn_tr.indices.reshape((3, g_tr.num_cells), order="F").T
-    cn_tgt = g_tgt.cell_nodes().tocsc()
-    tri_tgt = cn_tgt.indices.reshape((3, g_tgt.num_cells), order="F").T
-
-    # 2) Precompute per‐target‐cell M⁻¹ and V⁻¹
-    X_tgt = g_tgt.nodes[:2, :]
-    M_inv = [None] * g_tgt.num_cells
-    V_inv = [None] * g_tgt.num_cells
-    for k, verts in enumerate(tri_tgt):
-        coords = X_tgt[:, verts]
-        area = abs(np.linalg.det(np.vstack((coords[:, 1] - coords[:, 0],
-                                            coords[:, 2] - coords[:, 0])).T)) * 0.5
-        M = (area / 12.0) * np.array([[2, 1, 1], [1, 2, 1], [1, 1, 2]])
-        M_inv[k] = np.linalg.inv(M)
-        V = np.vstack((coords, np.ones(3)))
-        V_inv[k] = np.linalg.inv(V)
-
-    # 3) Map each target cell → list of transfer‐cells inside it
-    tr_in_tgt = {k: t2tgt[:, k].nonzero()[0] for k in range(g_tgt.num_cells)}
-
-    # 4) Quadrature rule
-    quad = np.array([[1 / 6, 1 / 6], [2 / 3, 1 / 6], [1 / 6, 2 / 3]])
-
-    # 5) Node → cell adjacency on target
-    n2c = g_tgt.cell_nodes().tocsr()
-
-    # 6) Evaluate
-    X_tr = g_tr.node_coords[:2, :]
-    u_tgt = np.zeros(g_tgt.num_nodes)
-    for i in range(g_tgt.num_nodes):
-        adj = n2c[i].nonzero()[1]
-        if not adj:
-            raise RuntimeError(f"Target node {i} has no adjacent cell")
-        k = adj[0]
-        verts_k = tri_tgt[k]
-        loc_i = list(verts_k).index(i)
-
-        b = np.zeros(3)
-        for j in tr_in_tgt[k]:
-            tri_j = tri_tr[j]
-            coords_j = X_tr[:, tri_j]
-            uvals = u_tr[tri_j]
-            area_j = abs(np.linalg.det(
-                np.vstack((coords_j[:, 1] - coords_j[:, 0],
-                           coords_j[:, 2] - coords_j[:, 0])).T)) * 0.5
-            w = area_j / 3.0
-            for xi in quad:
-                lambda_j = np.array([xi[0], xi[1], 1 - xi.sum()])
-                xq = coords_j.dot(lambda_j)
-                uq = uvals.dot(lambda_j)
-                lambda_c = V_inv[k].dot(np.append(xq, 1.0))[:3]
-                b += w * uq * lambda_c
-
-        coeffs = M_inv[k].dot(b)
-        u_tgt[i] = coeffs[loc_i]
-
-    return u_tgt
-
-def scott_zhang_quasi_interpolant(tg, u_tr):
+def scott_zhang_quasi_interpolant(tg: TransferGrid, u_tr: np.ndarray) -> np.ndarray:
     """
     Robust Scott–Zhang using coarse-cell quadrature + transfer-mesh point
     evaluations. Exact on P1.
@@ -227,6 +143,7 @@ def scott_zhang_quasi_interpolant(tg, u_tr):
     # 5) Reconstruct cell-wise and return
     return _reconstruct_cellwise_on_target(tg, u_tgt_nodes)
 
+
 def project_p1(source: pp.GridLike,
                target: pp.GridLike,
                u_source: np.ndarray,
@@ -239,10 +156,11 @@ def project_p1(source: pp.GridLike,
     """
     tg = TransferGrid(source, target, tol=tol)
     u_tr = restrict_to_transfer(tg, u_source)
-    u_tgt = scott_zhang_on_transfer(tg, u_tr)
+    u_tgt = scott_zhang_quasi_interpolant(tg, u_tr)
     return u_tgt
 
-def _reconstruct_cellwise_on_target(tg, u_tgt):
+
+def _reconstruct_cellwise_on_target(tg: TransferGrid, u_tgt: np.ndarray):
     """
     Given:
       - tg: a TransferGrid with tg.g_target set
@@ -275,6 +193,6 @@ def _reconstruct_cellwise_on_target(tg, u_tgt):
         # build 3×3 system: [x y 1]^T * c = uvals
         V = np.vstack((xy, np.ones(3)))  # (3,3)
         # solve V^T * [c0 c1 c2]^T = uvals
-        C_tgt[k,:] = np.linalg.solve(V.T, uvals)
+        C_tgt[k, :] = np.linalg.solve(V.T, uvals)
 
     return C_tgt
