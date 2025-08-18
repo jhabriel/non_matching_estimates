@@ -413,3 +413,75 @@ class VarelaJNumExactSolution3D:
             p_bf += p(fc[0], fc[1], fc[2]) * idx
 
         return p_bf
+
+    def integrated_matrix_source(self, sd_matrix: pp.Grid) -> np.ndarray:
+        """Obtain numerically integrated exact matrix sources.
+
+        Parameters:
+            sd_matrix: Matrix grid.
+
+        Returns:
+            Array of ``shape=(sd_matrix.num_cells, )`` with the exact integrated source
+            terms for the matrix.
+
+        Note:
+            We employ a quadrature rule that is exact up to a polynomial degree 10.
+
+        """
+        # Symbolic variables
+        x, y, z = sym.symbols("x y z")
+
+        # Get list of indices
+        cell_idx = self.get_region_indices(where="cc")
+
+        # Lambdify expression
+        f_fun = [sym.lambdify((x, y, z), f, "numpy") for f in self.f_matrix]
+
+        # Declare integration method and get hold of elements in QuadPy format
+        int_method = quadpy.t3.get_good_scheme(10)
+        elements = mdnme.utils.get_quadpy_elements(sd_matrix)
+
+        integral = np.zeros(sd_matrix.num_cells)
+        for f, idx in zip(f_fun, cell_idx):
+            # Declare integrand
+            def integrand(x):
+                return f(x[0], x[1], x[2]) * np.ones_like(x[0])
+
+            # Integrate, and add the contribution of each subregion
+            integral += int_method.integrate(integrand, elements) * idx
+
+        return integral
+
+    def integrated_fracture_source(self, sd_frac: pp.Grid) -> np.ndarray:
+        """Obtain numerically integrated exact fracture sources.
+
+        Parameters:
+            sd_frac: Fracture grid.
+
+        Returns:
+            Array of ``shape=(sd_frac.num_cells, )`` with the exact integrated source
+            terms of the fracture.
+
+        Note:
+            We employ a quadrature rule that is exact upt to a polynomial of degree 10.
+
+        """
+        # Symbolic variables
+        y, z = sym.symbols("y z")
+
+        # Lambdify expression
+        f_fun = sym.lambdify((y, z), self.f_frac, "numpy")
+
+        # Declare integration method and get hold of elements in QuadPy format
+        int_method = quadpy.t2.get_good_scheme(10)
+        sd_rot = mdnme.RotatedGrid(sd_frac)
+        elements = mdnme.utils.get_quadpy_elements(sd_frac, sd_rot)
+        elements *= -1  # use real coordinates
+        # TODO: Check the implications of above line
+
+        def integrand(x):
+            return f_fun(x[0], x[1])
+
+        integral = int_method.integrate(integrand, elements)
+
+        return integral

@@ -45,10 +45,18 @@ def test_model_pre_simulation(material_constants) -> None:
     }
     setup = VarelaJNumSetup3D(params)
     setup.prepare_simulation()
-    assert True
 
-def test_model_post_simulation() -> None:
-    """We check whether the model does not crash"""
+
+def test_model_post_simulation(material_constants) -> None:
+    """Test whether the model correctly runs."""
+    params = {
+        "grid_type": "simplex",
+        "material_constants": material_constants,
+        "meshing_arguments": {"cell_size": 0.125},
+        "times_to_export": [],  # Supress outputs for tests
+    }
+    setup = VarelaJNumSetup3D(params)
+    pp.run_time_dependent_model(setup, {})
 
 
 def test_error_estimates_matching_grid_cell_size_0125() -> None:
