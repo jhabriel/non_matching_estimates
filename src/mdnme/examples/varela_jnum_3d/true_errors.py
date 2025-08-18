@@ -81,7 +81,7 @@ class VarelaJNumTrueErrors3D(VarelaJNumExactSolution3D):
         pr = mdnme.utils.poly2col(recon_p)
 
         # Obtain elements and declare integration method
-        method = quadpy.t2.get_good_scheme(10)
+        method = quadpy.t3.get_good_scheme(10)
         elements = mdnme.utils.get_quadpy_elements(sd_matrix)
 
         # Compute the true error for each subregion
