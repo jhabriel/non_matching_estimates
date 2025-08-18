@@ -1,4 +1,6 @@
 """
+NOTE: DEPRECATED!!!
+
 Module containing the script to run the analysis for the first numerical example of
 the paper.
 
@@ -20,7 +22,7 @@ from mdnme.examples.varela_jnum_2d.model import (
     manu_incomp_fluid,
     manu_incomp_solid,
 )
-from mdnme.examples.varela_jnum_2d.true_errors import Varela2023JNumTrueErrors2d
+from mdnme.examples.varela_jnum_2d.true_errors import VarelaJNumTrueErrors2d
 
 pickle_mdg = False
 print_to_console = True
@@ -105,7 +107,7 @@ for mesh_size in mesh_sizes:
     majorant = diffusive_error + residual_error
 
     # True error
-    te = Varela2023JNumTrueErrors2d()
+    te = VarelaJNumTrueErrors2d()
     true_error = te.true_error(mdg)
 
     # Efficiency index
