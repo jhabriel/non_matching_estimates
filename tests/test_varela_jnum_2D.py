@@ -24,7 +24,7 @@ from mdnme.examples.varela_jnum_2d.model import (
     manu_incomp_fluid,
     manu_incomp_solid,
 )
-from mdnme.examples.varela_jnum_2d.true_errors import Varela2023JNumTrueErrors2d
+from mdnme.examples.varela_jnum_2d.true_errors import VarelaJNumTrueErrors2d
 
 
 def test_example_1_with_mesh_size_0125() -> None:
@@ -80,7 +80,7 @@ def test_example_1_with_mesh_size_0125() -> None:
 
     # Majorant, true error, and efficiency index
     majorant = diffusive_error + residual_error
-    te = Varela2023JNumTrueErrors2d()
+    te = VarelaJNumTrueErrors2d()
     true_error = te.true_error(mdg)
     efficiency_index = majorant / true_error
 
@@ -144,7 +144,7 @@ def test_example_1_with_mesh_size_0125_nonmatching() -> None:
 
     # Majorant, true error, and efficiency index
     majorant = diffusive_error + residual_error
-    te = Varela2023JNumTrueErrors2d()
+    te = VarelaJNumTrueErrors2d()
     true_error = te.true_error(mdg)
     efficiency_index = majorant / true_error
 
