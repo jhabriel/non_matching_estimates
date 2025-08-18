@@ -221,12 +221,12 @@ class VarelaJNumTrueErrors3D(VarelaJNumExactSolution3D):
             exact_deltap_side = exact_p_2d  # high-dim pressure trace is zero
 
             # Declare integrand
-            def integrand(x):
+            def integrand(x: np.ndarray) -> np.ndarray:
                 recon_p_jump = mdnme.utils.evaluate_p1(
                     recon_deltap_side,
                     -x,  # negate due to rotation
                 )
-                return (exact_deltap_side(x) - recon_p_jump) ** 2
+                return (exact_deltap_side(x[0], x[1]) - recon_p_jump) ** 2
 
             # Compute integral
             diffusive_error_side = method.integrate(integrand, elements)
