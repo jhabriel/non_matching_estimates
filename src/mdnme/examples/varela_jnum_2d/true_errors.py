@@ -14,7 +14,7 @@ import mdnme
 from mdnme.examples.varela_jnum_2d.exact_solution import VarelaJNumExactSolution2d
 
 
-class Varela2023JNumTrueErrors2d(VarelaJNumExactSolution2d):
+class VarelaJNumTrueErrors2d(VarelaJNumExactSolution2d):
     """
     Class containing the computation of the true errors of the first numerical example.
     """
