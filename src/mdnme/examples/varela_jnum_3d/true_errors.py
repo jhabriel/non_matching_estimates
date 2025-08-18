@@ -23,36 +23,17 @@ class VarelaJNumTrueErrors3D(VarelaJNumExactSolution3D):
         super().__init__(model)
 
     def true_error(self) -> float:
-        """
-        Compute global true error.
-
-        Parameters:
-            mdg: pp.MixedDimensionalGrid
-                Mixed-dimensional grid of the problem.
+        """ Compute global true error (mixed-dimensional majorant).
 
         Returns:
             Value of the true error for the whole mixed-dimensional grid.
 
         """
-        mdg = self.model.mdg
-        sd_2d, d_2d = mdg.subdomains(return_data=True, dim=2)[0]
-        sd_1d, d_1d = mdg.subdomains(return_data=True, dim=1)[0]
-        intf, d_intf = mdg.interfaces(return_data=True)[0]
+        te_sq_2d = self.true_error_matrix()
+        te_sq_1d = self.true_error_fracture()
+        te_sq_intf = self.true_error_interface()
 
-        te_sq_2d = self.true_error_matrix(sd_2d, d_2d)
-        te_sq_1d = self.true_error_fracture(sd_1d, d_1d)
-        te_sq_intf = self.true_error_interface(
-            intf=intf,
-            data_intf=d_intf,
-            sd_high=sd_2d,
-            data_high=d_2d,
-            sd_low=sd_1d,
-            data_low=d_1d,
-        )
-
-        true_error = (te_sq_2d.sum() + te_sq_1d.sum() + te_sq_intf.sum()) ** 0.5
-
-        return true_error
+        return np.sqrt(te_sq_2d.sum() + te_sq_1d.sum() + te_sq_intf.sum())
 
     def true_error_matrix(self) -> np.ndarray:
         """
