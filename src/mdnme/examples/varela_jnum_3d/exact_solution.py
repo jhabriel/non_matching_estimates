@@ -520,7 +520,7 @@ class VarelaJNumExactSolution3D:
         div_u = 2 * u[0]
 
         # Integration method and retrieving elements
-        int_method = quadpy.t2.get_good_scheme(10)
+        int_method = quadpy.t3.get_good_scheme(10)
         elements = mdnme.utils.get_quadpy_elements(sd_matrix)
 
         # Local Poincare weights
