@@ -530,8 +530,8 @@ class VarelaJNumExactSolution3D:
         integral = np.zeros(sd_matrix.num_cells)
         for f, idx in zip(f_fun, cell_idx):
             # Declare integrand
-            def integrand(x):
-                return (f(x[0], x[1]) * np.ones_like(x[0]) - div_u) ** 2
+            def integrand(x: np.ndarray) -> np.ndarray:
+                return (f(x[0], x[1], x[2]) * np.ones_like(x[0]) - div_u) ** 2
 
             # Integrate, and add the contribution of each subregion
             integral += int_method.integrate(integrand, elements) * idx
