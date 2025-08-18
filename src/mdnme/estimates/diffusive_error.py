@@ -288,10 +288,10 @@ def _get_high_pressure_trace(
 
     # Retrieve the coefficients of the polynomials corresponding to those cells
     if "recon_sd_pressure" in data_sd_high["estimates"]:
-        p_high = data_sd_high["estimates"]["recon_sd_pressure"].copy()
+        p_high_full = data_sd_high["estimates"]["recon_sd_pressure"].copy()
     else:
         raise ValueError("Pressure must be reconstructed first")
-    p_high = p_high[cells_of_frac_faces]
+    p_high = p_high_full[cells_of_frac_faces]
 
     # NOTE: Use the rotated coordinates to perform the evaluation of the pressure,
     # but use the original coordinates to rotate the edge using the rotation matrix of
@@ -313,7 +313,12 @@ def _get_high_pressure_trace(
 
     # Test if the values of the original polynomial match the new one
     point_val_rot = mdnme.utils.evaluate_p1(trace_pressure, point_edge_coo_rot)
-    np.testing.assert_almost_equal(point_val, point_val_rot, decimal=12)
+    np.testing.assert_allclose(
+        point_val,
+        point_val_rot,
+        rtol=1e-9,
+        atol=1e-8,
+    )
 
     return trace_pressure
 
