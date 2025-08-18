@@ -9,15 +9,14 @@ Reference:
 
 """
 
+import mdnme
 import numpy as np
 import porepy as pp
 import quadpy
 import sympy as sym
 
-import mdnme as amr
 
-
-class Varela2023JNumExactSolution2d:
+class VarelaJNumExactSolution2d:
     """Class containing the exact manufactured solution for the verification setup."""
 
     def __init__(self):
@@ -367,7 +366,7 @@ class Varela2023JNumExactSolution2d:
 
         # Declare integration method and get hold of elements in QuadPy format
         int_method = quadpy.t2.get_good_scheme(10)
-        elements = amr.utils.get_quadpy_elements(sd_matrix)
+        elements = mdnme.utils.get_quadpy_elements(sd_matrix)
 
         integral = np.zeros(sd_matrix.num_cells)
         for f, idx in zip(f_fun, cell_idx):
@@ -393,7 +392,7 @@ class Varela2023JNumExactSolution2d:
         f_fun = sym.lambdify(y, self.f_frac, "numpy")
 
         method = quadpy.c1.newton_cotes_closed(10)
-        elements = amr.utils.get_quadpy_elements(sd_frac)
+        elements = mdnme.utils.get_quadpy_elements(sd_frac)
         elements *= -1  # we have to use the real `y` coordinates here
 
         def integrand(y):
@@ -420,12 +419,12 @@ class Varela2023JNumExactSolution2d:
 
         # Retrieve reconstructed velocity and compute divergence
         recon_u = d_matrix["estimates"]["recon_sd_flux"].copy()
-        u = amr.utils.poly2col(recon_u)
+        u = mdnme.utils.poly2col(recon_u)
         div_u = 2 * u[0]
 
         # Integration method and retrieving elements
         int_method = quadpy.t2.get_good_scheme(10)
-        elements = amr.utils.get_quadpy_elements(sd_matrix)
+        elements = mdnme.utils.get_quadpy_elements(sd_matrix)
 
         integral = np.zeros(sd_matrix.num_cells)
         weights = (sd_matrix.cell_diameters() / np.pi) ** 2
@@ -444,7 +443,7 @@ class Varela2023JNumExactSolution2d:
 
         # Retrieve reconstructed velocity and compute its divergence
         recon_u = d_frac["estimates"]["recon_sd_flux"].copy()
-        u = amr.utils.poly2col(recon_u)
+        u = mdnme.utils.poly2col(recon_u)
         div_u = u[0]
 
         # Contribution from interface fluid fluxes to mass balance equation
@@ -457,7 +456,7 @@ class Varela2023JNumExactSolution2d:
         f_fun = sym.lambdify(y, self.f_frac, "numpy")
 
         method = quadpy.c1.newton_cotes_closed(10)
-        elements = amr.utils.get_quadpy_elements(sd_frac)
+        elements = mdnme.utils.get_quadpy_elements(sd_frac)
         elements *= -1  # we have to use the real `y` coordinates here
 
         weights = (sd_frac.cell_diameters() / np.pi) ** 2

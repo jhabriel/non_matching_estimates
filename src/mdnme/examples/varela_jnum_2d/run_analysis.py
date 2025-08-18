@@ -16,7 +16,7 @@ from porepy.utils.txt_io import TxtData, export_data_to_txt
 
 import mdnme
 from mdnme.examples.varela_jnum_2d.model import (
-    VarelaJNum2023Setup,
+    VarelaJNumSetup2D,
     manu_incomp_fluid,
     manu_incomp_solid,
 )
@@ -46,7 +46,7 @@ for mesh_size in mesh_sizes:
     }
 
     # Run the model
-    setup = VarelaJNum2023Setup(params)
+    setup = VarelaJNumSetup2D(params)
     pp.run_time_dependent_model(setup, {})
     mdg = setup.mdg
     dofs = setup.equation_system.num_dofs()

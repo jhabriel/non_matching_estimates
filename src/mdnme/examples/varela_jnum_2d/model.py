@@ -21,8 +21,8 @@ import numpy as np
 import porepy as pp
 
 import mdnme
-from mdnme.examples.varela_jnum_2d.exact_solution import Varela2023JNumExactSolution2d
-from mdnme.examples.varela_jnum_2d.geometry import Varela2023JNumGeometry
+from mdnme.examples.varela_jnum_2d.exact_solution import VarelaJNumExactSolution2d
+from mdnme.examples.varela_jnum_2d.geometry import VarelaJNumGeometry2D
 
 # Material constants for the verification setup. Constants with (**) cannot be
 # changed since the manufactured solution implicitly assume such values.
@@ -39,12 +39,12 @@ manu_incomp_solid: dict[str, pp.number] = {
 }
 
 
-class Varela2023JNumBoundaryConditions(
+class VarelaJNumBoundaryConditions(
     pp.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow
 ):
     """Set boundary conditions for the simulation model."""
 
-    exact_sol: Varela2023JNumExactSolution2d
+    exact_sol: VarelaJNumExactSolution2d
     """Exact solution object."""
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
@@ -73,10 +73,10 @@ class Varela2023JNumBoundaryConditions(
         return vals
 
 
-class Varela2023JNumBalanceEquation(pp.fluid_mass_balance.FluidMassBalanceEquations):
+class VarelaJNumBalanceEquation(pp.fluid_mass_balance.FluidMassBalanceEquations):
     """Modify balance equation to account for external sources."""
 
-    exact_sol: Varela2023JNumExactSolution2d
+    exact_sol: VarelaJNumExactSolution2d
     """Exact solution object."""
 
     def fluid_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -108,7 +108,7 @@ class Varela2023JNumBalanceEquation(pp.fluid_mass_balance.FluidMassBalanceEquati
         return source
 
 
-class Varela2023JNumSolutionStrategy(
+class VarelaJNumSolutionStrategy2D(
     pp.fluid_mass_balance.SolutionStrategySinglePhaseFlow
 ):
     """Modified solution strategy for the verification setup."""
@@ -116,7 +116,7 @@ class Varela2023JNumSolutionStrategy(
     mdg: pp.MixedDimensionalGrid
     """Mixed-dimensional grid."""
 
-    exact_sol: Varela2023JNumExactSolution2d
+    exact_sol: VarelaJNumExactSolution2d
     """Exact solution object."""
 
     fluid: pp.Fluid
@@ -133,7 +133,7 @@ class Varela2023JNumSolutionStrategy(
 
         super().__init__(params)
 
-        self.exact_sol: Varela2023JNumExactSolution2d
+        self.exact_sol: VarelaJNumExactSolution2d
         """Exact solution object."""
 
     def set_materials(self):
@@ -149,7 +149,7 @@ class Varela2023JNumSolutionStrategy(
         assert self.solid.normal_permeability == 0.5
 
         # Instantiate exact solution object after materials have been set
-        self.exact_sol = Varela2023JNumExactSolution2d()
+        self.exact_sol = VarelaJNumExactSolution2d()
 
     def after_simulation(self) -> None:
         """Method to be called after the simulation has finished."""
@@ -165,11 +165,11 @@ class Varela2023JNumSolutionStrategy(
         return False
 
 
-class VarelaJNum2023Setup(  # type: ignore[misc]
-    Varela2023JNumGeometry,
-    Varela2023JNumBalanceEquation,
-    Varela2023JNumBoundaryConditions,
-    Varela2023JNumSolutionStrategy,
+class VarelaJNumSetup2D(  # type: ignore[misc]
+    VarelaJNumGeometry2D,
+    VarelaJNumBalanceEquation,
+    VarelaJNumBoundaryConditions,
+    VarelaJNumSolutionStrategy2D,
     mdnme.ErrorEstimatesSaveData,
     pp.fluid_mass_balance.SinglePhaseFlow,
 ):

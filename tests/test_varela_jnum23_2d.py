@@ -1,6 +1,12 @@
 """
 This module contains hard-coded values of the errors associated to the coarser mesh
-used in the first numerical example from the paper.
+used in the two-dimensional validation from [1].
+
+References:
+-----------
+
+[1] Varela, et. al. 2023.
+
 """
 from __future__ import annotations
 
@@ -14,7 +20,7 @@ import mdnme
 from porepy.grids.mortar_grid import MortarSides
 
 from mdnme.examples.varela_jnum_2d.model import (
-    VarelaJNum2023Setup,
+    VarelaJNumSetup2D,
     manu_incomp_fluid,
     manu_incomp_solid,
 )
@@ -37,7 +43,7 @@ def test_example_1_with_mesh_size_0125() -> None:
     }
 
     # Run the model
-    setup = VarelaJNum2023Setup(params)
+    setup = VarelaJNumSetup2D(params)
     pp.run_time_dependent_model(setup, {})
     mdg = setup.mdg
 
@@ -101,7 +107,7 @@ def test_example_1_with_mesh_size_0125_nonmatching() -> None:
     }
 
     # Run the model
-    setup = VarelaJNum2023Setup(params)
+    setup = VarelaJNumSetup2D(params)
     pp.run_time_dependent_model(setup, {})
     mdg = setup.mdg
 
@@ -177,7 +183,7 @@ def test_non_matching_grids(intbound_cell_size, interface_cell_size, fracture_ce
         "non_matching_cell_sizes": coupling_triplet_cell_size,
         "times_to_export": [],  # Supress outputs for tests
     }
-    setup = VarelaJNum2023Setup(params)
+    setup = VarelaJNumSetup2D(params)
     setup.prepare_simulation()
     mdg = setup.mdg
 
@@ -240,7 +246,7 @@ def test_full_non_matching_side_grids(
         "full_non_matching_cell_sizes": coupling_quintuplet_cell_size,
         "supress_outputs_for_tests": [],  # Supress outputs for tests
     }
-    setup = VarelaJNum2023Setup(params)
+    setup = VarelaJNumSetup2D(params)
     setup.prepare_simulation()
     mdg = setup.mdg
 

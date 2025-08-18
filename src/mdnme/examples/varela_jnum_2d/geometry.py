@@ -17,7 +17,7 @@ import numpy as np
 import porepy as pp
 
 
-class Varela2023JNumGeometry:
+class VarelaJNumGeometry2D:
     """Generate fracture network and mixed-dimensional grid."""
 
     params: dict
