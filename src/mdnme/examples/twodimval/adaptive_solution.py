@@ -23,7 +23,7 @@ from mdnme.examples.varela_jnum_2d.model import (
     manu_incomp_fluid,
     manu_incomp_solid,
 )
-from mdnme.examples.varela_jnum_2d.true_errors import Varela2023JNumTrueErrors2d
+from mdnme.examples.varela_jnum_2d.true_errors import VarelaJNumTrueErrors2d
 
 from mdnme.porepy_interface.fem_grid_to_porepy_grid import fem_grid_to_sd_grid_2d, fem_grid_to_sd_grid_1d
 from mdnme.porepy_interface.porepy_grid_to_fem_grid import porepy_grid_to_fem_grid
