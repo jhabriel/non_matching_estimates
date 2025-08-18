@@ -52,7 +52,7 @@ class VarelaJNumSolutionStrategy3D(VarelaJNumSolutionStrategy2D):
 
 
 # -----> Mixer
-class VarelaJNum2023Setup3D(  # type: ignore[misc]
+class VarelaJNumSetup3D(  # type: ignore[misc]
     VarelaJNumGeometry3D,
     VarelaJNumSolutionStrategy3D,
     VarelaJNumSetup2D,
