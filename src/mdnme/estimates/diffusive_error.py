@@ -13,12 +13,12 @@ from __future__ import annotations
 
 from typing import Union
 
+import mdnme
 import numpy as np
 import porepy as pp
 import quadpy
 import scipy.sparse as sps
 
-import mdnme as amr
 
 
 def compute_diffusive_error(mdg: pp.MixedDimensionalGrid) -> None:
@@ -95,7 +95,7 @@ def subdomain_diffusive_error(sd: pp.Grid, d: dict) -> np.ndarray:
     k = np.reshape(perm_tensor[0][0], (sd.num_cells, 1))
 
     # Get QuadPy elements and declare integration method
-    elements = amr.utils.get_quadpy_elements(sd)
+    elements = mdnme.utils.get_quadpy_elements(sd)
     if sd.dim == 1:
         method = quadpy.c1.newton_cotes_closed(4)
     elif sd.dim == 2:
@@ -104,8 +104,8 @@ def subdomain_diffusive_error(sd: pp.Grid, d: dict) -> np.ndarray:
         method = quadpy.t3.get_good_scheme(4)
 
     # Obtain coefficients
-    p = amr.utils.poly2col(recon_p)
-    u = amr.utils.poly2col(recon_u)
+    p = mdnme.utils.poly2col(recon_p)
+    u = mdnme.utils.poly2col(recon_u)
 
     # Declare integrands and prepare for integration
     def integrand(x):
@@ -256,7 +256,7 @@ def _get_high_pressure_trace(
 
     """
 
-    def get_intf_lagrangian_coo(grid: Union[pp.Grid, amr.RotatedGrid]) -> np.ndarray:
+    def get_intf_lagrangian_coo(grid: Union[pp.Grid, mdnme.RotatedGrid]) -> np.ndarray:
         """Gets coordinates of the Lagrangian nodes of the internal higher-dim boundary.
 
         Parameters:
@@ -268,7 +268,7 @@ def _get_high_pressure_trace(
 
         """
         # Get nodes of the fracture faces
-        nodes_of_frac_faces = sps.find((sd_high.face_nodes.T)[frac_faces])[1].reshape(
+        nodes_of_frac_faces = sps.find(sd_high.face_nodes.T[frac_faces])[1].reshape(
             frac_faces.size, sd_high.dim
         )
 
@@ -278,8 +278,8 @@ def _get_high_pressure_trace(
         return lagran_coo
 
     # Rotate both grids, and obtain rotation matrix and effective dimension
-    gh_rot = amr.RotatedGrid(sd_high)
-    gl_rot = amr.RotatedGrid(sd_low)
+    gh_rot = mdnme.RotatedGrid(sd_high)
+    gl_rot = mdnme.RotatedGrid(sd_low)
     rotation_matrix = gl_rot.rotation_matrix
     dim_bool = gl_rot.dim_bool
 
@@ -288,7 +288,7 @@ def _get_high_pressure_trace(
 
     # Retrieve the coefficients of the polynomials corresponding to those cells
     if "recon_sd_pressure" in data_sd_high["estimates"]:
-        p_high = data_sd_high["estimates"]["recon_sd_pressure"]
+        p_high = data_sd_high["estimates"]["recon_sd_pressure"].copy()
     else:
         raise ValueError("Pressure must be reconstructed first")
     p_high = p_high[cells_of_frac_faces]
@@ -299,7 +299,7 @@ def _get_high_pressure_trace(
 
     # Evaluate the polynomials at the relevant Lagrangian nodes
     point_coo_rot = get_intf_lagrangian_coo(gh_rot)
-    point_val = amr.utils.evaluate_p1(p_high, point_coo_rot)
+    point_val = mdnme.utils.evaluate_p1(p_high, point_coo_rot)
 
     # Rotate the coordinates of the Lagrangian nodes w.r.t. the lower-dimensional grid
     point_coo = get_intf_lagrangian_coo(sd_high)
@@ -309,10 +309,10 @@ def _get_high_pressure_trace(
     point_edge_coo_rot = point_edge_coo_rot[dim_bool]
 
     # Construct a polynomial (of reduced dimensionality) using the rotated coo
-    trace_pressure = amr.utils.interpolate_p1(point_val, point_edge_coo_rot)
+    trace_pressure = mdnme.utils.interpolate_p1(point_val, point_edge_coo_rot)
 
     # Test if the values of the original polynomial match the new one
-    point_val_rot = amr.utils.evaluate_p1(trace_pressure, point_edge_coo_rot)
+    point_val_rot = mdnme.utils.evaluate_p1(trace_pressure, point_edge_coo_rot)
     np.testing.assert_almost_equal(point_val, point_val_rot, decimal=12)
 
     return trace_pressure
@@ -439,7 +439,7 @@ def _interface_diffusive_error_0d(
     frac_cells = sps.find(intf.secondary_to_mortar_avg())[1]
 
     # Rotate 1d-grid
-    sd_rot = amr.RotatedGrid(sd_high)
+    sd_rot = mdnme.RotatedGrid(sd_high)
 
     # Obtain the trace of the pressure of the 1D grid
     cells_of_frac_faces = sps.find(sd_high.cell_faces[frac_faces])[1]
@@ -447,7 +447,7 @@ def _interface_diffusive_error_0d(
     p_1d = p_1d[cells_of_frac_faces]
     coo_frac_faces = sd_rot.face_centers[:, frac_faces].T
     coo_frac_faces = coo_frac_faces[np.newaxis, :, :]
-    trace_p = amr.utils.evaluate_p1(p_1d, coo_frac_faces).flatten()
+    trace_p = mdnme.utils.evaluate_p1(p_1d, coo_frac_faces).flatten()
 
     # Obtain the pressure of the 0D grid
     p_0d = data_low["estimates"]["recon_sd_pressure"]
@@ -517,7 +517,7 @@ def _interface_diffusive_error_1d(
         sidegrid = side_tuple[1]
 
         # Obtain quadpy elements
-        elements = amr.utils.get_quadpy_elements(sidegrid)
+        elements = mdnme.utils.get_quadpy_elements(sidegrid)
 
         # Project relevant quantities to the side grid
         deltap_side = projector * deltap
@@ -527,7 +527,7 @@ def _interface_diffusive_error_1d(
         # Declare integrand
         def integrand(x):
             coors = x[np.newaxis, :, :]  # add new axis, this is needed for 1D grids
-            p_jump = amr.utils.evaluate_p1(deltap_side, coors)
+            p_jump = mdnme.utils.evaluate_p1(deltap_side, coors)
             return (k_side ** (-0.5) * normalvel_side + k_side**0.5 * p_jump) ** 2
 
         # Compute integral
@@ -632,7 +632,7 @@ def _interface_diffusive_error_2d(
         sidegrid = side_tuple[1]
 
         # Obtain quadpy elements
-        elements = amr.utils.get_quadpy_elements(sidegrid)
+        elements = mdnme.utils.get_quadpy_elements(sidegrid)
 
         # Project relevant quantities to the side grid
         deltap_side = projector * deltap
@@ -641,7 +641,7 @@ def _interface_diffusive_error_2d(
 
         # Declare integrand
         def integrand(x):
-            p_jump = amr.utils.evaluate_p1(deltap_side, x)
+            p_jump = mdnme.utils.evaluate_p1(deltap_side, x)
             return (k_side ** (-0.5) * normalvel_side + k_side**0.5 * p_jump) ** 2
 
         # Compute integral
