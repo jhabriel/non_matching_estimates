@@ -19,17 +19,46 @@ import mdnme
 
 from porepy.grids.mortar_grid import MortarSides
 
+from mdnme.examples.varela_jnum_3d.model import VarelaJNumSetup3D
 from mdnme.examples.varela_jnum_2d.model import (
-    VarelaJNumSetup2D,
     manu_incomp_fluid,
     manu_incomp_solid,
-)
-from mdnme.examples.varela_jnum_2d.true_errors import Varela2023JNumTrueErrors2d
+    )
+from mdnme.examples.varela_jnum_3d.true_errors import VarelaJNumTrueErrors3D
 
 
-def test_example_1_with_mesh_size_0125() -> None:
+@pytest.fixture(scope="module")
+def material_constants() -> dict:
+    """Define material constants used throughout the tests."""
+    solid_constants = pp.SolidConstants(**manu_incomp_solid)
+    fluid_constants = pp.FluidComponent(**manu_incomp_fluid)
+    return {"solid": solid_constants, "fluid": fluid_constants}
+
+
+def test_model_pre_simulation(material_constants) -> None:
+    """Test whether the model is correctly set up before running the simulation."""
+    params = {
+        "grid_type": "simplex",
+        "material_constants": material_constants,
+        "meshing_arguments": {"cell_size": 0.125},
+        "times_to_export": [],  # Supress outputs for tests
+    }
+    setup = VarelaJNumSetup3D(params)
+    setup.prepare_simulation()
+    assert True
+
+def test_model_post_simulation() -> None:
+    """We check whether the model does not crash"""
+
+
+def test_error_estimates_matching_grid_cell_size_0125() -> None:
+    ...
+
+
+def test_matching_mesh_size_0125() -> None:
     """
-    Test whether we obtain the majorant and true errors for the first example.
+    Test whether we obtain the majorant and true errors for a matching
+    mixed-dimensional grid with h = 0.125.
 
     """
     solid_constants = pp.SolidConstants(**manu_incomp_solid)
@@ -43,7 +72,7 @@ def test_example_1_with_mesh_size_0125() -> None:
     }
 
     # Run the model
-    setup = VarelaJNumSetup2D(params)
+    setup = VarelaJNumSetup3D(params)
     pp.run_time_dependent_model(setup, {})
     mdg = setup.mdg
 
@@ -80,7 +109,7 @@ def test_example_1_with_mesh_size_0125() -> None:
 
     # Majorant, true error, and efficiency index
     majorant = diffusive_error + residual_error
-    te = Varela2023JNumTrueErrors2d()
+    te = VarelaJNumTrueErrors3D()
     true_error = te.true_error(mdg)
     efficiency_index = majorant / true_error
 
@@ -107,7 +136,7 @@ def test_example_1_with_mesh_size_0125_nonmatching() -> None:
     }
 
     # Run the model
-    setup = VarelaJNumSetup2D(params)
+    setup = VarelaJNumSetup3D(params)
     pp.run_time_dependent_model(setup, {})
     mdg = setup.mdg
 
@@ -144,7 +173,7 @@ def test_example_1_with_mesh_size_0125_nonmatching() -> None:
 
     # Majorant, true error, and efficiency index
     majorant = diffusive_error + residual_error
-    te = Varela2023JNumTrueErrors2d()
+    te = VarelaJNumTrueErrors3D()
     true_error = te.true_error(mdg)
     efficiency_index = majorant / true_error
 
@@ -183,7 +212,7 @@ def test_non_matching_grids(intbound_cell_size, interface_cell_size, fracture_ce
         "non_matching_cell_sizes": coupling_triplet_cell_size,
         "times_to_export": [],  # Supress outputs for tests
     }
-    setup = VarelaJNumSetup2D(params)
+    setup = VarelaJNumSetup3D(params)
     setup.prepare_simulation()
     mdg = setup.mdg
 
@@ -246,7 +275,7 @@ def test_full_non_matching_side_grids(
         "full_non_matching_cell_sizes": coupling_quintuplet_cell_size,
         "supress_outputs_for_tests": [],  # Supress outputs for tests
     }
-    setup = VarelaJNumSetup2D(params)
+    setup = VarelaJNumSetup3D(params)
     setup.prepare_simulation()
     mdg = setup.mdg
 
