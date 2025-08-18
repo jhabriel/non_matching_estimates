@@ -485,3 +485,106 @@ class VarelaJNumExactSolution3D:
         integral = int_method.integrate(integrand, elements)
 
         return integral
+
+    def residual_error_matrix(self, sd_matrix: pp.Grid, d_matrix: dict) -> np.ndarray:
+        """Compute square of residual errors for the (3D) host domain.
+
+        Parameters:
+            sd_matrix: Matrix grid.
+            d_matrix: Dictionary containing the post-processed data. In particular,
+                      we expect the field ``d_matrix["estimates"]["recon_sd_flux"]``
+                      to be accessible.
+
+        Returns:
+            Array of ``shape=(sd_matrix.num_cells, )`` containing the difference
+            between the divergence of the reconstructed flux and the source term.
+
+        Note:
+            - We use a numerical integration scheme that is accurate for polynomials
+              up to degree 10.
+
+        """
+
+        # Symbolic variables
+        x, y, z = sym.symbols("x y z")
+
+        # Get list of cell indices
+        cell_idx = self.get_region_indices(where="cc")
+
+        # Lambdify expression
+        f_fun = [sym.lambdify((x, y, z), f, "numpy") for f in self.f_matrix]
+
+        # Retrieve reconstructed subdomain flux and manually compute its divergence
+        recon_u = d_matrix["estimates"]["recon_sd_flux"].copy()  # copy just in case
+        u = mdnme.utils.poly2col(recon_u)
+        div_u = 2 * u[0]
+
+        # Integration method and retrieving elements
+        int_method = quadpy.t2.get_good_scheme(10)
+        elements = mdnme.utils.get_quadpy_elements(sd_matrix)
+
+        # Local Poincare weights
+        weights = (sd_matrix.cell_diameters() / np.pi) ** 2
+
+        # Compute the integrals
+        integral = np.zeros(sd_matrix.num_cells)
+        for f, idx in zip(f_fun, cell_idx):
+            # Declare integrand
+            def integrand(x):
+                return (f(x[0], x[1]) * np.ones_like(x[0]) - div_u) ** 2
+
+            # Integrate, and add the contribution of each subregion
+            integral += int_method.integrate(integrand, elements) * idx
+
+        return weights * integral
+
+    def residual_error_fracture(self, sd_frac: pp.Grid, d_frac: dict) -> np.ndarray:
+        """Compute square of residual errors for the fracture (2D) grio.
+
+        Parameters:
+            sd_frac:  Fracture grid.
+            d_frac:   Dictionary containing the post-processed data. In particular,
+                      we expect the fields ``d_frac["estimates"]["recon_sd_flux"]``
+                      and ``d_frac["estimates"]["sources_from_intf"]`` to be accessible.
+
+        Returns:
+            Array of ``shape=(sd_matrix.num_cells, )`` containing the difference
+            between the divergence of the reconstructed flux and the source term.
+
+        Note:
+            - We use a numerical integration scheme that is accurate for polynomials
+              up to degree 10.
+        """
+
+        # Retrieve reconstructed velocity and compute its divergence
+        recon_u = d_frac["estimates"]["recon_sd_flux"].copy()
+        u = mdnme.utils.poly2col(recon_u)  # coefficients of the reconstructed flux
+        div_u = 2 * u[0]  # divergence of the reconstructed flux
+
+        # Contribution from interface fluid fluxes to mass balance equation
+        sources_from_intf = d_frac["estimates"]["sources_from_intf"].copy()
+
+        # Integration method and retrieving elements
+        y, z = sym.symbols("y z")
+
+        # Lambdify expression
+        f_fun = sym.lambdify((y, z), self.f_frac, "numpy")
+
+        method = quadpy.t2.get_good_scheme(10)
+        sd_rot = mdnme.RotatedGrid(sd_frac)
+        elements = mdnme.utils.get_quadpy_elements(sd_frac, sd_rot)
+        elements *= -1  # we have to use the physical coordinates here
+        # TODO: Check whether the above line is achieving the correct results
+
+        # Local Poincare weights
+        weights = (sd_frac.cell_diameters() / np.pi) ** 2
+
+        # Compute the integrals
+        def integrand(x):
+            return (f_fun(x[0], x[1]) - div_u + sources_from_intf) ** 2
+
+        integral = method.integrate(integrand, elements)
+
+        return weights * integral
+
+
