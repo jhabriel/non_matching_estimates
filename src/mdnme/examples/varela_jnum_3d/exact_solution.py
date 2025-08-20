@@ -41,7 +41,7 @@ class VarelaJNumExactSolution3D:
             ((x - 0.5) ** 2 + (y - 0.75) ** 2 + (z - 0.75) ** 2) ** 0.5,  # top back
         ]
         bubble_fun = (
-            1e6 * (y - 0.25) ** 2 * (y - 0.75) ** 2 * (z - 0.25) ** 2 * (z - 0.75) ** 2
+            (y - 0.25) ** 2 * (y - 0.75) ** 2 * (z - 0.25) ** 2 * (z - 0.75) ** 2
         )
 
         # Exact pressure in the matrix
@@ -248,33 +248,6 @@ class VarelaJNumExactSolution3D:
 
         return q_fc
 
-    def matrix_source(self, sd_matrix: pp.Grid) -> np.ndarray:
-        """Compute exact integrated matrix source.
-
-        Parameters:
-            sd_matrix: Matrix grid.
-
-        Returns:
-            Array of ``shape=(sd_matrix.num_cells, )`` containing the exact integrated
-            sources.
-
-        """
-        # Symbolic variables
-        x, y, z = sym.symbols("x y z")
-        cc = sd_matrix.cell_centers
-        cell_idx = self.get_region_indices(where="cc")
-
-        # Lambdify expression
-        f_fun = [sym.lambdify((x, y, z), f, "numpy") for f in self.f_matrix]
-
-        # Integrated cell-centered sources
-        vol = sd_matrix.cell_volumes
-        f_cc = np.zeros(sd_matrix.num_cells)
-        for f, idx in zip(f_fun, cell_idx):
-            f_cc += f(cc[0], cc[1], cc[2]) * vol * idx
-
-        return f_cc
-
     def fracture_pressure(self, sd_frac: pp.Grid) -> np.ndarray:
         """Evaluate exact fracture pressure at the cell centers.
 
@@ -331,32 +304,6 @@ class VarelaJNumExactSolution3D:
         q_fc = q_fun[0](fc[1], fc[2]) * fn[1] + q_fun[1](fc[1], fc[2]) * fn[2]
 
         return q_fc
-
-    def fracture_source(self, sd_frac: pp.Grid) -> np.ndarray:
-        """Compute exact integrated fracture source.
-
-        Parameters:
-            sd_frac: Fracture grid.
-
-        Returns:
-            Array of ``shape=(sd_frac.num_cells, )`` containing the exact integrated
-            sources.
-
-        """
-        # Symbolic variable
-        y, z = sym.symbols("y z")
-
-        # Cell centers and volumes
-        cc = sd_frac.cell_centers
-        vol = sd_frac.cell_volumes
-
-        # Lambdify expression
-        f_fun = sym.lambdify((y, z), self.f_frac, "numpy")
-
-        # Evaluate and integrate
-        f_cc = f_fun(cc[1], cc[2]) * vol
-
-        return f_cc
 
     def interface_flux(self, intf: pp.MortarGrid) -> np.ndarray:
         """Compute exact mortar fluxes at the interface.
@@ -444,7 +391,7 @@ class VarelaJNumExactSolution3D:
         integral = np.zeros(sd_matrix.num_cells)
         for f, idx in zip(f_fun, cell_idx):
             # Declare integrand
-            def integrand(x):
+            def integrand(x: np.ndarray) -> np.ndarray:
                 return f(x[0], x[1], x[2]) * np.ones_like(x[0])
 
             # Integrate, and add the contribution of each subregion
@@ -472,17 +419,36 @@ class VarelaJNumExactSolution3D:
         # Lambdify expression
         f_fun = sym.lambdify((y, z), self.f_frac, "numpy")
 
-        # Declare integration method and get hold of elements in QuadPy format
-        int_method = quadpy.t2.get_good_scheme(10)
+        # Obtain elements and declare integration method
         sd_rot = mdnme.RotatedGrid(sd_frac)
+        method = quadpy.t2.get_good_scheme(10)
         elements = mdnme.utils.get_quadpy_elements(sd_frac, sd_rot)
-        elements *= -1  # use real coordinates
-        # TODO: Check the implications of above line
+
+        # Now we have to make sure we retrieve the correct physical coordinates
+        # in reduced dimension.
+
+        # We first check if we need to multiply the `elements` by -1 or not.
+        if not np.all(np.sign(elements)):
+            elements *= -1
+
+        # Now we need retrieve the correct indices of the coordinate dimensions
+        check = np.allclose(
+            np.abs(sd_frac.cell_centers[1]),
+            np.abs(sd_rot.cell_centers[0]),
+            atol=1e-8,
+            rtol=1e-5,
+        )
+        if check:
+            ydim = 0  # y is the first reduced dimension
+            zdim = 1  # z is the second reduced dimension
+        else:
+            ydim = 1  # y is the second reduced dimension
+            zdim = 0  # z is the first reduced dimension
 
         def integrand(x):
-            return f_fun(x[0], x[1])
+            return f_fun(x[ydim], x[zdim])
 
-        integral = int_method.integrate(integrand, elements)
+        integral = method.integrate(integrand, elements)
 
         return integral
 
@@ -517,7 +483,7 @@ class VarelaJNumExactSolution3D:
         # Retrieve reconstructed subdomain flux and manually compute its divergence
         recon_u = d_matrix["estimates"]["recon_sd_flux"].copy()  # copy just in case
         u = mdnme.utils.poly2col(recon_u)
-        div_u = 2 * u[0]
+        div_u = 3 * u[0]
 
         # Integration method and retrieving elements
         int_method = quadpy.t3.get_good_scheme(10)
@@ -555,6 +521,8 @@ class VarelaJNumExactSolution3D:
             - We use a numerical integration scheme that is accurate for polynomials
               up to degree 10.
         """
+        # Integration method and retrieving elements
+        y, z = sym.symbols("y z")
 
         # Retrieve reconstructed velocity and compute its divergence
         recon_u = d_frac["estimates"]["recon_sd_flux"].copy()
@@ -564,27 +532,42 @@ class VarelaJNumExactSolution3D:
         # Contribution from interface fluid fluxes to mass balance equation
         sources_from_intf = d_frac["estimates"]["sources_from_intf"].copy()
 
-        # Integration method and retrieving elements
-        y, z = sym.symbols("y z")
-
         # Lambdify expression
         f_fun = sym.lambdify((y, z), self.f_frac, "numpy")
 
-        method = quadpy.t2.get_good_scheme(10)
+        # Now we have to make sure we retrieve the correct physical coordinates
+        # in reduced dimension.
+
+        # Obtain elements and declare integration method
         sd_rot = mdnme.RotatedGrid(sd_frac)
+        method = quadpy.t2.get_good_scheme(10)
         elements = mdnme.utils.get_quadpy_elements(sd_frac, sd_rot)
-        elements *= -1  # we have to use the physical coordinates here
-        # TODO: Check whether the above line is achieving the correct results
+
+        # We first check if we need to multiply the `elements` by -1 or not.
+        if not np.all(np.sign(elements)):
+            elements *= -1
+
+        # Now we need retrieve the correct indices of the coordinate dimensions
+        check = np.allclose(
+            np.abs(sd_frac.cell_centers[1]),
+            np.abs(sd_rot.cell_centers[0]),
+            atol=1e-8,
+            rtol=1e-5,
+        )
+        if check:
+            ydim = 0  # y is the first reduced dimension
+            zdim = 1  # z is the second reduced dimension
+        else:
+            ydim = 1  # y is the second reduced dimension
+            zdim = 0  # z is the first reduced dimension
 
         # Local Poincare weights
         weights = (sd_frac.cell_diameters() / np.pi) ** 2
 
         # Compute the integrals
         def integrand(x):
-            return (f_fun(x[0], x[1]) - div_u + sources_from_intf) ** 2
+            return (f_fun(x[ydim], x[zdim]) - div_u + sources_from_intf) ** 2
 
         integral = method.integrate(integrand, elements)
 
         return weights * integral
-
-
