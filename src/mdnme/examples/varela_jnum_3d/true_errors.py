@@ -52,7 +52,7 @@ class VarelaJNumTrueErrors3D(VarelaJNumExactSolution3D):
         """
         # Retrieve matrix grid and its dictionary
         mdg: pp.MixedDimensionalGrid = self.model.mdg
-        sd_matrix, d_matrix = mdg.subdomains(return_data=True)[0]
+        sd_matrix, d_matrix = mdg.subdomains(return_data=True, dim=3)[0]
 
         # Retrieve indices
         cell_idx = self.get_region_indices(where="cc")
@@ -88,7 +88,7 @@ class VarelaJNumTrueErrors3D(VarelaJNumExactSolution3D):
         integral = np.zeros(sd_matrix.num_cells)
         for gradp, idx in zip(grad_p_matrix_fun, cell_idx):
             # Declare integrand and add subregion contribution
-            def integrand(x):
+            def integrand(x: np.ndarray) -> np.ndarray:
                 # Exact pressure gradient in x, y and z
                 gradp_exact_x = gradp[0](x[0], x[1], x[2])
                 gradp_exact_y = gradp[1](x[0], x[1], x[2])
@@ -122,7 +122,7 @@ class VarelaJNumTrueErrors3D(VarelaJNumExactSolution3D):
 
         """
         mdg = self.model.mdg
-        sd_frac, d_frac = mdg.subdomains(return_data=True)[1]
+        sd_frac, d_frac = mdg.subdomains(return_data=True, dim=2)[0]
         sd_rot = mdnme.RotatedGrid(sd_frac)
 
         # Declare symbolic variables
@@ -144,16 +144,34 @@ class VarelaJNumTrueErrors3D(VarelaJNumExactSolution3D):
         # Obtain elements and declare integration method
         method = quadpy.t2.get_good_scheme(10)
         elements = mdnme.utils.get_quadpy_elements(sd_frac, sd_rot)
-        elements *= -1  # we have to use the physical coordinates here
+        num_cells = sd_frac.num_cells
 
+        # Mapping from rotated to physical coordinates
+        active = np.where(sd_rot.dim_bool)[0]
+        inactive = np.where(~sd_rot.dim_bool)[0][0]
+        P_yz = np.array([[0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])
+        R = sd_rot.rotation_matrix
+        T_yz = P_yz @ R.T[:, active]
+        rot_cc_full = R @ sd_frac.cell_centers
+        c_vec = rot_cc_full[inactive, :]
+        n_yz = (P_yz @ R.T[:, inactive]).reshape(2, 1)
+        b_yz = n_yz @ c_vec.reshape(1, num_cells)
+
+        # Now we need retrieve the correct indices of the coordinate dimensions
         # Compute true error
-        def integrand(x):
+        def integrand(x: np.ndarray) -> np.ndarray:
+            # Reconstructed gradients
+            gradp_recon_y = pr[0] * np.ones_like(x[0])
+            gradp_recon_z = pr[1] * np.ones_like(x[0])
+
             # Exact pressure gradient
-            gradp_exact_rot_y = -grad_p_frac_fun[0](x[0], x[1])  # -1 due to rotation
-            gradp_exact_rot_z = -grad_p_frac_fun[1](x[0], x[1])  # -1 due to rotation
-            # Reconstructed pressure gradients
-            gradp_recon_y = pr[1] * np.ones_like(x[0])
-            gradp_recon_z = pr[2] * np.ones_like(x[0])
+            yz = np.einsum('ab,bnm->anm', T_yz, x) + b_yz[:, :, None]
+            gradp_exact_y = grad_p_frac_fun[0](yz[0], yz[1])
+            gradp_exact_z = grad_p_frac_fun[1](yz[0], yz[1])
+            # Now project to rotated basis
+            Ty = T_yz.T  # (2,2)
+            gradp_exact_rot_y = Ty[0, 0] * gradp_exact_y + Ty[0, 1] * gradp_exact_z
+            gradp_exact_rot_z = Ty[1, 0] * gradp_exact_y + Ty[1, 1] * gradp_exact_z
             # Integral
             int_y = (gradp_exact_rot_y - gradp_recon_y) ** 2
             int_z = (gradp_exact_rot_z - gradp_recon_z) ** 2
@@ -205,12 +223,24 @@ class VarelaJNumTrueErrors3D(VarelaJNumExactSolution3D):
             # Get projector and sidegrid object
             projector = side[0]
             sidegrid = side[1]
-
-            # Declare integration method
-            method = quadpy.t2.get_good_scheme(10)
             sidegrid_rot = mdnme.RotatedGrid(sidegrid)
+
+            # Obtain elements and declare integration method
+            method = quadpy.t2.get_good_scheme(10)
             elements = mdnme.utils.get_quadpy_elements(sidegrid, sidegrid_rot)
-            elements *= -1  # We need to use real coordinates
+
+            # 3b) Map rotated -> physical (y,z): y,z = T_yz @ xi + b_yz
+            R = sidegrid_rot.rotation_matrix  # x_rot = R @ x_phys
+            active = np.where(sidegrid_rot.dim_bool)[0]  # two in-plane indices
+            inactive = np.where(~sidegrid_rot.dim_bool)[0][0]  # one normal index
+            P_yz = np.array([[0.0, 1.0, 0.0],
+                             [0.0, 0.0, 1.0]])
+            T_yz = P_yz @ R.T[:, active]  # (2,2)
+
+            rot_cc_full = R @ sidegrid.cell_centers  # (3, N)
+            c_vec = rot_cc_full[inactive, :]  # (N,)
+            n_yz = (P_yz @ R.T[:, inactive]).reshape(2, 1)  # (2,1)
+            b_yz = n_yz @ c_vec.reshape(1, sidegrid.num_cells)  # (2, N)
 
             # Project relevant quantities to the side grid
             recon_deltap_side = projector * recon_deltap
@@ -222,11 +252,13 @@ class VarelaJNumTrueErrors3D(VarelaJNumExactSolution3D):
 
             # Declare integrand
             def integrand(x: np.ndarray) -> np.ndarray:
-                recon_p_jump = mdnme.utils.evaluate_p1(
-                    recon_deltap_side,
-                    -x,  # negate due to rotation
-                )
-                return (exact_deltap_side(x[0], x[1]) - recon_p_jump) ** 2
+                # Evaluate reconstructed pressure jump at quadrature points
+                c = mdnme.utils.poly2col(recon_deltap_side)
+                recon_p_jump = c[0] * x[0] + c[1] * x[1] + c[2]
+                # Evaluate exact pressure jump at quadrature points
+                yz = np.einsum('ab,bnm->anm', T_yz, x) + b_yz[:, :, None]  # (2, N, M)
+                exact_jump = exact_deltap_side(yz[0], yz[1])  # (N, M)
+                return (exact_jump - recon_p_jump) ** 2
 
             # Compute integral
             diffusive_error_side = method.integrate(integrand, elements)
