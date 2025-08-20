@@ -35,6 +35,27 @@ def material_constants() -> dict:
     return {"solid": solid_constants, "fluid": fluid_constants}
 
 
+@pytest.fixture(scope="module")
+def desired_errors_matching_grids() -> list[dict]:
+    """Hardcoded values of desired errors."""
+    desired_errors_025 = {
+        'majorant': 0.2553744582135114,
+        'true_error': 0.21754078829532522,
+        'eff_idx': 1.173915292918883,
+    }
+    desired_errors_0125 = {
+        'majorant': 0.16947899720717424,
+        'true_error': 0.15259723183109286,
+        'eff_idx': 1.1106295649895372,
+    }
+    desired_errors_00625 = {
+        'majorant': 0.11887565856452474,
+        'true_error': 0.11314512602221603,
+        'eff_idx': 1.0506476305588588,
+    }
+    return [desired_errors_025, desired_errors_0125, desired_errors_00625]
+
+
 def test_model_pre_simulation(material_constants: dict) -> None:
     """Test whether the model is correctly set up before running the simulation."""
     params = {
@@ -59,14 +80,19 @@ def test_model_post_simulation(material_constants: dict) -> None:
     pp.run_time_dependent_model(setup, {})
 
 
-def test_error_estimates_matching_grids(material_constants: dict) -> None:
+@pytest.mark.parametrize('cell_size', [0.25, 0.125, 0.0625])
+def test_error_estimates_matching_grids(
+        material_constants: dict,
+        desired_errors_matching_grids: list[dict],
+        cell_size: float
+        ) -> None:
     """Test error estimates for a sequence of matching grids."""
 
     # Set up and run the model
     params = {
         "grid_type": "simplex",
         "material_constants": material_constants,
-        "meshing_arguments": {"cell_size": 0.125},
+        "meshing_arguments": {"cell_size": cell_size},
         "times_to_export": [],  # Supress outputs for tests
     }
     setup = VarelaJNumSetup3D(params)
@@ -108,10 +134,22 @@ def test_error_estimates_matching_grids(material_constants: dict) -> None:
     majorant = diffusive_error + residual_error
     te = VarelaJNumTrueErrors3D(setup)
     true_error = te.true_error()
-    efficiency_index = majorant / true_error
+    eff_idx = majorant / true_error
 
-    # Check against known values
-    # np.testing.assert_allclose(majorant, 0.11336778184222394)
-    # np.testing.assert_allclose(true_error, 0.10057203148161831)
-    # np.testing.assert_allclose(efficiency_index, 1.1272297096130979)
-    assert True
+    # Check against desired values
+    if cell_size == 0.25:
+        check_idx = 0
+    elif cell_size == 0.125:
+        check_idx = 1
+    else:
+        check_idx = 2
+
+    # Retrieved desired values
+    majorant_desired = desired_errors_matching_grids[check_idx]['majorant']
+    true_error_desired = desired_errors_matching_grids[check_idx]['true_error']
+    eff_idx_desired = desired_errors_matching_grids[check_idx]['eff_idx']
+
+    # Assert
+    assert np.isclose(majorant, majorant_desired, 1e-5, 1e-4)
+    assert np.isclose(true_error, true_error_desired, 1e-5, 1e-4)
+    assert np.isclose(eff_idx, eff_idx_desired, 1e-5, 1e-4)
