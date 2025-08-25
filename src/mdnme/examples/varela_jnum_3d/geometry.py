@@ -16,6 +16,7 @@ import numpy as np
 import porepy as pp
 
 from porepy.applications.md_grids.domains import nd_cube_domain
+from porepy.grids.refinement import GridSequenceFactory
 
 
 # class VarelaJNumGeometry3D:
@@ -502,3 +503,104 @@ class VarelaJNumGeometry3D:
         if self.grid_type() == "simplex":
             kw_args.update({"constraints": np.arange(1, 25)})
         return kw_args
+
+    def set_geometry(self) -> None:
+
+        # Create the geometry through domain and fracture set.
+        self.set_domain()
+        self.set_fractures()
+
+        # Create a fracture network.
+        self.fracture_network = pp.create_fracture_network(
+            self.fractures,
+            self.domain
+        )
+
+        # Check if we should build a matching or a non-matching mixed-dimensional grid
+        if self.params.get("non_matching") is not None:
+            if self.params.get("non_matching"):
+                is_nonmatching = True
+            else:
+                is_nonmatching = False
+        else:
+            is_nonmatching = False
+
+        # Produce mdg
+        if is_nonmatching:
+            # Refinements
+            refine_fracture = self.params.get("refine_fracture", True)
+            refine_mortar = self.params.get("refine_mortar", False)
+
+            # Obtain GridSequenceFactory parameters from standard API
+            mesh_size_bound = self.params["meshing_arguments"]["cell_size"]
+            mesh_size_frac = self.params["meshing_arguments"].get(
+                'cell_size_fracture', mesh_size_bound
+            )
+            mesh_size_min = self.params["meshing_arguments"].get(
+                'cell_size_min', 0.05*mesh_size_bound
+            )
+
+            grid_sequence_params = {
+                'mode': 'nested',
+                'num_refinements': 2,
+                'mesh_param': {
+                    "mesh_size_bound": mesh_size_bound,
+                    "mesh_size_frac": mesh_size_frac,
+                    "mesh_size_min": mesh_size_min,
+                },
+                'grid_param': self.meshing_kwargs(),
+            }
+
+            factory = GridSequenceFactory(
+                self.fracture_network,
+                grid_sequence_params,
+            )
+            mdgs = list(factory)
+            mdg_coarse = mdgs[0]
+            mdg_fine = mdgs[1]
+
+            # Replace grids
+            if refine_fracture and not refine_mortar:
+                mdg_coarse.replace_subdomains_and_interfaces(
+                    sd_map={
+                        mdg_coarse.subdomains(dim=2)[0]: mdg_fine.subdomains(dim=2)[0]
+                    }
+                )
+            elif refine_mortar and not refine_fracture:
+                mdg_coarse.replace_subdomains_and_interfaces(
+                    interface_map={
+                        mdg_coarse.interfaces(dim=2)[0]: mdg_fine.interfaces(dim=2)[0]
+                    }
+                )
+            else:
+                mdg_coarse.replace_subdomains_and_interfaces(
+                    sd_map={
+                        mdg_coarse.subdomains(dim=2)[0]: mdg_fine.subdomains(dim=2)[0]
+                    },
+                    interface_map={
+                        mdg_coarse.interfaces(dim=2)[0]: mdg_fine.interfaces(dim=2)[0]
+                    }
+                )
+            mdg_final = mdg_coarse
+
+            for sd in mdg_final.subdomains():
+                bg = mdg_final.subdomain_to_boundary_grid(sd)
+                bg.compute_geometry()
+
+        else:
+            # The mdg is matching, and we create the mdg in the usual way
+            mdg_final = pp.create_mdg(
+                self.grid_type(),
+                self.meshing_arguments(),
+                self.fracture_network,
+                **self.meshing_kwargs(),
+            )
+
+        # Finally, we have our mdg
+        self.mdg = mdg_final
+
+        # Dimensionality of highest-dimensional manifold
+        self.nd: int = self.mdg.dim_max()
+
+        # Create projections between local and global coordinates for fracture grids.
+        pp.set_local_coordinate_projections(self.mdg)

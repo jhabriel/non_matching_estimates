@@ -20,7 +20,6 @@ import quadpy
 import scipy.sparse as sps
 
 
-
 def compute_diffusive_error(mdg: pp.MixedDimensionalGrid) -> None:
     """Computes square of the diffusive flux error in all the mixed-dimensional grid.
 

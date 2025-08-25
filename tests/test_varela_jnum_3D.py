@@ -181,7 +181,7 @@ def test_error_estimates_matching_grids(
     assert np.isclose(eff_idx, eff_idx_desired, 1e-5, 1e-4)
 
 
-def test_non_matching_assembly_3d(grid_sequence):
+def test_replace_grids_only_frac(grid_sequence):
     """Checks whether a non-matching grid is correctly assembled."""
 
     mdg_coarse = grid_sequence[0]
@@ -198,3 +198,41 @@ def test_non_matching_assembly_3d(grid_sequence):
     assert mdg_coarse.subdomains(dim=3)[0].num_cells == sd_matrix_coarse.num_cells
     assert mdg_coarse.subdomains(dim=2)[0].num_cells == sd_frac_fine.num_cells
     assert mdg_coarse.interfaces(dim=2)[0].num_cells == intf_coarse.num_cells
+
+
+# TODO: Parametrize for cell-size afterwards ...
+def test_non_matching_setup_via_parameters(material_constants) -> None:
+    """Checks whether the non-matching model sets up correctly."""
+    params = {
+        "grid_type": "simplex",
+        "material_constants": material_constants,
+        "meshing_arguments": {"cell_size": 0.25},
+        "non_matching": True,
+        "refine_fracture": True,
+        "times_to_export": [],  # Supress outputs for tests
+    }
+    setup = VarelaJNumSetup3D(params)
+    pp.run_time_dependent_model(setup, {})
+
+# TODO: TOMORROW: Error estimates for non-matching grids...
+# Main idea:
+# (i) Subdomain don't suffer any chance here ...
+# (ii) Interface diffusive error estimators must be re-written. We will nee to
+# measure the error in each side grid. To this aim, we reconstruct the pressure at
+# the internal boundary (pressure trace) and project onto the transfer grid,
+# whereupon is projected onto the sidegrid via the Scott-Zhang quasi-interpolator.
+# This should be quite feasible. The only "impact" we are going to have is the one
+# from the diffusive interface errors. How does that sound?
+
+
+
+
+
+
+
+
+
+
+
+
+
