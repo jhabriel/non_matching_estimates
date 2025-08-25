@@ -18,6 +18,7 @@ import pytest
 import mdnme
 
 from porepy.grids.mortar_grid import MortarSides
+from porepy.grids.refinement import GridSequenceFactory
 
 from mdnme.examples.varela_jnum_3d.model import VarelaJNumSetup3D
 from mdnme.examples.varela_jnum_2d.model import (
@@ -25,6 +26,31 @@ from mdnme.examples.varela_jnum_2d.model import (
     manu_incomp_solid,
     )
 from mdnme.examples.varela_jnum_3d.true_errors import VarelaJNumTrueErrors3D
+
+
+@pytest.fixture(scope="module")
+def grid_sequence() -> list[pp.MixedDimensionalGrid]:
+    """Create an mdg sequence of refined grids."""
+    domain = pp.Domain(
+        {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1})
+    frac = pp.PlaneFracture(np.array([
+        [0.50, 0.50, 0.50, 0.50],
+        [0.25, 0.75, 0.75, 0.25],
+        [0.25, 0.25, 0.75, 0.75],
+    ]))
+    fn = pp.create_fracture_network([frac], domain)
+
+    mesh_args = {  # coarsish base; factory will refine
+        "mesh_size_bound": 0.4,
+        "mesh_size_frac": 0.4,
+        "mesh_size_min": 0.01,
+    }
+    params = {"mode": "nested", "num_refinements": 2, "mesh_param": mesh_args}
+    factory = GridSequenceFactory(fn, params)
+    mdgs = list(factory)
+    # pick the 2D fracture subdomain from each MDG
+    # levels = [mdg.subdomains()[1] for mdg in mdgs]
+    return mdgs  # coarse -> ... -> finest
 
 
 @pytest.fixture(scope="module")
@@ -153,3 +179,22 @@ def test_error_estimates_matching_grids(
     assert np.isclose(majorant, majorant_desired, 1e-5, 1e-4)
     assert np.isclose(true_error, true_error_desired, 1e-5, 1e-4)
     assert np.isclose(eff_idx, eff_idx_desired, 1e-5, 1e-4)
+
+
+def test_non_matching_assembly_3d(grid_sequence):
+    """Checks whether a non-matching grid is correctly assembled."""
+
+    mdg_coarse = grid_sequence[0]
+    mdg_fine = grid_sequence[1]
+
+    sd_matrix_coarse = mdg_coarse.subdomains(dim=3)[0]
+    sd_frac_coarse = mdg_coarse.subdomains(dim=2)[0]
+    sd_frac_fine = mdg_fine.subdomains(dim=2)[0]
+    intf_coarse = mdg_coarse.interfaces(dim=2)[0]
+
+    mdg_coarse.replace_subdomains_and_interfaces(sd_map={sd_frac_coarse: sd_frac_fine})
+
+    # Checks whether the updated mdg has the correct number of cells
+    assert mdg_coarse.subdomains(dim=3)[0].num_cells == sd_matrix_coarse.num_cells
+    assert mdg_coarse.subdomains(dim=2)[0].num_cells == sd_frac_fine.num_cells
+    assert mdg_coarse.interfaces(dim=2)[0].num_cells == intf_coarse.num_cells
