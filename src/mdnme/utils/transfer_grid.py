@@ -3,13 +3,21 @@ import numpy as np
 import mdnme
 import porepy as pp
 import matplotlib.pyplot as plt
+import scipy.sparse as sps
+
+
+from mdnme.utils.grid_utils import (
+    ensure_ccw,
+    ear_clip_triangulate,
+    is_ccw,
+    merge_close_vertices,
+)
 
 from matplotlib.collections import PolyCollection
 from shapely.geometry import Polygon, Point
 from shapely.prepared import prep
-from shapely.strtree import STRtree
-from scipy.spatial import cKDTree
 from scipy.sparse import lil_matrix
+from shapely.strtree import STRtree
 from itertools import combinations, chain
 
 
@@ -25,6 +33,7 @@ class TransferGrid:
     def __init__(self,
                  g_source: pp.GridLike,
                  g_target: pp.GridLike,
+                 rotation_matrix: np.ndarray,
                  tol: float = 1e-8,
                  name: str = "transfer"
                  ):
@@ -41,6 +50,13 @@ class TransferGrid:
         self.g_target = g_target
         """Target grid."""
 
+        self.rot_matrix = rotation_matrix
+        """Rotation matrix used to rotate `g_source` and `g_target`. 
+        
+        If not given, the rotation matrix used will be the rotation matrix of
+        `g_source`.        
+        """
+
         # Dummy holders for rotated grids
         self._src_rot = None
         self._tgt_rot = None
@@ -51,29 +67,25 @@ class TransferGrid:
         self._assemble_transfer_grid()
         self._build_connectivity_matrices()
 
-    # ---- internal extraction ----
     def _get_rotated_grid(self, grid: pp.Grid):
-        """Caching of rotated grids"""
         if grid is self.g_source:
             if self._src_rot is None:
-                self._src_rot = mdnme.RotatedGrid(grid)
-                # Use the rotation matrix of the source grid as the reference
-                # parametrization. We MUST do this, otherwise, source and target
-                # grids might have different parameterizations of the same surface (
-                # for planar fracture) or lines (for line fractures).
-                self._rot_matrix = self._src_rot.rotation_matrix
+                self._src_rot = mdnme.RotatedGrid(
+                    grid, self._rot_matrix
+                ) if self._rot_matrix is not None else mdnme.RotatedGrid(grid)
+                # If not provided, adopt the source’s matrix so target uses the same
+                if self._rot_matrix is None:
+                    self._rot_matrix = self._src_rot.rotation_matrix
             return self._src_rot
         if grid is self.g_target:
             if self._tgt_rot is None:
-                # Strongly imposed that the rotation matrix is avaible
                 if self._rot_matrix is None:
-                    msg = ("Target grid requires the rotation matrix (obtained while "
-                           "rotating the source grid) to perform the rotation "
-                           "consistently.")
-                    raise ValueError(msg)
+                    raise ValueError(
+                        "TransferGrid needs a rotation_matrix or"
+                        " a rotated source first."
+                    )
                 self._tgt_rot = mdnme.RotatedGrid(grid, self._rot_matrix)
             return self._tgt_rot
-        # fallback
         return mdnme.RotatedGrid(grid)
 
     def _extract_triangles(self, grid: pp.GridLike):
@@ -336,192 +348,115 @@ class TransferGrid:
         fig = ax.get_figure()
         fig.savefig("transfer_grid.pdf")
 
-# ---------- Utility triangulation helpers ----------
-def is_ccw(coords):
-    x = np.array([p[0] for p in coords])
-    y = np.array([p[1] for p in coords])
-    return np.dot(x, np.roll(y, -1)) - np.dot(y, np.roll(x, -1)) > 0
 
-
-def point_in_triangle(pt, tri):
-    (x, y), (x1, y1), (x2, y2) = pt, tri[0], tri[1]
-    (x3, y3) = tri[2]
-    denom = ((y2 - y3)*(x1 - x3) + (x3 - x2)*(y1 - y3))
-    if denom == 0:
-        return False
-    a = ((y2 - y3)*(x - x3) + (x3 - x2)*(y - y3)) / denom
-    b = ((y3 - y1)*(x - x3) + (x1 - x3)*(y - y3)) / denom
-    c = 1 - a - b
-    return (0 < a < 1) and (0 < b < 1) and (0 < c < 1)
-
-
-def merge_close_vertices(verts, cells, tol=1e-8):
+# TODO: DEPRECATE FUNCTIONALITY WHEN ERROR ESTIMATORS ARE IN PLACE
+# NOW, EVERYTHING IS MEDIATE IT VIA THE TRANSFER GRID
+def build_high_internal_surface_grid(
+    sd_high: pp.Grid,
+    sd_low: pp.Grid,
+    intf: pp.MortarGrid,
+    tol: float = 1e-8,
+    name: str = "high_internal_surface",
+) -> tuple[pp.Grid, np.ndarray, np.ndarray]:
     """
-    verts: list of (x,y) tuples or array shape (N,2)
-    cells: list of [i0,i1,i2] (connectivity using indices into verts)
-    Returns:
-        new_verts_arr: array shape (2, N_new)
-        new_cells: list of [i0,i1,i2] with reindexed vertices
+    Construct a 2D TriangleGrid that is the union of the 3D high-side faces
+    participating in the interface. The mesh is built in the 2D parameterization
+    defined by the *lower* grid's rotation (so it is co-planar with the mortar).
+
+    Returns
+    -------
+    g2d : pp.TriangleGrid
+        The 2D surface grid (triangulated).
+    frac_faces : np.ndarray (nf,)
+        Indices of high-side faces used (same order as PorePy mappings).
+    parent_face_of_cell : np.ndarray (g2d.num_cells,)
+        For each triangle cell in g2d, the index of the originating high-side face.
     """
-    arr = np.array(verts)  # shape (N,2)
-    if arr.size == 0:
-        raise ValueError(
-            "merge_close_vertices: received empty vertex list"
-            " (no intersection triangles).")
-    if arr.ndim != 2 or arr.shape[1] != 2:
-        raise ValueError(
-            f"merge_close_vertices: expected verts to be (N,2),"
-            f" got array shape {arr.shape}.")
+    # --- 1) Get the set of high-side faces that belong to the interface
+    # primary_to_mortar_avg maps high faces -> mortar cells
+    frac_faces = sps.find(intf.primary_to_mortar_avg())[1]
 
-    tree = cKDTree(arr)
-    groups = tree.query_ball_tree(tree, r=tol)
+    # --- 2) Build a consistent 2D parameterization using the *low* grid
+    low_rot = mdnme.RotatedGrid(sd_low)
+    R = low_rot.rotation_matrix
+    dim_bool = low_rot.dim_bool  # pick the two active in-plane axes
 
-    # Find representative for each original index (smallest in its cluster)
-    rep = {}
-    for i, neigh in enumerate(groups):
-        rep[i] = min(neigh)
+    # Rotate high-side nodes and discard inactive axis -> 2 x N
+    nodes2d = (R @ sd_high.nodes)[dim_bool, :]
 
-    # Build mapping from representatives to consecutive new indices
-    uniq_reps = sorted(set(rep.values()))
-    new_index = {r: idx for idx, r in enumerate(uniq_reps)}
+    # Face->nodes (ordered list per face)
+    fn = sd_high.face_nodes.tocsc()
 
-    # Final old->new map
-    old_to_new = {i: new_index[rep[i]] for i in range(len(arr))}
+    # --- 3) Triangulate each face polygon in 2D and collect triangles
+    all_tris_xy = []          # list of [(x,y), (x,y), (x,y)]
+    parent_face_of_cell = []  # parallel list: face index per triangle
 
-    # Build new vertex list (take reps)
-    new_verts = arr[uniq_reps, :]  # shape (N_new,2)
+    for f in frac_faces:
+        start, end = fn.indptr[f], fn.indptr[f + 1]
+        face_nodes = fn.indices[start:end]
+        pts = nodes2d[:, face_nodes].T  # (k, 2)
 
-    # Remap cells
-    remapped = []
-    for tri in cells:
-        remapped.append([old_to_new[i] for i in tri])
+        if pts.shape[0] < 3:
+            # degenerate / tiny face -> skip
+            continue
 
-    return new_verts.T, remapped  # return in (2, N_new) form and updated cells
+        # Order polygon roughly around its centroid to get a simple loop
+        c = pts.mean(axis=0)
+        ang = np.arctan2(pts[:, 1] - c[1], pts[:, 0] - c[0])
+        order = np.argsort(ang)
+        poly = [tuple(pts[i]) for i in order]
 
+        # Remove consecutive duplicates (robustness on coincident nodes)
+        clean = []
+        for p in poly:
+            if (not clean) or (abs(p[0]-clean[-1][0]) > tol or abs(p[1]-clean[-1][1]) > tol):
+                clean.append(p)
+        if len(clean) < 3:
+            continue
 
-def ear_clip_triangulate(coords, tol=1e-12):
-    verts = coords.copy()
-    if not is_ccw(verts):
-        verts.reverse()
-    tris = []
-    max_iter = len(verts) ** 2
-    it = 0
-    while len(verts) > 3 and it < max_iter:
-        it += 1
-        n = len(verts)
-        ear_found = False
-        for i in range(n):
-            prev = verts[(i - 1) % n]
-            curr = verts[i]
-            nxt = verts[(i + 1) % n]
-            ax, ay = prev; bx, by = curr; cx, cy = nxt
-            # convexity test
-            if (bx - ax)*(cy - ay) - (by - ay)*(cx - ax) <= 0:
-                continue
-            tri = [prev, curr, nxt]
-            # no other point inside
-            if any(point_in_triangle(p, tri)
-                   for j, p in enumerate(verts)
-                   if j not in {(i - 1) % n, i, (i + 1) % n}):
-                continue
-            # clip ear
-            tris.append(tri)
-            del verts[i]
-            ear_found = True
-            break
-        if not ear_found:
-            break  # degeneracy; bail
-    if len(verts) == 3:
-        tris.append(verts)
-    # filter tiny
-    filtered = []
-    for t in tris:
-        area = 0.5 * abs(
-            np.cross(np.subtract(t[1], t[0]), np.subtract(t[2], t[0]))
-        )
-        if area > tol:
-            filtered.append(t)
-    return filtered
+        # CCW orientation for ear clipping
+        if not is_ccw(clean):
+            clean.reverse()
 
-
-def ensure_ccw(cells, coords_arr):
-    new_cells = []
-    for tri in cells:
-        i0, i1, i2 = tri
-        p0 = coords_arr[:, i0]
-        p1 = coords_arr[:, i1]
-        p2 = coords_arr[:, i2]
-        cross = (p1[0] - p0[0])*(p2[1] - p0[1]) - (p1[1] - p0[1])*(p2[0] - p0[0])
-        if cross < 0:
-            new_cells.append([i0, i2, i1])
+        if len(clean) == 3:
+            all_tris_xy.append(clean)
+            parent_face_of_cell.append(f)
         else:
-            new_cells.append([i0, i1, i2])
-    return new_cells
+            tris = ear_clip_triangulate(clean, tol=tol)
+            for tri in tris:
+                all_tris_xy.append(tri)
+                parent_face_of_cell.append(f)
 
+    if not all_tris_xy:
+        raise RuntimeError(
+            "No triangles could be built from the high-side internal boundary."
+        )
 
-def refine_grid(g: pp.TriangleGrid) -> tuple[pp.TriangleGrid, np.ndarray]:
-    if not hasattr(g, "face_centers"):
-        g.compute_geometry()
-    nd = g.dim  # expected 2 for triangle grid
+    # --- 4) Deduplicate vertices, enforce CCW, assemble TriangleGrid
+    raw_verts = []
+    raw_cells = []
+    pt_to_idx = {}
 
-    # Dense face-node and cell-face maps
-    fn = g.face_nodes.indices.reshape((nd, g.num_faces), order="F")
-    cf = g.cell_faces.indices.reshape((nd + 1, g.num_cells), order="F")
+    for tri in all_tris_xy:
+        cell = []
+        for p in tri:
+            if p not in pt_to_idx:
+                pt_to_idx[p] = len(raw_verts)
+                raw_verts.append((float(p[0]), float(p[1])))
+            cell.append(pt_to_idx[p])
+        raw_cells.append(cell)
 
-    new_nodes = np.hstack((g.nodes, g.face_centers))
-    offset = g.num_nodes
+    coords_arr, cells_merged = merge_close_vertices(raw_verts, raw_cells, tol=tol)
+    cells_ccw = ensure_ccw(cells_merged, coords_arr)
+    tri_arr = np.array(cells_ccw).T  # (3, n_cells)
 
-    # Red refinement combinations in 2D: each original triangle produces 4 children
-    binom = ((1, 0), (2, 1), (0, 2))  # 3 of the subtriangles; 4 is face-centers
+    g2d = pp.TriangleGrid(coords_arr, tri_arr, name=name)
+    g2d.compute_geometry()
 
-    # Holder: shape (nd+1, n_cells, nd+2) -> (3, n_cells, 4)
-    new_tri = np.empty(shape=(nd + 1, g.num_cells, nd + 2), dtype=int)
+    parent_face_of_cell = np.asarray(parent_face_of_cell, dtype=int)
+    if parent_face_of_cell.size != g2d.num_cells:
+        # This should not happen (vertex merging does not change cell count),
+        # but keep a guard.
+        raise RuntimeError("Parent-face map size mismatch after assembling 2D grid.")
 
-    for ti, b in enumerate(binom):
-        # Stack face-node indices for the two faces per cell
-        loc_n = np.vstack((fn[:, cf[b[0]]], fn[:, cf[b[1]]]))  # shape (4, n_cells)
-
-        # Sort so duplicates are adjacent
-        loc_n.sort(axis=0)
-        diffs = np.diff(loc_n, axis=0)  # shape (3, n_cells)
-
-        # Extract duplicated vertex per cell (should be exactly one per column)
-        dup_node = np.empty(g.num_cells, dtype=int)
-        for cell in range(g.num_cells):
-            # find first place where diff is zero
-            row_hits = np.where(diffs[:, cell] == 0)[0]
-            if len(row_hits) == 0:
-                msg = (f"Could not find duplicated vertex for cell {cell} during"
-                       f" refinement.")
-                raise RuntimeError(msg)
-            row = row_hits[0]
-            dup_node[cell] = loc_n[row, cell]
-
-        new_tri[0, :, ti] = dup_node
-        new_tri[1, :, ti] = offset + cf[b[0]]
-        new_tri[2, :, ti] = offset + cf[b[1]]
-
-    # Fourth child: triangle of the three face centers
-    new_tri[:, :, -1] = offset + cf  # shape (3, n_cells)
-
-    # Flatten to (nd+1, (nd+2)*n_cells)
-    new_tri = new_tri.reshape((nd + 1, (nd + 2) * g.num_cells))
-
-    # Enforce consistent CCW orientation using existing helper
-    # ensure_ccw expects list of [i0,i1,i2] so transpose appropriately
-    cells_list = new_tri.T.tolist()  # list of [i0,i1,i2]
-    # returns list of corrected triples
-    corrected = ensure_ccw(cells_list, new_nodes[:2, :])
-    corrected_arr = np.array(corrected).T  # back to shape (3, Nnew_cells)
-
-    # Parent mapping: each original cell gives (nd+2) children
-    parent = np.tile(np.arange(g.num_cells), g.dim + 2)
-
-    # Build new grid, preserving history
-    history = g.history.copy()
-    history.append("Refinement")
-    new_grid = pp.TriangleGrid(new_nodes, tri=corrected_arr, name=g.name)
-    new_grid.compute_geometry()
-    new_grid.history = history
-
-    return new_grid, parent
+    return g2d, frac_faces, parent_face_of_cell
