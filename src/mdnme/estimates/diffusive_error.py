@@ -19,8 +19,14 @@ import porepy as pp
 import quadpy
 import scipy.sparse as sps
 
+from mdnme.utils.internal_boundary_grid import InternalBoundaryGrid
+from mdnme.utils.transfer_grid import TransferGrid
+from mdnme.utils.primal_projections import (
+    restrict_to_transfer, scott_zhang_quasi_interpolant,
+)
 
-def compute_diffusive_error(mdg: pp.MixedDimensionalGrid) -> None:
+
+def compute_diffusive_error(mdg: pp.MixedDimensionalGrid, is_nonmatching: bool) -> None:
     """Computes square of the diffusive flux error in all the mixed-dimensional grid.
 
     In each data dictionary, the square of the diffusive flux error will be stored
@@ -44,7 +50,7 @@ def compute_diffusive_error(mdg: pp.MixedDimensionalGrid) -> None:
         data_low = mdg.subdomain_data(sd_low)
         # Retrieve interface diffusive error
         data_intf["estimates"]["diffusive_error"] = interface_diffusive_error(
-            intf, data_intf, sd_high, data_high, sd_low, data_low
+            intf, data_intf, sd_high, data_high, sd_low, data_low, is_nonmatching
         )
 
 
@@ -160,6 +166,7 @@ def interface_diffusive_error(
     data_high: dict,
     sd_low: pp.Grid,
     data_low: dict,
+    is_nonmatching: bool,
 ) -> np.ndarray:
     """Computes the square of the diffusive error on interfaces.
 
@@ -209,30 +216,53 @@ def interface_diffusive_error(
             data_low,
         )
     elif intf.dim == 1:
-        diffusive_error = _interface_diffusive_error_1d(
-            intf,
-            data_intf,
-            sd_high,
-            data_high,
-            sd_low,
-            data_low,
-        )
+        if not is_nonmatching:
+            diffusive_error = _interface_diffusive_error_1d(
+                intf,
+                data_intf,
+                sd_high,
+                data_high,
+                sd_low,
+                data_low,
+            )
+        else:
+            diffusive_error = _interface_diffusive_error_1d_nonmatching(
+                intf,
+                data_intf,
+                sd_high,
+                data_high,
+                sd_low,
+                data_low,
+            )
     else:
-        diffusive_error = _interface_diffusive_error_2d(
-            intf,
-            data_intf,
-            sd_high,
-            data_high,
-            sd_low,
-            data_low,
-        )
+        if not is_nonmatching:
+            diffusive_error = _interface_diffusive_error_2d(
+                intf,
+                data_intf,
+                sd_high,
+                data_high,
+                sd_low,
+                data_low,
+            )
+        else:
+            diffusive_error = _interface_diffusive_error_2d_nonmatching(
+                intf,
+                data_intf,
+                sd_high,
+                data_high,
+                sd_low,
+                data_low,
+            )
 
     return diffusive_error
 
 
 # Private functions
 def _get_high_pressure_trace(
-    sd_low: pp.Grid, sd_high: pp.Grid, data_sd_high: dict, frac_faces: np.ndarray
+    sd_low: pp.Grid,
+    sd_high: pp.Grid,
+    data_sd_high: dict,
+    frac_faces: np.ndarray,
 ) -> np.ndarray:
     """Obtains the coefficients of the P1 (projected) traces of the pressure.
 
@@ -695,3 +725,106 @@ def _interface_diffusive_error_2d(
     diffusive_error = np.concatenate(diffusive)
 
     return diffusive_error
+
+
+def _interface_diffusive_error_1d_nonmatching(
+        intf,
+        data_intf,
+        sd_high,
+        data_high,
+        sd_low,
+        data_low,
+        tol=1e-8,
+) -> np.ndarray:
+    raise NotImplementedError
+
+
+def _interface_diffusive_error_2d_nonmatching(
+    intf: pp.MortarGrid,
+    data_intf: dict,
+    sd_high: pp.Grid,
+    data_high: dict,
+    sd_low: pp.Grid,
+    data_low: dict,
+    tol: float = 1e-8,
+) -> np.ndarray:
+    """Non-matching 2D interface diffusive error:
+       || k^{-1/2} λ + k^{1/2} (p_low − tr p_high) ||^2 per mortar cell.
+       Requires assign_canonical_rotations() so intf.rot_matrix is set."""
+    # --- sanity ---
+    if intf.dim != 2:
+        raise ValueError("Expected two-dimensional interface grid.")
+
+    # --- mortar-side scalars ---
+    eff_perm = data_intf[pp.PARAMETERS]["flow"]["effective_permeability"]
+    k_mortar = (float(eff_perm) * np.ones((intf.num_cells, 1))
+                if np.isscalar(eff_perm)
+                else np.asarray(eff_perm, dtype=float).reshape(-1, 1))
+    normal_vel_mortar = _get_normal_velocity(intf, data_intf)  # (n_mortar, 1)
+
+    # --- low-dim pressure (per-cell P1 on its own grid) ---
+    p_low_frac = data_low["estimates"]["recon_sd_pressure"]  # (n_frac_cells, 3)
+
+    # --- face-trace of high-dim pressure, in interface frame ---
+    # NOTE: p_trace_high[i] corresponds to sd_high face index frac_faces[i]
+    frac_faces = sps.find(intf.primary_to_mortar_avg())[1]
+    p_trace_high = _get_high_pressure_trace(sd_low, sd_high, data_high, frac_faces)  # (n_frac_faces, 3)
+    # map: high face id -> local index into frac_faces
+    face2pos = {int(f): i for i, f in enumerate(frac_faces)}
+
+    # --- IBG (per-side internal-boundary grids in interface frame) ---
+    ibg = InternalBoundaryGrid(intf, sd_high, tol=tol)
+
+    # --- quadrature on 2D mortar sides ---
+    method = quadpy.t2.get_good_scheme(4)
+
+    # accumulator in global mortar ordering
+    out_global = np.zeros(intf.num_cells)
+
+    # loop sides in the mortar’s canonical order
+    for P_msg, mg_side in intf.project_to_side_grids():
+        # identify the side enum that owns this mortar side grid
+        side_enum = next(k for k, v in intf.side_grids.items() if v is mg_side)
+
+        # IBG side grid and its parent faces (one parent face per IBG triangle)
+        ibg_side = ibg.ibg_side_grid(side_enum)
+        parent_faces = ibg.parent_face_of_cell(side_enum)  # shape: (n_ibg_cells,)
+
+        # (1) IBG-side tr(p_high): assign face P1 coeffs to each IBG cell via parent map
+        if ibg_side.num_cells == 0:
+            tr_hi_on_ibg = np.zeros((0, 3))
+        else:
+            idx = np.fromiter((face2pos[int(f)] for f in parent_faces), dtype=int, count=parent_faces.size)
+            tr_hi_on_ibg = p_trace_high[idx, :]  # (n_ibg_cells, 3)
+
+        # (2) Transfer IBG→mortar-side and frac→mortar-side (same canonical frame; no R needed)
+        tg_ibg_msg = TransferGrid(g_source=ibg_side, g_target=mg_side, tol=tol)
+        tg_fg_msg  = TransferGrid(g_source=sd_low, g_target=mg_side, tol=tol)
+
+        # Internal boundary side grid to mortar side grid pressure projection
+        tracep_on_tg = restrict_to_transfer(tg_ibg_msg, tr_hi_on_ibg)
+        tracep_on_msg = scott_zhang_quasi_interpolant(tg_ibg_msg, tracep_on_tg)
+
+        # Fracture grid to mortar side grid pressure projection
+        fracp_on_tg = restrict_to_transfer(tg_fg_msg, p_low_frac)
+        fracp_on_msg = scott_zhang_quasi_interpolant(tg_fg_msg, fracp_on_tg)
+
+        # (3) side scalars on mortar side grid
+        k_side  = P_msg @ k_mortar         # (n_msg_cells, 1)
+        nv_side = P_msg @ normal_vel_mortar  # (n_msg_cells, 1)
+
+        # (4) jump and integration on mortar side
+        deltap_side = fracp_on_msg - tracep_on_msg  # (n_msg_cells, 3)
+
+        elements = mdnme.utils.get_quadpy_elements(mg_side)
+        def integrand(x):
+            # x is in the interface frame (as provided by elements)
+            p_jump = mdnme.utils.evaluate_p1(deltap_side, x)  # shape broadcast over points
+            return (k_side**(-0.5) * nv_side + k_side**0.5 * p_jump)**2
+
+        diff_side = method.integrate(integrand, elements)  # (n_msg_cells,)
+
+        # (5) scatter to global mortar ordering
+        out_global += (P_msg.T @ diff_side).ravel()
+
+    return out_global
