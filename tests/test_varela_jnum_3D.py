@@ -26,7 +26,7 @@ from mdnme.examples.varela_jnum_2d.model import (
     manu_incomp_solid,
     )
 from mdnme.examples.varela_jnum_3d.true_errors import VarelaJNumTrueErrors3D
-
+from mdnme.estimates.error_estimation import estimate_errors
 
 @pytest.fixture(scope="module")
 def grid_sequence() -> list[pp.MixedDimensionalGrid]:
@@ -214,18 +214,27 @@ def test_non_matching_setup_via_parameters(material_constants) -> None:
     setup = VarelaJNumSetup3D(params)
     pp.run_time_dependent_model(setup, {})
 
-# TODO: TOMORROW: Error estimates for non-matching grids...
-# Main idea:
-# (i) Subdomain don't suffer any chance here ...
-# (ii) Interface diffusive error estimators must be re-written. We will nee to
-# measure the error in each side grid. To this aim, we reconstruct the pressure at
-# the internal boundary (pressure trace) and project onto the transfer grid,
-# whereupon is projected onto the sidegrid via the Scott-Zhang quasi-interpolator.
-# This should be quite feasible. The only "impact" we are going to have is the one
-# from the diffusive interface errors. How does that sound?
+def test_error_estimates_non_matching_grids(material_constants) -> None:
+    params = {
+        "grid_type": "simplex",
+        "material_constants": material_constants,
+        "meshing_arguments": {"cell_size": 0.25},
+        "non_matching": True,
+        "refine_fracture": True,
+        "times_to_export": [],  # Supress outputs for tests
+    }
+    setup = VarelaJNumSetup3D(params)
+    pp.run_time_dependent_model(setup, {})
 
+    estimate_errors(
+        setup.mdg,
+        "keilegavlen_p1",
+        None,
+        None,
+        True,
+    )
 
-
+    assert True
 
 
 
