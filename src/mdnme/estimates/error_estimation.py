@@ -7,18 +7,20 @@ from mdnme.estimates.diffusive_error import compute_diffusive_error
 from mdnme.estimates.flux_extension import extend_fv_fluxes
 from mdnme.estimates.pressure_reconstruction import reconstruct_pressure
 from mdnme.estimates.residual_error import compute_residual_error
+from mdnme.utils.grid_rotation import assign_canonical_rotations
+
 
 SpatialFunction = Callable[..., np.ndarray]
 
 
 def estimate_errors(
     mdg: pp.MixedDimensionalGrid,
-    pressure_reconstruction_method: str = "patchwise_p1",
+    pressure_reconstruction_method: str = "keilegavlen_p1",
     sources: list[SpatialFunction] | list[float] | None = None,
     quadrature_degree_for_residual_error: list[int] | None = None,
+    is_nonmatching: bool = False,
 ) -> None:
-    """
-    Estimate local errors and save them in data dictionaries.
+    """Estimate local errors and save them in data dictionaries.
 
     Parameters:
         mdg: pp.MixedDimensionalGrid
@@ -36,6 +38,8 @@ def estimate_errors(
             residual error. To avoid introducing quadrature errors, the degree must
             be sufficiently high so that the sources can be integrated exactly. If not
             given, we employ 4.
+        is_nonmatching: Whether the mixed-dimensional grid is non-matching.
+        # TODO: We should device an in-situ check for this
 
     Note:
         On subdomains and interfaces, diffusive errors are stored in
@@ -56,7 +60,7 @@ def estimate_errors(
     # Error computation
 
     # Diffusive error
-    compute_diffusive_error(mdg)
+    compute_diffusive_error(mdg, is_nonmatching)
 
     # Residual error
     if sources is None:
