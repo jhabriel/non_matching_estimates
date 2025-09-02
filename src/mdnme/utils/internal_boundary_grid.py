@@ -48,6 +48,7 @@ class InternalBoundaryGrid:
 
         # Build side data
         self._sides: Dict[object, _SideData] = {}
+        self._side_order = []
         for P_side, g_side in self.intf.project_to_side_grids():
             side_enum = self._enum_of_side_grid(g_side)
             faces_side = self._faces_for_side(P_side)  # high faces contributing to this side
@@ -59,6 +60,9 @@ class InternalBoundaryGrid:
                 high_faces=faces_side,
                 parent_face_of_cell=parent_map,
             )
+            self._side_order.append(side_enum)
+
+        self._finalize_global_ibg_ordering()
 
     # ----------------- Public API -----------------
 
@@ -183,3 +187,53 @@ class InternalBoundaryGrid:
         if parent_arr.size != g2d.num_cells:
             raise RuntimeError("Parent-face map size mismatch after IBG assembly.")
         return g2d, parent_arr
+
+# --- add to your InternalBoundaryGrid class ---
+
+    def _finalize_global_ibg_ordering(self) -> None:
+        """Build global IBG cell ordering and per-side offsets."""
+
+        # compute offsets
+        offset = 0
+        self._offsets: dict[object, tuple[int,int]] = {}
+        for side in self._side_order:
+            n_side = self._sides[side].ibg_grid.num_cells
+            self._offsets[side] = (offset, offset + n_side)
+            offset += n_side
+        self._n_total = offset
+
+    def num_cells(self) -> int:
+        """Total number of IBG cells across both sides."""
+        return self._n_total
+
+    def ibg_to_side(self, side) -> sps.csc_matrix:
+        """Selector from global IBG ordering → this side’s IBG cells.
+
+        Shape: (n_side_cells, n_ibg_total). Multiplying with an array of shape
+        (n_ibg_total, ndofs) returns (n_side_cells, ndofs).
+        """
+        start, end = self._offsets[side]
+        n_side = end - start
+        if n_side == 0:
+            return sps.csc_matrix((0, self._n_total))
+        rows = np.arange(n_side)
+        cols = rows + start
+        data = np.ones(n_side, dtype=float)
+        return sps.coo_matrix((data, (rows, cols)), shape=(n_side, self._n_total)).tocsc()
+
+    def side_to_ibg(self, side) -> sps.csc_matrix:
+        """Scatter from this side’s IBG cells → global IBG ordering.
+
+        Shape: (n_ibg_total, n_side_cells).
+        """
+        return self.ibg_to_side(side).T.tocsc()
+
+    def project_to_side_ibg(self):
+        """Generator like MortarGrid.project_to_side_grids(), but for IBG.
+
+        Yields tuples: (proj, ibg_side_grid) where
+          - proj : (n_side_cells, n_ibg_total) selector
+          - ibg_side_grid : pp.TriangleGrid for this side
+        """
+        for side in self._side_order:
+            yield self.ibg_to_side(side), self._sides[side].ibg_grid
