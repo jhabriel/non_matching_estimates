@@ -20,7 +20,7 @@ import numpy as np
 import porepy as pp
 import scipy.sparse as sps
 
-import mdnme as amr
+import mdnme
 
 
 def reconstruct_pressure(mdg: pp.MixedDimensionalGrid, method: str) -> None:
@@ -64,7 +64,7 @@ def reconstruct_pressure(mdg: pp.MixedDimensionalGrid, method: str) -> None:
             raise ValueError("Pressure reconstruction method not implemented.")
 
         # Obtain pressure coefficients
-        recons_p = amr.utils.interpolate_p1(point_val, point_coo)
+        recons_p = mdnme.utils.interpolate_p1(point_val, point_coo)
 
         # # TEST: Pressure reconstruction
         # self._test_pressure_reconstruction(sd, recons_p, point_val, point_coo)
@@ -102,7 +102,7 @@ def patchwise_p1(
     assert p_cc.size == sd.num_cells
 
     # Rotated grid
-    sd_rot = amr.RotatedGrid(sd)
+    sd_rot = mdnme.RotatedGrid(sd)
 
     # Retrieving topological data
     nc = sd.num_cells
@@ -173,7 +173,7 @@ def keilegavlen_p1(
     assert p_cc.size == sd.num_cells
 
     # Rotated grid
-    sd_rot = amr.RotatedGrid(sd)
+    sd_rot = mdnme.RotatedGrid(sd)
 
     # Retrieve topological data
     nc = sd.num_cells
