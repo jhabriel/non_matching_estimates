@@ -4,29 +4,8 @@ import scipy.sparse as sps
 import pytest
 import mdnme
 
-from mdnme.utils.transfer_grid import TransferGrid, refine_grid
-
-def perturb_in_plane(grid, frac=0.5):
-    """Perturb internal nodes in the intrinsic 2D plane of the grid."""
-    from mdnme import RotatedGrid
-
-    rot = RotatedGrid(grid)
-    # active 2D coordinates of nodes
-    coords2d = rot.to_2d(grid.nodes)  # shape (2, N)
-    # compute mean diameter in 2D (should match original)
-    mean_diam = np.mean(grid.cell_diameters())
-    shift = frac * mean_diam
-
-    # perturb internal nodes in the 2D active plane
-    int_nodes = grid.get_internal_nodes()
-    # add shift along both in-plane directions for those internal nodes
-    coords2d[:, int_nodes] += shift
-
-    # lift back to 3D and assign to grid
-    lifted = rot.to_3d(coords2d)  # (3, N)
-    grid.nodes = lifted
-    grid.compute_geometry()
-    return grid
+from mdnme.utils.transfer_grid import TransferGrid
+from mdnme.utils.grid_utils import refine_grid
 
 
 @pytest.fixture(scope="module")
