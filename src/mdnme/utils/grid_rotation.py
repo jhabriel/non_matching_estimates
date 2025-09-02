@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import numpy as np
+
+import mdnme
 import porepy as pp
 
 
@@ -80,3 +82,56 @@ class RotatedGrid:
             + "dim_bool\n"
             + "nodes"
         )
+
+
+def assign_canonical_rotations(mdg: pp.MixedDimensionalGrid) -> None:
+    """Transverses the mdg (bottom-up) and assigns canonical rotations all grids.
+
+    This is done by appending the .rot_matrix and .dim_bool to all (side)-grids
+    in the mixed-dimensional grid.
+
+    Canonical rotations are defined according to the following rules:
+
+    (i)   Highest-dimensional grids uses .rot_matrix = np.eye(3) and
+          .dim_bool = [True, True, True].
+
+    (ii)  Zero-dimensional subdomains and interface grids are assigned
+          .rot_matrix = None and .dim_bool = [0, 0, 0]
+
+    (iii) 1d subdomain and 2d subdomain grids use their natural rotation, given by
+           mdnme.RotatedGrid(sd).rotation_matrix and mdnme.RotatedGrid(sd).dim_bool
+
+    (iv) 1d and 2d Interface grids inherit the rotation matrices of their
+          equidimensional neighboring subdomain (e.g., the one computed in (iii)).
+
+    """
+
+    # Implement rule (i): top-dim
+    for sd in mdg.subdomains(dim=mdg.dim_max()):
+        sd.rot_matrix = np.eye(3)
+        sd.dim_bool = [True, True, True]
+
+    # Implement rule (ii): 0d domains
+    for sd in mdg.subdomains(dim=0):
+        sd.rot_matrix = None
+        sd.dim_bool = [False, False, False]
+    for intf in mdg.interfaces(dim=0):
+        intf.rot_matrix = None
+        intf.dim_bool = [False, False, False]
+
+    # Implement rule (iii): 1d and 2d domains
+    for dim in [1, 2]:
+        for sd in mdg.subdomains(dim=dim):
+            sd_rot = mdnme.RotatedGrid(sd)
+            rot_matrix = sd_rot.rotation_matrix
+            dim_bool = sd_rot.dim_bool
+            sd.rot_matrix = rot_matrix
+            sd.dim_bool = dim_bool
+
+    # Implement rule (iv): intfs inherit from their equidimensional sd neighbor
+    for dim in [1, 2]:
+        for intf in mdg.interfaces(dim=dim):
+            sd_high, sd_low = mdg.interface_to_subdomain_pair(intf)
+            assert intf.dim == sd_low.dim
+            intf.rot_matrix = sd_low.rot_matrix
+            intf.dim_bool = sd_low.dim_bool
