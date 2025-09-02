@@ -17,7 +17,7 @@ import porepy as pp
 
 from porepy.applications.md_grids.domains import nd_cube_domain
 from porepy.grids.refinement import GridSequenceFactory
-
+from mdnme.utils.grid_rotation import assign_canonical_rotations
 
 # class VarelaJNumGeometry3D:
 #     """Generate fracture network and mixed-dimensional grid."""
@@ -604,3 +604,6 @@ class VarelaJNumGeometry3D:
 
         # Create projections between local and global coordinates for fracture grids.
         pp.set_local_coordinate_projections(self.mdg)
+
+        # Assign canonical projections to avoid inconsistencies with rotations
+        assign_canonical_rotations(self.mdg)
