@@ -33,7 +33,7 @@ class TransferGrid:
     def __init__(self,
                  g_source: pp.GridLike,
                  g_target: pp.GridLike,
-                 rotation_matrix: np.ndarray,
+                 rotation_matrix: np.ndarray = None,
                  tol: float = 1e-8,
                  name: str = "transfer"
                  ):
