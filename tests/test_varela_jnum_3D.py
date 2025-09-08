@@ -17,7 +17,6 @@ import pytest
 
 import mdnme
 
-from porepy.grids.mortar_grid import MortarSides
 from porepy.grids.refinement import GridSequenceFactory
 
 from mdnme.examples.varela_jnum_3d.model import VarelaJNumSetup3D
@@ -27,6 +26,7 @@ from mdnme.examples.varela_jnum_2d.model import (
     )
 from mdnme.examples.varela_jnum_3d.true_errors import VarelaJNumTrueErrors3D
 from mdnme.estimates.error_estimation import estimate_errors
+
 
 @pytest.fixture(scope="module")
 def grid_sequence() -> list[pp.MixedDimensionalGrid]:
@@ -213,6 +213,7 @@ def test_non_matching_setup_via_parameters(material_constants) -> None:
     }
     setup = VarelaJNumSetup3D(params)
     pp.run_time_dependent_model(setup, {})
+
 
 def test_error_estimates_non_matching_grids(material_constants) -> None:
     params = {
