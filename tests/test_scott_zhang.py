@@ -7,10 +7,10 @@ import mdnme
 from porepy.grids.refinement import GridSequenceFactory
 from mdnme.utils.transfer_grid import TransferGrid
 from mdnme.utils.primal_projections import scott_zhang_quasi_interpolant
+from mdnme.utils.primal_projections import restrict_to_transfer
 
 
 # ---------- helpers ----------
-
 def tri_edges_max_length(coords):  # coords shape (2,3)
     e0 = np.linalg.norm(coords[:, 1] - coords[:, 0])
     e1 = np.linalg.norm(coords[:, 2] - coords[:, 1])
@@ -75,7 +75,37 @@ def grid_sequence():
     return levels  # coarse -> ... -> finest
 
 
-# ---------- the actual test ----------
+def sz_on_same_grid(grid: pp.Grid, p1_broken: np.ndarray) -> np.ndarray:
+    """Make a broken P1 field H¹-conforming on the *same* grid via SZ."""
+    tg = TransferGrid(grid, grid)                  # same mesh -> same frame
+    p_on_tg = restrict_to_transfer(tg, p1_broken)  # evaluate on transfer
+    return scott_zhang_quasi_interpolant(tg, p_on_tg)
+
+
+def test_matching_equals_nonmatching_after_h1_conformity():
+    # 1) pick a representative 2D grid (e.g., a fracture or a mortar side)
+    domain = pp.Domain({"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1})
+    mdg = pp.create_mdg("simplex", {"cell_size": 0.15}, pp.create_fracture_network([], domain))
+    g = mdg.subdomains(dim=2)[0]
+
+    # 2) fabricate a *broken* P1 (random per-cell coefficients)
+    rng = np.random.default_rng(42)
+    p_broken = rng.standard_normal((g.num_cells, 3))
+
+    # 3) make it H¹-conforming on G (Oswald/SZ)
+    p_h1 = sz_on_same_grid(g, p_broken)
+
+    # 4) matching path on a matching target: identity
+    p_match = p_h1.copy()
+
+    # 5) non-matching pipeline, but with source==target (should act as identity on H¹)
+    tg = TransferGrid(g, g)
+    p_on_tg = restrict_to_transfer(tg, p_h1)
+    p_nonmatch = scott_zhang_quasi_interpolant(tg, p_on_tg)
+
+    # 6) they must coincide (up to roundoff)
+    np.testing.assert_allclose(p_nonmatch, p_match, rtol=1e-12, atol=1e-14)
+
 
 @pytest.mark.parametrize("coeffs", [
     # u(x,y) = x^2
