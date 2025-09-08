@@ -169,6 +169,7 @@ def test_source_refined_wrt_target():
     tgt_counts = tra2tgt.sum(axis=1).A1
     assert np.all(tgt_counts == 1)
 
+
 def test_perturbed_target_wrt_source():
     """
     Checks whether the transfer grid is correctly constructed in the case when
