@@ -2,6 +2,77 @@ from typing import Callable, Union
 
 import numpy as np
 import porepy as pp
+import scipy.sparse as sps
+
+def _nnz_per_axis(A: sps.spmatrix, axis: int, tol: float) -> np.ndarray:
+    """Count 'significant' nonzeros (>tol) per row (axis=0) or column (axis=1)."""
+    if not sps.isspmatrix(A):
+        A = sps.coo_matrix(A)
+    else:
+        A = A.tocoo()
+
+    mask = np.abs(A.data) > tol
+    rows = A.row[mask]
+    cols = A.col[mask]
+
+    if axis == 0:  # per-row
+        return np.bincount(rows, minlength=A.shape[0])
+    elif axis == 1:  # per-col
+        return np.bincount(cols, minlength=A.shape[1])
+    else:
+        raise ValueError("axis must be 0 (rows) or 1 (cols)")
+
+
+def is_nonmatching(intf: pp.MortarGrid, tol: float = 1e-12, mode: str = "strict") -> bool:
+    """
+    Heuristic detector for (non-)matching mortar interfaces.
+
+    Returns True if the interface behaves as *non-matching*.
+
+    Logic:
+      - For a matching 3D–2D interface (2D mortar):
+          * Each mortar cell (row) should get exactly ONE contribution from
+            the primary side (a single high-dim face)  -> row nnz(primary)=1
+          * Each mortar cell (row) should get exactly ONE contribution from
+            the secondary side (one low-dim cell)      -> row nnz(secondary)=1
+        These two are the essential checks.
+
+      - In 'strict' mode we also enforce:
+          * Each primary face maps to exactly ONE mortar cell (on its side)
+            -> col nnz(primary)=1
+          * Each secondary cell appears exactly once per mortar side, i.e.
+            total column nnz across both sides equals intf.num_sides()
+            -> col nnz(secondary)=intf.num_sides()
+
+    Notes:
+      - tol filters tiny numerical noise in mapping weights.
+      - Works for 1D mortars analogously.
+    """
+    # Quick exits for degenerate dimensions
+    if intf.dim == 0:
+        return False
+
+    Pm = intf.primary_to_mortar_avg()     # shape: (n_mortar, n_primary_faces)
+    Sm = intf.secondary_to_mortar_avg()   # shape: (n_mortar, n_secondary_cells)
+
+    # Essential row-wise checks
+    rnnz_P = _nnz_per_axis(Pm, axis=0, tol=tol)  # per mortar cell
+    rnnz_S = _nnz_per_axis(Sm, axis=0, tol=tol)
+
+    nonmatching = (np.any(rnnz_P != 1) or np.any(rnnz_S != 1))
+
+    if mode.lower() == "strict":
+        # Column-wise uniqueness (see docstring)
+        cnnz_P = _nnz_per_axis(Pm, axis=1, tol=tol)  # per primary face
+        cnnz_S = _nnz_per_axis(Sm, axis=1, tol=tol)  # per secondary cell
+        expected_S = intf.num_sides()  # 1 or 2
+        nonmatching = (
+            nonmatching or
+            np.any(cnnz_P != 1) or
+            np.any(cnnz_S != expected_S)
+        )
+
+    return bool(nonmatching)
 
 
 class ErrorEstimatesSaveData:

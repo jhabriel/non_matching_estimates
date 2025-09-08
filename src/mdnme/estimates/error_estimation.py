@@ -38,8 +38,6 @@ def estimate_errors(
             residual error. To avoid introducing quadrature errors, the degree must
             be sufficiently high so that the sources can be integrated exactly. If not
             given, we employ 4.
-        is_nonmatching: Whether the mixed-dimensional grid is non-matching.
-        # TODO: We should device an in-situ check for this
 
     Note:
         On subdomains and interfaces, diffusive errors are stored in
@@ -60,7 +58,7 @@ def estimate_errors(
     # Error computation
 
     # Diffusive error
-    compute_diffusive_error(mdg, is_nonmatching)
+    compute_diffusive_error(mdg)
 
     # Residual error
     if sources is None:

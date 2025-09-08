@@ -24,9 +24,10 @@ from mdnme.utils.transfer_grid import TransferGrid
 from mdnme.utils.primal_projections import (
     restrict_to_transfer, scott_zhang_quasi_interpolant,
 )
+from mdnme.estimates.helpers import is_nonmatching
 
 
-def compute_diffusive_error(mdg: pp.MixedDimensionalGrid, is_nonmatching: bool) -> None:
+def compute_diffusive_error(mdg: pp.MixedDimensionalGrid) -> None:
     """Computes square of the diffusive flux error in all the mixed-dimensional grid.
 
     In each data dictionary, the square of the diffusive flux error will be stored
@@ -50,7 +51,7 @@ def compute_diffusive_error(mdg: pp.MixedDimensionalGrid, is_nonmatching: bool) 
         data_low = mdg.subdomain_data(sd_low)
         # Retrieve interface diffusive error
         data_intf["estimates"]["diffusive_error"] = interface_diffusive_error(
-            intf, data_intf, sd_high, data_high, sd_low, data_low, is_nonmatching
+            intf, data_intf, sd_high, data_high, sd_low, data_low
         )
 
 
@@ -166,7 +167,6 @@ def interface_diffusive_error(
     data_high: dict,
     sd_low: pp.Grid,
     data_low: dict,
-    is_nonmatching: bool,
 ) -> np.ndarray:
     """Computes the square of the diffusive error on interfaces.
 
@@ -205,6 +205,9 @@ def interface_diffusive_error(
     if intf.dim not in [0, 1, 2]:
         raise ValueError("Inconsistent mortar grid dimension. Expected 0, 1, or 2.")
 
+    # Check whether the coupling is non-matching or not
+    non_matching : bool = is_nonmatching(intf, tol=1e-8, mode="strict")
+
     # Obtain diffusive error depending on the dimensionality of the grid
     if intf.dim == 0:
         diffusive_error = _interface_diffusive_error_0d(
@@ -216,7 +219,7 @@ def interface_diffusive_error(
             data_low,
         )
     elif intf.dim == 1:
-        if not is_nonmatching:
+        if not non_matching:
             diffusive_error = _interface_diffusive_error_1d(
                 intf,
                 data_intf,
@@ -235,7 +238,7 @@ def interface_diffusive_error(
                 data_low,
             )
     else:
-        if not is_nonmatching:
+        if not non_matching:
             diffusive_error = _interface_diffusive_error_2d(
                 intf,
                 data_intf,
@@ -317,7 +320,7 @@ def _get_high_pressure_trace(
 
     # Retrieve the coefficients of the polynomials corresponding to those cells
     if "recon_sd_pressure" in data_sd_high["estimates"]:
-        p_high_full = data_sd_high["estimates"]["recon_sd_pressure"].copy()
+        p_high_full = data_sd_high["estimates"]["recon_sd_pressure"]
     else:
         raise ValueError("Pressure must be reconstructed first")
     p_high = p_high_full[cells_of_frac_faces]
@@ -810,7 +813,7 @@ def _interface_diffusive_error_2d_nonmatching(
         fracp_on_msg = scott_zhang_quasi_interpolant(tg_fg_msg, fracp_on_tg)
 
         # (3) side scalars on mortar side grid
-        k_side  = P_msg @ k_mortar         # (n_msg_cells, 1)
+        k_side  = P_msg @ k_mortar           # (n_msg_cells, 1)
         nv_side = P_msg @ normal_vel_mortar  # (n_msg_cells, 1)
 
         # (4) jump and integration on mortar side
