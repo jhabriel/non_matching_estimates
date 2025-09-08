@@ -56,14 +56,24 @@ def restrict_to_transfer(tg: TransferGrid, C_src: np.ndarray) -> np.ndarray:
 def scott_zhang_quasi_interpolant(tg: TransferGrid, u_tr: np.ndarray) -> np.ndarray:
     """
     Robust Scott–Zhang using coarse-cell quadrature + transfer-mesh point
-    evaluations. Exact on P1.
+    evaluations. Exact on P1 and constant-preserving.
 
-    Returns cell-wise P1 coefficients on target.
+    Parameters
+    ----------
+    tg : TransferGrid
+        Transfer grid object (source=transfer, target=grid to reconstruct on).
+    u_tr : (n_transfer_cells, 3) ndarray
+        Cell-wise P1 coefficients [a, b, c] on the transfer mesh.
+
+    Returns
+    -------
+    p1_tgt : (n_target_cells, 3) ndarray
+        Cell-wise P1 coefficients on the target grid.
     """
     g_tr  = tg.transfer
     g_tgt = tg.g_target
 
-    # 1) Precompute coarse-cell data
+    # --- target (coarse) cell data ---
     cn_tgt   = g_tgt.cell_nodes().tocsc()
     tri_tgt  = cn_tgt.indices.reshape((3, g_tgt.num_cells), order="F").T
     tgt_rot  = tg._get_rotated_grid(g_tgt)
@@ -74,74 +84,108 @@ def scott_zhang_quasi_interpolant(tg: TransferGrid, u_tr: np.ndarray) -> np.ndar
         p0, p1, p2 = X_tgt[:, verts[0]], X_tgt[:, verts[1]], X_tgt[:, verts[2]]
         A = np.column_stack((p1 - p0, p2 - p0))
         area = abs(np.linalg.det(A)) * 0.5
-        M_inv = (1.0/area) * np.array([[ 9, -3, -3],[-3, 9, -3],[-3, -3, 9]])
+        # Inverse of the P1 mass matrix on a triangle: (1/A) * [[9,-3,-3],...]
+        M_inv = (1.0 / area) * np.array([[ 9., -3., -3.],
+                                         [-3.,  9., -3.],
+                                         [-3., -3.,  9.]])
         coarse_data.append((verts, p0, A, M_inv, area))
 
-    # 2) Build transfer-mesh STRtree + barycentric helpers
+    # --- transfer mesh barycentric + STRtree ---
     cn_tr   = g_tr.cell_nodes().tocsc()
     tri_tr  = cn_tr.indices.reshape((3, g_tr.num_cells), order="F").T
     tr_rot  = tg._get_rotated_grid(g_tr)
     X_tr    = tr_rot.nodes[:2, :]
 
-    # Polygons and map
-    tr_polygons = [Polygon(X_tr[:, verts].T) for verts in tri_tr]
-    poly_to_j   = {poly: j for j, poly in enumerate(tr_polygons)}
-    tree        = STRtree(tr_polygons)
-    prepared    = [prep(p) for p in tr_polygons]
+    tr_polys = [Polygon(X_tr[:, verts].T) for verts in tri_tr]
+    # robust mapping: use id(geom) as key (shapely may return new objects)
+    polyid_to_j = {id(geom): j for j, geom in enumerate(tr_polys)}
+    tree        = STRtree(tr_polys)
 
-    # Inverses for barycentric in transfer cells
+    # prepared geoms, indexed by j
+    prepared = [prep(p) for p in tr_polys]
+
+    # barycentric inverses per transfer triangle
     V_inv_tr = []
     for verts in tri_tr:
-        V = np.vstack((X_tr[:, verts], np.ones(3)))
+        V = np.vstack((X_tr[:, verts], np.ones(3)))  # 3x3
         V_inv_tr.append(np.linalg.inv(V))
 
-    # 3) Prepare storage
+    # --- SZ nodal values on target ---
     n_tgt_nodes = g_tgt.num_nodes
     u_tgt_nodes = np.empty(n_tgt_nodes)
     n2c = g_tgt.cell_nodes().tocsr()
-    quadrature = [(1/6,1/6),(2/3,1/6),(1/6,2/3)]
+    # 3-pt quadrature exact for linears
+    quadrature = [(1/6, 1/6), (2/3, 1/6), (1/6, 2/3)]
+    eps = 1e-12
 
-    # 4) Loop over target nodes
     for i in range(n_tgt_nodes):
         adj = n2c[i].nonzero()[1]
         if adj.size == 0:
             raise RuntimeError(f"Target node {i} has no adjacent cell")
-        k = adj[0]
+
+        # standard SZ: pick one adjacent coarse cell as the patch element
+        k = int(adj[0])
         verts_k, p0, A, M_inv, area = coarse_data[k]
 
-        # Build RHS b
+        # assemble RHS b = ∫_K u φ_i  (via exact 3-pt rule)
         b = np.zeros(3)
         for r, s in quadrature:
-            xq = p0 + A.dot([r, s])
-            pt = Point(*xq)
+            xq = p0 + A @ np.array([r, s])          # (2,)
+            pt = Point(float(xq[0]), float(xq[1]))
 
-            # Locate transfer cell j
+            # locate transfer cell j that contains/touches xq
             j = None
             for cand in tree.query(pt):
+                # cand may be geometry or int depending on shapely version
                 if isinstance(cand, (int, np.integer)):
                     j0 = int(cand)
                 else:
-                    j0 = poly_to_j[cand]
+                    j0 = polyid_to_j.get(id(cand), None)
+                    if j0 is None:
+                        continue
                 if prepared[j0].contains(pt) or prepared[j0].touches(pt):
                     j = j0
                     break
+            # robust fallback: barycentric check over triangle vertices of j0
+            if j is None:
+                for j_try, verts in enumerate(tri_tr):
+                    V_inv = V_inv_tr[j_try]
+                    lam = V_inv @ np.array([xq[0], xq[1], 1.0])
+                    if np.all(lam >= -eps):
+                        j = j_try
+                        break
             if j is None:
                 raise RuntimeError("Quadrature point not found in any transfer cell")
 
-            # Evaluate u_tr at xq via barycentric in j
-            lam_tr = V_inv_tr[j].dot([xq[0], xq[1], 1.0])[:3]
-            uq     = u_tr[tri_tr[j]].dot(lam_tr)
+            # ********* FIX 1: evaluate affine poly of cell j directly *********
+            # u_tr is (n_tr, 3): [a, b, c] per transfer cell
+            a, b0, c0 = u_tr[j, :]
+            uq = a * xq[0] + b0 * xq[1] + c0
 
-            w = area/3.0
-            lam_coarse = np.array([1 - r - s, r, s])
-            b += w * uq * lam_coarse
+            # contribution to b with exact weights
+            wK = area / 3.0
+            lam_coarse = np.array([1.0 - r - s, r, s])  # φ at xq in coarse cell
+            b += wK * uq * lam_coarse
 
-        coeffs = M_inv.dot(b)
+        # solve local mass system to get nodal DOFs on this coarse element
+        coeffs = M_inv @ b
+
+        # take the coefficient corresponding to node i in this element
         local_i = list(verts_k).index(i)
         u_tgt_nodes[i] = coeffs[local_i]
 
-    # 5) Reconstruct cell-wise and return
-    return _reconstruct_cellwise_on_target(tg, u_tgt_nodes)
+    # --- reconstruct cell-wise P1 on target from nodal values ---
+    # (Exact for constants and P1 on matching meshes)
+    p1_tgt = np.empty((g_tgt.num_cells, 3))
+    for K, verts in enumerate(tri_tgt):
+        V = np.array([[X_tgt[0, verts[0]], X_tgt[1, verts[0]], 1.0],
+                      [X_tgt[0, verts[1]], X_tgt[1, verts[1]], 1.0],
+                      [X_tgt[0, verts[2]], X_tgt[1, verts[2]], 1.0]])
+        rhs = u_tgt_nodes[np.array(verts)]
+        a, b0, c0 = np.linalg.solve(V, rhs)
+        p1_tgt[K, :] = [a, b0, c0]
+
+    return p1_tgt
 
 
 def project_p1(source: pp.GridLike,
