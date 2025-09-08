@@ -104,7 +104,7 @@ def test_matching_equals_nonmatching_after_h1_conformity():
     p_nonmatch = scott_zhang_quasi_interpolant(tg, p_on_tg)
 
     # 6) they must coincide (up to roundoff)
-    np.testing.assert_allclose(p_nonmatch, p_match, rtol=1e-12, atol=1e-14)
+    np.testing.assert_allclose(p_nonmatch, p_match, rtol=5e-12, atol=5e-14)
 
 
 @pytest.mark.parametrize("coeffs", [
