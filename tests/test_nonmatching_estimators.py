@@ -1,4 +1,6 @@
 import numpy as np
+
+import mdnme
 import porepy as pp
 import pytest
 
@@ -162,3 +164,49 @@ def test_constants_matching_vs_nonmatching(
     else:
         # no matching estimator here; just check against analytic value
         np.testing.assert_allclose(dN, expected, rtol=1e-12, atol=1e-14)
+
+def test_interface_diffusive_matching_equals_nonmatching_on_matching_grid(material_constants):
+    # Matching config
+    params = {
+        "grid_type": "simplex",
+        "material_constants": material_constants,
+        "meshing_arguments": {"cell_size": 0.25},
+        "times_to_export": [],
+        "non_matching": False,
+        "refine_fracture": False,
+        "refine_mortar": False,
+    }
+
+    setup = VarelaJNumSetup3D(params)
+    pp.run_time_dependent_model(setup, {})
+    mdg = setup.mdg
+    mdnme.estimate_errors(mdg)
+
+    # Pick the (single) 3D–2D interface
+    intf = mdg.interfaces(dim=2)[0]
+    sd_high, sd_low = mdg.interface_to_subdomain_pair(intf)
+    data_intf = mdg.interface_data(intf)
+    data_high = mdg.subdomain_data(sd_high)
+    data_low  = mdg.subdomain_data(sd_low)
+
+    # Compute both estimators using the *actual reconstructed fields*
+    dM = _interface_diffusive_error_2d(
+        intf,
+        data_intf,
+        sd_high,
+        data_high,
+        sd_low,
+        data_low
+    )
+    dN = _interface_diffusive_error_2d_nonmatching(
+        intf,
+        data_intf,
+        sd_high,
+        data_high,
+        sd_low,
+        data_low
+    )
+
+    # Cellwise equality (tight), plus global sums
+    np.testing.assert_allclose(dN, dM, rtol=1e-12, atol=1e-14)
+    np.testing.assert_allclose(dN.sum(), dM.sum(), rtol=1e-14, atol=1e-16)
