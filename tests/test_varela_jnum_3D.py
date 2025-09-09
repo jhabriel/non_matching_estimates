@@ -64,22 +64,32 @@ def material_constants() -> dict:
 @pytest.fixture(scope="module")
 def desired_errors_matching_grids() -> list[dict]:
     """Hardcoded values of desired errors."""
-    desired_errors_025 = {
-        'majorant': 0.2553744582135114,
-        'true_error': 0.21754078829532522,
-        'eff_idx': 1.173915292918883,
+    desired_errors_03000 = {
+        'majorant': 0.2686486032104262,
+        'true_error': 0.23414711882291925,
+        'eff_idx': 1.1473496003749666,
     }
-    desired_errors_0125 = {
-        'majorant': 0.16947899720717424,
-        'true_error': 0.15259723183109286,
-        'eff_idx': 1.1106295649895372,
+    desired_errors_01500 = {
+        'majorant': 0.1760391376608033,
+        'true_error': 0.16001426884205322,
+        'eff_idx': 1.1001464990260832,
     }
-    desired_errors_00625 = {
-        'majorant': 0.11887565856452474,
-        'true_error': 0.11314512602221603,
-        'eff_idx': 1.0506476305588588,
+    desired_errors_07500 = {
+        'majorant': 0.09283467471878434,
+        'true_error': 0.0847922158775042,
+        'eff_idx': 1.0948490230860195,
     }
-    return [desired_errors_025, desired_errors_0125, desired_errors_00625]
+    desired_errors_00375 = {
+        'majorant': 0.047542183820867674,
+        'true_error': 0.04590399163473414,
+        'eff_idx': 1.0356873580661332,
+    }
+    return [
+        desired_errors_03000,
+        desired_errors_01500,
+        desired_errors_07500,
+        desired_errors_00375,
+    ]
 
 
 def test_model_pre_simulation(material_constants: dict) -> None:
@@ -106,7 +116,7 @@ def test_model_post_simulation(material_constants: dict) -> None:
     pp.run_time_dependent_model(setup, {})
 
 
-@pytest.mark.parametrize('cell_size', [0.25, 0.125, 0.0625])
+@pytest.mark.parametrize('cell_size', [0.3000, 0.1500, 0.0750, 0.0375])
 def test_error_estimates_matching_grids(
         material_constants: dict,
         desired_errors_matching_grids: list[dict],
@@ -163,12 +173,16 @@ def test_error_estimates_matching_grids(
     eff_idx = majorant / true_error
 
     # Check against desired values
-    if cell_size == 0.25:
+    if cell_size == 0.3000:
         check_idx = 0
-    elif cell_size == 0.125:
+    elif cell_size == 0.1500:
         check_idx = 1
-    else:
+    elif cell_size == 0.0750:
         check_idx = 2
+    elif cell_size == 0.0375:
+        check_idx = 3
+    else:
+        raise ValueError('Cell-size not supported.')
 
     # Retrieved desired values
     majorant_desired = desired_errors_matching_grids[check_idx]['majorant']
