@@ -134,12 +134,10 @@ def test_sz_quadratic_convergence(grid_sequence, coeffs):
         tg = TransferGrid(finest, g_tgt)
 
         # --- build u_tr on the transfer mesh nodes by analytic sampling ---
-        tr_rot = mdnme.RotatedGrid(tg.transfer)
-        Xtr = tr_rot.nodes[:2, :]
-        u_tr_nodes = u(Xtr[0, :], Xtr[1, :])
+        C_tr = fit_p1_on_grid(tg.transfer, u)
 
         # --- SZ v2: get cell-wise P1 on target ---
-        C_tgt = scott_zhang_quasi_interpolant(tg, u_tr_nodes)
+        C_tgt = scott_zhang_quasi_interpolant(tg, C_tr)
 
         # --- compute errors on target grid ---
         tgt_rot = mdnme.RotatedGrid(g_tgt)
@@ -198,3 +196,19 @@ def test_sz_quadratic_convergence(grid_sequence, coeffs):
     # slopes should be ~2 (L2) and ~1 (H1)
     assert 1.6 <= p_L2 <= 2.4, f"L2 slope off: {p_L2:.2f}"
     assert 0.7 <= p_H1 <= 1.3, f"H1 slope off: {p_H1:.2f}"
+
+
+def fit_p1_on_grid(grid: pp.Grid, u_fn) -> np.ndarray:
+    """Return cell-wise P1 (a,b,c) fitting u at the three vertices of each triangle."""
+    rot = mdnme.RotatedGrid(grid)
+    X   = rot.nodes[:2, :]
+    cn  = grid.cell_nodes().tocsc()
+    tri = cn.indices.reshape((3, grid.num_cells), order="F").T
+
+    C = np.empty((grid.num_cells, 3))
+    for k, verts in enumerate(tri):
+        xy    = X[:, verts]                      # 2×3
+        uvals = u_fn(xy[0, :], xy[1, :])         # length-3
+        V     = np.vstack((xy, np.ones(3)))      # 3×3, rows [x;y;1]
+        C[k, :] = np.linalg.solve(V.T, uvals)
+    return C
