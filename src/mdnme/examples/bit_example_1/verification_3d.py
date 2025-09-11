@@ -41,6 +41,7 @@ non_matching_params = {
     'perturb_mortar': False,
     'refine_fracture': False,
     'refine_mortar': False,
+    'translation_vector': (0, 1, 1),  # Use to translate the internal nodes
 }
 setup_nonmatching = VarelaJNumSetup3D(non_matching_params)
 pp.run_time_dependent_model(setup_nonmatching, {})

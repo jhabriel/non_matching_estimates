@@ -537,6 +537,17 @@ class VarelaJNumGeometry3D:
             refine_mortar = self.params.get("refine_mortar", False)
 
             if perturb_frac or perturb_mortar:
+
+                # Sanity check on translation vector
+                if self.params.get('translation_vector') is None:
+                    raise ValueError('Expected a translation vector')
+                tvec = self.params.get('translation_vector')
+                x_move, y_move, z_move = tvec[0], tvec[1], tvec[2]
+                if not np.isclose(x_move, 0):
+                    raise ValueError('Points cannot be moved in the x-direction')
+                if np.isclose(y_move, 0) and np.isclose(z_move, 0):
+                    raise ValueError('Expected translation in the y or z direction')
+
                 # Create a matching mdg first
                 mdg_final = pp.create_mdg(
                     self.grid_type(),
@@ -544,10 +555,18 @@ class VarelaJNumGeometry3D:
                     self.fracture_network,
                     **self.meshing_kwargs(),
                 )
+
                 if perturb_frac:
+
                     # Retrieve fracture grid
                     frac_grid = mdg_final.subdomains(dim=2)[0]
                     pert_frac_grid = frac_grid.copy()
+
+                    # Get amplitude of translation. If not given, we use half of the
+                    # mean cell diameter of the grid
+                    default_amp = frac_grid.cell_diameters().mean() / 2
+                    amp: float = self.params.get('amplitude', default_amp)
+
                     # Retrieve "boundary" nodes
                     y_nodes = pert_frac_grid.nodes[1]
                     z_nodes = pert_frac_grid.nodes[2]
@@ -558,14 +577,18 @@ class VarelaJNumGeometry3D:
                         + np.isclose(z_nodes, 0.75)
                     )
                     int_nodes_mask = np.logical_not(bound_nodes_mask)
-                    # Translate all internal nodes by a constant `amp`
-                    amp = 0.125 / 2
-                    pert_frac_grid.nodes[1][int_nodes_mask] += amp
+
+                    # Translate all internal nodes by a constant value `amp`
+                    # Direction of motion is determined by the translation vector
+                    pert_frac_grid.nodes[1][int_nodes_mask] += y_move * amp
+                    pert_frac_grid.nodes[2][int_nodes_mask] += z_move * amp
                     pert_frac_grid.compute_geometry()
+
                     # Now, we have to replace the fracture grid into the mdg....
                     mdg_final.replace_subdomains_and_interfaces(
                         sd_map={frac_grid: pert_frac_grid}
                     )
+
                 if perturb_mortar:
                     raise NotImplementedError
 
