@@ -104,6 +104,15 @@ residual_error_nonmatch = (resi_sd_mat_nonmatch.sum()
                            + resi_sd_frac_nonmatch.sum()
                            ) ** 0.5
 
+error_sd_mat_match = (diff_sd_mat_match + resi_sd_mat_match) ** 0.5
+error_sd_mat_nonmatch = (diff_sd_mat_nonmatch + resi_sd_mat_nonmatch) ** 0.5
+error_sd_frac_match = (diff_sd_frac_match + resi_sd_frac_match) ** 0.5
+error_sd_frac_nonmatch = (diff_sd_frac_nonmatch + resi_sd_frac_nonmatch) ** 0.5
+error_intf_left_match = diff_intf_match_left ** 0.5
+error_intf_right_match = diff_intf_match_right ** 0.5
+error_intf_left_nonmatch = diff_intf_nonmatch_left ** 0.5
+error_intf_right_nonmatch = diff_intf_nonmatch_right ** 0.5
+
 majorant_match = diff_error_match + residual_error_match
 majorant_nonmatch = diff_error_nonmatch + residual_error_nonmatch
 
