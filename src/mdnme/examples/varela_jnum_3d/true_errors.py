@@ -12,6 +12,14 @@ import sympy as sym
 
 import mdnme
 from mdnme.examples.varela_jnum_3d.exact_solution import VarelaJNumExactSolution3D
+from mdnme.estimates.diffusive_error import (
+    _get_high_pressure_trace,
+    _get_low_pressure,
+)
+from mdnme.utils.internal_boundary_grid import InternalBoundaryGrid
+from mdnme.utils.primal_projections import restrict_to_transfer, \
+    scott_zhang_quasi_interpolant
+from mdnme.utils.transfer_grid import TransferGrid
 
 
 class VarelaJNumTrueErrors3D(VarelaJNumExactSolution3D):
@@ -21,6 +29,7 @@ class VarelaJNumTrueErrors3D(VarelaJNumExactSolution3D):
 
     def __init__(self, model):
         super().__init__(model)
+        self.is_nonmatch = model.params.get("non_matching", False)
 
     def true_error(self) -> float:
         """ Compute global true error (mixed-dimensional majorant).
@@ -182,19 +191,124 @@ class VarelaJNumTrueErrors3D(VarelaJNumExactSolution3D):
         return integral
 
     def true_error_interface(self) -> np.ndarray:
-        """Compute true error contribution of the interface.
+        """Compute true error contribution of the interface."""
+        if not self.is_nonmatch:
+            return self._true_error_interface_matching()
+        else:
+            return self._true_error_interface_nonmatching()
+
+    def _true_error_interface_nonmatching(self) -> np.ndarray:
+        """Compute true error contribution of the interface for nonmatching grids"""
+        tol = 1e-8 # geometric tolerance
+
+        # Retrieve grids and dictionaries
+        mdg: pp.MixedDimensionalGrid = self.model.mdg
+        sd_high, data_high = mdg.subdomains(return_data=True)[0]
+        sd_low, data_low = mdg.subdomains(return_data=True)[1]
+        intf, data_intf = mdg.interfaces(return_data=True)[0]
+
+        # --- low-dim pressure (per-cell P1 on its own grid) ---
+        p_low_frac = data_low["estimates"]["recon_sd_pressure"]  # (n_frac_cells, 3)
+
+        # --- face-trace of high-dim pressure, in interface frame ---
+        # NOTE: p_trace_high[i] corresponds to sd_high face index frac_faces[i]
+        frac_faces = sps.find(intf.primary_to_mortar_avg())[1]
+        p_trace_high = _get_high_pressure_trace(sd_low, sd_high, data_high,
+                                                frac_faces)  # (n_frac_faces, 3)
+        # map: high face id -> local index into frac_faces
+        face2pos = {int(f): i for i, f in enumerate(frac_faces)}
+
+        # --- IBG (per-side internal-boundary grids in interface frame) ---
+        ibg = InternalBoundaryGrid(intf, sd_high, tol=tol)
+
+        # --- quadrature on 2D mortar sides ---
+        method = quadpy.t2.get_good_scheme(10)
+
+        values = []
+        # loop sides in the mortar’s canonical order
+        for P_msg, mg_side in intf.project_to_side_grids():
+            # identify the side enum that owns this mortar side grid
+            side_enum = next(k for k, v in intf.side_grids.items() if v is mg_side)
+
+            # IBG side grid and its parent faces (one parent face per IBG triangle)
+            ibg_side = ibg.ibg_side_grid(side_enum)
+            parent_faces = ibg.parent_face_of_cell(side_enum)  # shape: (n_ibg_cells,)
+
+            # (1) IBG-side tr(p_high): assign face P1 coeffs to each IBG cell via
+            # parent map
+            if ibg_side.num_cells == 0:
+                tr_hi_on_ibg = np.zeros((0, 3))
+            else:
+                idx = np.fromiter(
+                    (face2pos[int(f)] for f in parent_faces),
+                    dtype=int,
+                    count=parent_faces.size
+                )
+                tr_hi_on_ibg = p_trace_high[idx, :]  # (n_ibg_cells, 3)
+
+            # (2) Transfer IBG→mortar-side and frac→mortar-side
+            # (same canonical frame; no R needed)
+            tg_ibg_msg = TransferGrid(g_source=ibg_side, g_target=mg_side, tol=tol)
+            tg_fg_msg = TransferGrid(g_source=sd_low, g_target=mg_side, tol=tol)
+
+            # Internal boundary side grid to mortar side grid pressure projection
+            tracep_on_tg = restrict_to_transfer(tg_ibg_msg, tr_hi_on_ibg)
+            tracep_on_msg = scott_zhang_quasi_interpolant(tg_ibg_msg, tracep_on_tg)
+
+            # Fracture grid to mortar side grid pressure projection
+            fracp_on_tg = restrict_to_transfer(tg_fg_msg, p_low_frac)
+            fracp_on_msg = scott_zhang_quasi_interpolant(tg_fg_msg, fracp_on_tg)
+
+            # 3b) Map rotated -> physical (y,z): y,z = T_yz @ xi + b_yz
+            sidegrid_rot = mdnme.RotatedGrid(mg_side)
+            R = sidegrid_rot.rotation_matrix  # x_rot = R @ x_phys
+            active = np.where(sidegrid_rot.dim_bool)[0]  # two in-plane indices
+            inactive = np.where(~sidegrid_rot.dim_bool)[0][0]  # one normal index
+            P_yz = np.array([[0.0, 1.0, 0.0],
+                             [0.0, 0.0, 1.0]])
+            T_yz = P_yz @ R.T[:, active]  # (2,2)
+
+            sidegrid = mg_side
+            rot_cc_full = R @ sidegrid.cell_centers  # (3, N)
+            c_vec = rot_cc_full[inactive, :]  # (N,)
+            n_yz = (P_yz @ R.T[:, inactive]).reshape(2, 1)  # (2,1)
+            b_yz = n_yz @ c_vec.reshape(1, sidegrid.num_cells)  # (2, N)
+
+            # (4) jump and integration on mortar side
+            deltap_side = fracp_on_msg - tracep_on_msg  # (n_msg_cells, 3)
+            elements = mdnme.utils.get_quadpy_elements(mg_side)
+
+            # (5) Retrieve exact 2D pressure
+            y, z = sym.symbols("y z")
+            exact_p_2d = sym.lambdify((y, z), self.p_frac, "numpy")
+            exact_deltap_side = exact_p_2d  # high-dim pressure trace is zero
+
+            # Declare integrand
+            def integrand(x: np.ndarray) -> np.ndarray:
+                # Evaluate reconstructed pressure jump at quadrature points
+                c = mdnme.utils.poly2col(deltap_side)
+                recon_p_jump = c[0] * x[0] + c[1] * x[1] + c[2]
+                # Evaluate exact pressure jump at quadrature points
+                yz = np.einsum('ab,bnm->anm', T_yz, x) + b_yz[:, :, None]  # (2, N, M)
+                exact_jump = exact_deltap_side(yz[0], yz[1])  # (N, M)
+                return (exact_jump - recon_p_jump) ** 2
+
+            # Compute integral
+            diffusive_error_side = method.integrate(integrand, elements)
+
+            # Append to list of values
+            values.append(diffusive_error_side)
+
+        return np.hstack(values)
+
+    def _true_error_interface_matching(self) -> np.ndarray:
+        """Compute true error contribution of the interface for matching grids.
 
         Returns:
             True error contribution of the interface, containing the local error squared
             of each element of the grid. Shape is `intf.num_cells`.
 
         """
-
-        from mdnme.estimates.diffusive_error import (
-            _get_high_pressure_trace,
-            _get_low_pressure,
-        )
-
         # Retrieve grids and dictionaries
         mdg: pp.MixedDimensionalGrid = self.model.mdg
         sd_high, data_high = mdg.subdomains(return_data=True)[0]
