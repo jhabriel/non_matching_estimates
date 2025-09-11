@@ -346,7 +346,7 @@ class TransferGrid:
 
         # 10) save figure
         fig = ax.get_figure()
-        fig.savefig("transfer_grid.pdf")
+        fig.savefig(f'{self.name}.pdf')
 
 
 # TODO: DEPRECATE FUNCTIONALITY WHEN ERROR ESTIMATORS ARE IN PLACE
