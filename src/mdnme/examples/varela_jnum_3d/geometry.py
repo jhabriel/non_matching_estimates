@@ -513,10 +513,10 @@ class VarelaJNumGeometry3D:
         # Create a fracture network.
         self.fracture_network = pp.create_fracture_network(
             self.fractures,
-            self.domain
+            self.domain,
         )
 
-        # Check if we should build a matching or a non-matching mixed-dimensional grid
+        # Check if we should build a matching or a non-matching mdg
         if self.params.get("non_matching") is not None:
             if self.params.get("non_matching"):
                 is_nonmatching = True
@@ -527,66 +527,105 @@ class VarelaJNumGeometry3D:
 
         # Produce mdg
         if is_nonmatching:
-            # Refinements
-            refine_fracture = self.params.get("refine_fracture", True)
+
+            # Create non-matching geometry via perturbation of internal nodes
+            perturb_frac = self.params.get("perturb_fracture", False)
+            perturb_mortar = self.params.get("perturb_mortar", False)
+
+            # Create non-matching geometry via nested refinement
+            refine_fracture = self.params.get("refine_fracture", False)
             refine_mortar = self.params.get("refine_mortar", False)
 
-            # Obtain GridSequenceFactory parameters from standard API
-            mesh_size_bound = self.params["meshing_arguments"]["cell_size"]
-            mesh_size_frac = self.params["meshing_arguments"].get(
-                'cell_size_fracture', mesh_size_bound
-            )
-            mesh_size_min = self.params["meshing_arguments"].get(
-                'cell_size_min', 0.05*mesh_size_bound
-            )
-
-            grid_sequence_params = {
-                'mode': 'nested',
-                'num_refinements': 2,
-                'mesh_param': {
-                    "mesh_size_bound": mesh_size_bound,
-                    "mesh_size_frac": mesh_size_frac,
-                    "mesh_size_min": mesh_size_min,
-                },
-                'grid_param': self.meshing_kwargs(),
-            }
-
-            factory = GridSequenceFactory(
-                self.fracture_network,
-                grid_sequence_params,
-            )
-            mdgs = list(factory)
-            mdg_coarse = mdgs[0]
-            mdg_fine = mdgs[1]
-
-            # Replace grids
-            if refine_fracture and not refine_mortar:
-                mdg_coarse.replace_subdomains_and_interfaces(
-                    sd_map={
-                        mdg_coarse.subdomains(dim=2)[0]: mdg_fine.subdomains(dim=2)[0]
-                    }
+            if perturb_frac or perturb_mortar:
+                # Create a matching mdg first
+                mdg_final = pp.create_mdg(
+                    self.grid_type(),
+                    self.meshing_arguments(),
+                    self.fracture_network,
+                    **self.meshing_kwargs(),
                 )
-            elif refine_mortar and not refine_fracture:
-                mdg_coarse.replace_subdomains_and_interfaces(
-                    interface_map={
-                        mdg_coarse.interfaces(dim=2)[0]: mdg_fine.interfaces(dim=2)[0]
-                    }
+                if perturb_frac:
+                    # Retrieve fracture grid
+                    frac_grid = mdg_final.subdomains(dim=2)[0]
+                    pert_frac_grid = frac_grid.copy()
+                    # Retrieve "boundary" nodes
+                    y_nodes = pert_frac_grid.nodes[1]
+                    z_nodes = pert_frac_grid.nodes[2]
+                    bound_nodes_mask = (
+                        np.isclose(y_nodes, 0.25)
+                        + np.isclose(y_nodes, 0.75)
+                        + np.isclose(z_nodes, 0.25)
+                        + np.isclose(z_nodes, 0.75)
+                    )
+                    int_nodes_mask = np.logical_not(bound_nodes_mask)
+                    # Translate all internal nodes by a constant `amp`
+                    amp = 0.125 / 2
+                    pert_frac_grid.nodes[1][int_nodes_mask] += amp
+                    pert_frac_grid.compute_geometry()
+                    # Now, we have to replace the fracture grid into the mdg....
+                    mdg_final.replace_subdomains_and_interfaces(
+                        sd_map={frac_grid: pert_frac_grid}
+                    )
+                if perturb_mortar:
+                    raise NotImplementedError
+
+            if refine_fracture or refine_mortar:
+
+                # Obtain GridSequenceFactory parameters from standard API
+                mesh_size_bound = self.params["meshing_arguments"]["cell_size"]
+                mesh_size_frac = self.params["meshing_arguments"].get(
+                    'cell_size_fracture', mesh_size_bound
                 )
-            else:
-                mdg_coarse.replace_subdomains_and_interfaces(
-                    sd_map={
-                        mdg_coarse.subdomains(dim=2)[0]: mdg_fine.subdomains(dim=2)[0]
+                mesh_size_min = self.params["meshing_arguments"].get(
+                    'cell_size_min', 0.05*mesh_size_bound
+                )
+
+                grid_sequence_params = {
+                    'mode': 'nested',
+                    'num_refinements': 2,
+                    'mesh_param': {
+                        "mesh_size_bound": mesh_size_bound,
+                        "mesh_size_frac": mesh_size_frac,
+                        "mesh_size_min": mesh_size_min,
                     },
-                    interface_map={
-                        mdg_coarse.interfaces(dim=2)[0]: mdg_fine.interfaces(dim=2)[0]
-                    }
+                    'grid_param': self.meshing_kwargs(),
+                }
+
+                factory = GridSequenceFactory(
+                    self.fracture_network,
+                    grid_sequence_params,
                 )
-            mdg_final = mdg_coarse
+                mdgs = list(factory)
+                mdg_coarse = mdgs[0]
+                mdg_fine = mdgs[1]
 
-            for sd in mdg_final.subdomains():
-                bg = mdg_final.subdomain_to_boundary_grid(sd)
-                bg.compute_geometry()
+                # Replace grids
+                if refine_fracture and not refine_mortar:
+                    mdg_coarse.replace_subdomains_and_interfaces(
+                        sd_map={
+                            mdg_coarse.subdomains(dim=2)[0]: mdg_fine.subdomains(dim=2)[0]
+                        }
+                    )
+                elif refine_mortar and not refine_fracture:
+                    mdg_coarse.replace_subdomains_and_interfaces(
+                        interface_map={
+                            mdg_coarse.interfaces(dim=2)[0]: mdg_fine.interfaces(dim=2)[0]
+                        }
+                    )
+                else:
+                    mdg_coarse.replace_subdomains_and_interfaces(
+                        sd_map={
+                            mdg_coarse.subdomains(dim=2)[0]: mdg_fine.subdomains(dim=2)[0]
+                        },
+                        interface_map={
+                            mdg_coarse.interfaces(dim=2)[0]: mdg_fine.interfaces(dim=2)[0]
+                        }
+                    )
+                mdg_final = mdg_coarse
 
+                for sd in mdg_final.subdomains():
+                    bg = mdg_final.subdomain_to_boundary_grid(sd)
+                    bg.compute_geometry()
         else:
             # The mdg is matching, and we create the mdg in the usual way
             mdg_final = pp.create_mdg(
