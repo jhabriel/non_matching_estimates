@@ -129,7 +129,7 @@ def _run_single(h: float, *, non_matching: bool, translation: Tuple[int, int, in
             common_params,
             non_matching=True,
             perturb_fracture=True,
-            perturb_mortar=False,
+            perturb_mortar=True,
             refine_fracture=False,
             refine_mortar=False,
             translation_vector=translation,
@@ -234,13 +234,15 @@ def build_latex_table(rows: List[Tuple[str, List[str]]]) -> str:
            (including $\pm$ where desired).
     """
     header = (
-        "\begin{sidewaystable}[t]\n"
+        "\\begin{sidewaystable}\n"
         "\\centering\n"
-        "\\caption{Matching vs non\-matching (mean $\\pm$ std over 8 translations). First row per $h$ is Matching; second is Non\-matching.}\n"
-        "\\label{tab:mdnme\_batch}\n"
+        "\\caption{Matching vs non-matching (mean +//- std over 8 translations). "
+        "First row per h is Matching; second is Non-matching.}\n"
+        "\\label{tab:3d_verification}\n"
         "\\begin{tabular}{lrrrrrr}\n"
         "\\hline\n"
-        "\\textbf{h} & $\\eta_{\\mathrm{mat}}$ & $\\eta_{\\mathrm{frac}}$ & $\\eta_{\\mathrm{intf,L}}$ & $\\eta_{\\mathrm{intf,R}}$ & Majorant & Eff. idx \\\\ \n"
+        "$h$ & $\\eta_{\\mathrm{mat}}$ & $\\eta_{\\mathrm{frac}}$ & $\\eta_{\\mathrm{"
+        "intf,L}}$ & $\\eta_{\\mathrm{intf,R}}$ & Majorant & Eff. idx \\\\ \n"
         "\\hline\n"
     )
     body_lines = []
