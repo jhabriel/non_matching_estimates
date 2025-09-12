@@ -556,7 +556,7 @@ class VarelaJNumGeometry3D:
                     **self.meshing_kwargs(),
                 )
 
-                if perturb_frac:
+                if perturb_frac and not perturb_mortar:
 
                     # Retrieve fracture grid
                     frac_grid = mdg_final.subdomains(dim=2)[0]
@@ -589,19 +589,137 @@ class VarelaJNumGeometry3D:
                         sd_map={frac_grid: pert_frac_grid}
                     )
 
-                if perturb_mortar:
+                if perturb_mortar and not perturb_frac:
 
-                    # TODO:
-                    #  (i)   Loop through the mortar sides
-                    #  (ii)  Copy the side grids,
-                    #  (iii) Perturb in the directions opposite to the translation
-                    #        vector. For example, if trans_vec = (0, 0, 1),
-                    #        then translate using (0, 0, -1).
-                    #  (iv)  Replace the perturbed sidegrids
-                    # In principle, this will recompute all the projection operators
-                    # and so on...
+                    # Retrieve interface grid
+                    intf = mdg_final.interfaces(dim=2)[0]
 
-                    raise NotImplementedError
+                    sg_map: dict = {}
+                    # Loop over the two sides of the mortar grid
+                    for proj_msg, mg_side in intf.project_to_side_grids():
+
+                        # Identify the side enum that owns this mortar side grid
+                        side_enum = next(
+                            k for k, v in intf.side_grids.items() if v is mg_side
+                        )
+
+                        # Make a hard copy of the sidegrid instead
+                        pert_mg_side = mg_side.copy()
+
+                        # Get amplitude of translation. If not given, we use half of the
+                        # mean cell diameter of the grid
+                        default_amp = mg_side.cell_diameters().mean() / 2
+                        amp: float = self.params.get('amplitude', default_amp)
+
+                        # Retrieve "boundary" nodes
+                        y_nodes = pert_mg_side.nodes[1]
+                        z_nodes = pert_mg_side.nodes[2]
+                        bound_nodes_mask = (
+                                np.isclose(y_nodes, 0.25)
+                                + np.isclose(y_nodes, 0.75)
+                                + np.isclose(z_nodes, 0.25)
+                                + np.isclose(z_nodes, 0.75)
+                        )
+                        int_nodes_mask = np.logical_not(bound_nodes_mask)
+
+                        # Translate all internal nodes by a constant value `amp`
+                        # Direction of motion is determined by the translation vector
+                        pert_mg_side.nodes[1][int_nodes_mask] += y_move * amp
+                        pert_mg_side.nodes[2][int_nodes_mask] += z_move * amp
+                        pert_mg_side.compute_geometry()
+
+                        # Store in map
+                        sg_map[side_enum] = pert_mg_side
+
+                    # Finally, perform the replacement
+                    mdg_final.replace_subdomains_and_interfaces(
+                        interface_map={intf: sg_map}
+                    )
+
+                if perturb_frac and perturb_mortar:
+
+                    # 1: Perturb fracture grid
+
+                    # Retrieve fracture grid
+                    frac_grid = mdg_final.subdomains(dim=2)[0]
+                    pert_frac_grid = frac_grid.copy()
+
+                    # Get amplitude of translation. If not given, we use half of the
+                    # mean cell diameter of the grid
+                    default_amp_frac = frac_grid.cell_diameters().mean() / 2
+                    amp_frac: float = self.params.get('amplitude', default_amp_frac)
+
+                    # Retrieve "boundary" nodes
+                    y_nodes_frac = pert_frac_grid.nodes[1]
+                    z_nodes_frac = pert_frac_grid.nodes[2]
+                    bound_nodes_mask_frac = (
+                            np.isclose(y_nodes_frac, 0.25)
+                            + np.isclose(y_nodes_frac, 0.75)
+                            + np.isclose(z_nodes_frac, 0.25)
+                            + np.isclose(z_nodes_frac, 0.75)
+                    )
+                    int_nodes_mask_frac = np.logical_not(bound_nodes_mask_frac)
+
+                    # Translate all internal nodes by a constant value `amp`
+                    # Direction of motion is determined by the translation vector
+                    pert_frac_grid.nodes[1][int_nodes_mask_frac] += y_move * amp_frac
+                    pert_frac_grid.nodes[2][int_nodes_mask_frac] += z_move * amp_frac
+                    pert_frac_grid.compute_geometry()
+
+                    # 2: Perturb sidegrids of the interface grid
+
+                    # Retrieve interface grid
+                    intf = mdg_final.interfaces(dim=2)[0]
+
+                    sg_map: dict = {}
+                    # Loop over the two sides of the mortar grid
+                    for proj_msg, mg_side in intf.project_to_side_grids():
+
+                        # Identify the side enum that owns this mortar side grid
+                        side_enum = next(
+                            k for k, v in intf.side_grids.items() if v is mg_side
+                        )
+
+                        # Make a hard copy of the sidegrid instead
+                        pert_mg_side = mg_side.copy()
+
+                        # Get amplitude of translation. If not given, we use half of the
+                        # mean cell diameter of the grid
+                        default_amp_mortar = mg_side.cell_diameters().mean() / 2
+                        amp_mortar: float = self.params.get(
+                            'amplitude', default_amp_mortar
+                        )
+
+                        # Retrieve "boundary" nodes
+                        y_nodes_mortar = pert_mg_side.nodes[1]
+                        z_nodes_mortar = pert_mg_side.nodes[2]
+                        bound_nodes_mask_mortar = (
+                                np.isclose(y_nodes_mortar, 0.25)
+                                + np.isclose(y_nodes_mortar, 0.75)
+                                + np.isclose(z_nodes_mortar, 0.25)
+                                + np.isclose(z_nodes_mortar, 0.75)
+                        )
+                        int_nodes_mask_mortar = np.logical_not(bound_nodes_mask_mortar)
+
+                        # Translate all internal nodes by a constant value `amp`
+                        # Direction of motion is determined by the translation vector
+                        # Note: We translate the nodes in the opposite side of the
+                        # translation vector when both fracture and mortar grid
+                        # internal nodes are perturbed
+                        pert_mg_side.nodes[1][int_nodes_mask_mortar] += (-y_move *
+                                                                         amp_mortar)
+                        pert_mg_side.nodes[2][int_nodes_mask_mortar] += (-z_move *
+                                                                         amp_mortar)
+                        pert_mg_side.compute_geometry()
+
+                        # Store in map
+                        sg_map[side_enum] = pert_mg_side
+
+                    # 3: Replace fracture grid and mortar grid
+                    mdg_final.replace_subdomains_and_interfaces(
+                        sd_map={frac_grid: pert_frac_grid},
+                        interface_map={intf: sg_map}
+                    )
 
             if refine_fracture or refine_mortar:
 
