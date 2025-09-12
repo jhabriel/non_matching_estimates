@@ -590,6 +590,17 @@ class VarelaJNumGeometry3D:
                     )
 
                 if perturb_mortar:
+
+                    # TODO:
+                    #  (i)   Loop through the mortar sides
+                    #  (ii)  Copy the side grids,
+                    #  (iii) Perturb in the directions opposite to the translation
+                    #        vector. For example, if trans_vec = (0, 0, 1),
+                    #        then translate using (0, 0, -1).
+                    #  (iv)  Replace the perturbed sidegrids
+                    # In principle, this will recompute all the projection operators
+                    # and so on...
+
                     raise NotImplementedError
 
             if refine_fracture or refine_mortar:
