@@ -169,7 +169,7 @@ def test_error_estimates_matching_grids(
     # Majorant, true error, and efficiency index
     majorant = diffusive_error + residual_error
     te = VarelaJNumTrueErrors3D(setup)
-    true_error = te.true_error()
+    true_error = te.true_error_primal()
     eff_idx = majorant / true_error
 
     # Check against desired values

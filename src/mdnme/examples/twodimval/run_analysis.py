@@ -105,7 +105,7 @@ for mesh_size in mesh_sizes:
 
     # True error
     te = Varela2023JNumTrueErrors2d()
-    true_error = te.true_error(mdg)
+    true_error = te.true_error_primal()
 
     # Efficiency index
     efficiency_index = majorant / true_error

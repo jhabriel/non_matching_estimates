@@ -120,8 +120,8 @@ majorant_nonmatch = diff_error_nonmatch + residual_error_nonmatch
 te_match = VarelaJNumTrueErrors3D(setup_matching)
 te_nonmatch = VarelaJNumTrueErrors3D(setup_nonmatching)
 
-true_error_match = te_match.true_error()
-true_error_nonmatch = te_nonmatch.true_error()
+true_error_match = te_match.true_error_primal()
+true_error_nonmatch = te_nonmatch.true_error_primal()
 
 eff_idx_match = majorant_match / true_error_match
 eff_idx_nonmatch = majorant_nonmatch / true_error_nonmatch
