@@ -31,20 +31,20 @@ class VarelaJNumTrueErrors3D(VarelaJNumExactSolution3D):
         super().__init__(model)
         self.is_nonmatch = model.params.get("non_matching", False)
 
-    def true_error(self) -> float:
+    def true_error_primal(self) -> float:
         """ Compute global true error (mixed-dimensional majorant).
 
         Returns:
             Value of the true error for the whole mixed-dimensional grid.
 
         """
-        te_sq_2d = self.true_error_matrix()
-        te_sq_1d = self.true_error_fracture()
-        te_sq_intf = self.true_error_interface()
+        te_sq_2d = self.true_error_matrix_primal()
+        te_sq_1d = self.true_error_fracture_primal()
+        te_sq_intf = self.true_error_interface_primal()
 
         return np.sqrt(te_sq_2d.sum() + te_sq_1d.sum() + te_sq_intf.sum())
 
-    def true_error_matrix(self) -> np.ndarray:
+    def true_error_matrix_primal(self) -> np.ndarray:
         """
         Compute true error contribution of the matrix subdomain.
 
@@ -116,7 +116,7 @@ class VarelaJNumTrueErrors3D(VarelaJNumExactSolution3D):
 
         return integral
 
-    def true_error_fracture(self) -> np.ndarray:
+    def true_error_fracture_primal(self) -> np.ndarray:
         """Compute true error contribution of the fracture subdomain.
 
         Returns:
@@ -190,14 +190,14 @@ class VarelaJNumTrueErrors3D(VarelaJNumExactSolution3D):
 
         return integral
 
-    def true_error_interface(self) -> np.ndarray:
+    def true_error_interface_primal(self) -> np.ndarray:
         """Compute true error contribution of the interface."""
         if not self.is_nonmatch:
-            return self._true_error_interface_matching()
+            return self._true_error_interface_matching_primal()
         else:
-            return self._true_error_interface_nonmatching()
+            return self._true_error_interface_nonmatching_primal()
 
-    def _true_error_interface_nonmatching(self) -> np.ndarray:
+    def _true_error_interface_nonmatching_primal(self) -> np.ndarray:
         """Compute true error contribution of the interface for nonmatching grids"""
         tol = 1e-8 # geometric tolerance
 
@@ -301,7 +301,7 @@ class VarelaJNumTrueErrors3D(VarelaJNumExactSolution3D):
 
         return np.hstack(values)
 
-    def _true_error_interface_matching(self) -> np.ndarray:
+    def _true_error_interface_matching_primal(self) -> np.ndarray:
         """Compute true error contribution of the interface for matching grids.
 
         Returns:
