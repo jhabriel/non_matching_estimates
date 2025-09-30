@@ -32,21 +32,21 @@ class VarelaJNumTrueErrors3D(VarelaJNumExactSolution3D):
         self.is_nonmatch = model.params.get("non_matching", False)
 
     def true_error_primal(self) -> float:
-        """ Compute global true error (mixed-dimensional majorant).
+        """ Compute global true error (mixed-dimensional majorant) for the primal var.
 
         Returns:
             Value of the true error for the whole mixed-dimensional grid.
 
         """
-        te_sq_2d = self.true_error_matrix_primal()
-        te_sq_1d = self.true_error_fracture_primal()
+        te_sq_matrix = self.true_error_matrix_primal()
+        te_sq_fracture = self.true_error_fracture_primal()
         te_sq_intf = self.true_error_interface_primal()
 
-        return np.sqrt(te_sq_2d.sum() + te_sq_1d.sum() + te_sq_intf.sum())
+        return np.sqrt(te_sq_matrix.sum() + te_sq_fracture.sum() + te_sq_intf.sum())
 
     def true_error_matrix_primal(self) -> np.ndarray:
         """
-        Compute true error contribution of the matrix subdomain.
+        Compute true error contribution of the matrix subdomain for the primal var.
 
         Returns:
             True error contribution of the matrix, containing the local error squared
@@ -381,3 +381,166 @@ class VarelaJNumTrueErrors3D(VarelaJNumExactSolution3D):
             values.append(diffusive_error_side)
 
         return np.hstack(values)
+
+# --- Add these methods inside VarelaJNumTrueErrors3D ---
+
+    # ===== Global aggregator (dual variable) ===================================
+    def true_error_dual(self) -> float:
+        """Global L2(true error) of the dual variable u on matrix, fracture, interface."""
+        te_u_sq_mat = self.true_error_dual_matrix().sum()
+        te_u_sq_frac = self.true_error_dual_fracture().sum()
+        te_u_sq_intf = self.true_error_dual_interface().sum()
+        return np.sqrt(te_u_sq_mat + te_u_sq_frac + te_u_sq_intf)
+
+    # ===== Matrix (3D) =========================================================
+    def true_error_dual_matrix(self) -> np.ndarray:
+        """Per-cell ∫_K |u_exact - u_h|^2 in the 3D matrix."""
+        mdg: pp.MixedDimensionalGrid = self.model.mdg
+        sd_matrix, d_matrix = mdg.subdomains(return_data=True, dim=3)[0]
+
+        # Lambdify exact q = [q_x, q_y, q_z] per region
+        x, y, z = sym.symbols("x y z")
+        q_fun = [
+            [
+                sym.lambdify((x, y, z), q[0], "numpy"),
+                sym.lambdify((x, y, z), q[1], "numpy"),
+                sym.lambdify((x, y, z), q[2], "numpy"),
+            ]
+            for q in self.q_matrix
+        ]
+
+        # Reconstructed u_h (assume constant-per-cell coefficients via poly2col)
+        recon_u = d_matrix["estimates"]["recon_sd_flux"]
+        Uc = mdnme.utils.poly2col(recon_u)  # [ux, uy, uz] constants
+        ux_h, uy_h, uz_h = Uc[0], Uc[1], Uc[2]
+
+        # Quadrature / elements and region masks
+        method = quadpy.t3.get_good_scheme(10)
+        elements = mdnme.utils.get_quadpy_elements(sd_matrix)
+        cell_idx = self.get_region_indices(where="cc")
+
+        out = np.zeros(sd_matrix.num_cells)
+        for qf, idx in zip(q_fun, cell_idx):
+            def integrand(X: np.ndarray) -> np.ndarray:
+                ux_e = qf[0](X[0], X[1], X[2])
+                uy_e = qf[1](X[0], X[1], X[2])
+                uz_e = qf[2](X[0], X[1], X[2])
+                # broadcast u_h constants element-wise
+                ux = ux_h * np.ones_like(X[0])
+                uy = uy_h * np.ones_like(X[0])
+                uz = uz_h * np.ones_like(X[0])
+                return (ux_e - ux) ** 2 + (uy_e - uy) ** 2 + (uz_e - uz) ** 2
+
+            out += method.integrate(integrand, elements) * idx
+
+        return out
+
+    # ===== Fracture (2D) =======================================================
+    def true_error_dual_fracture(self) -> np.ndarray:
+        """Per-cell ∫_T |u_exact - u_h|^2 on the 2D fracture grid (tangential yz)."""
+        mdg: pp.MixedDimensionalGrid = self.model.mdg
+        sd_frac, d_frac = mdg.subdomains(return_data=True, dim=2)[0]
+        sd_rot = mdnme.RotatedGrid(sd_frac)
+
+        # exact q_frac = [qy(y,z), qz(y,z)] in physical yz
+        y, z = sym.symbols("y z")
+        qy_fun = sym.lambdify((y, z), self.q_frac[0], "numpy")
+        qz_fun = sym.lambdify((y, z), self.q_frac[1], "numpy")
+
+        # reconstructed u_h in local (rotated) yz frame; use constant coeffs
+        recon_u = d_frac["estimates"]["recon_sd_flux"]
+        Uc = mdnme.utils.poly2col(recon_u)  # [uy, uz]
+        uy_h, uz_h = Uc[0], Uc[1]
+
+        # Quad + elements (with rotation mapping you already use)
+        method = quadpy.t2.get_good_scheme(10)
+        elements = mdnme.utils.get_quadpy_elements(sd_frac, sd_rot)
+
+        active = np.where(sd_rot.dim_bool)[0]
+        inactive = np.where(~sd_rot.dim_bool)[0][0]
+        P_yz = np.array([[0.0, 1.0, 0.0],
+                         [0.0, 0.0, 1.0]])
+        R = sd_rot.rotation_matrix
+        T_yz = P_yz @ R.T[:, active]     # map local (ξ,η) -> physical (y,z)
+        rot_cc_full = R @ sd_frac.cell_centers
+        c_vec = rot_cc_full[inactive, :]
+        n_yz = (P_yz @ R.T[:, inactive]).reshape(2, 1)
+        b_yz = n_yz @ c_vec.reshape(1, sd_frac.num_cells)
+        Ty = T_yz.T  # use same transform as your pressure routine
+
+        def integrand(xi: np.ndarray) -> np.ndarray:
+            # u_h constants
+            uy = uy_h * np.ones_like(xi[0])
+            uz = uz_h * np.ones_like(xi[0])
+            # exact in physical yz
+            yz = np.einsum('ab,bnm->anm', T_yz, xi) + b_yz[:, :, None]
+            qy = qy_fun(yz[0], yz[1])
+            qz = qz_fun(yz[0], yz[1])
+            # rotate physical components to local (rotated) yz frame
+            uy_e = Ty[0, 0] * qy + Ty[0, 1] * qz
+            uz_e = Ty[1, 0] * qy + Ty[1, 1] * qz
+            return (uy_e - uy) ** 2 + (uz_e - uz) ** 2
+
+        return method.integrate(integrand, elements)
+
+    # --- Interface (2D mortar): P0 integrated λ_h
+    def true_error_dual_interface(self) -> np.ndarray:
+        """Per-cell ∫_E (λ_exact - λ_h_density)^2 dS on the mortar grid.
+
+        Notes:
+            - Expects data_intf["estimates"]["fv_intf_flux"] to store *integrated*
+              P0 mortar flux per cell (shape (Nc,) or (Nc,1)).
+            - We densitize via λ_h_density = Λ_h / |E|.
+            - Quadrature uses degree=20 since (bubble)^2 has degree 16.
+        """
+        mdg: pp.MixedDimensionalGrid = self.model.mdg
+        intf, data_intf = mdg.interfaces(return_data=True)[0]
+
+        # Reconstructed integrated flux Λ_h per mortar cell (P0)
+        lam_h_int = data_intf["estimates"]["fv_intf_flux"]
+        lam_h_int = np.asarray(lam_h_int).reshape(-1)
+
+        # Densitize to get constant density per cell
+        vol = intf.cell_volumes
+        lam_h_dens_all = lam_h_int / vol  # shape (Nc,)
+
+        # Exact density λ(y,z)
+        y, z = sym.symbols("y z")
+        lam_fun = sym.lambdify((y, z), self.q_intf, "numpy")
+
+        values = []
+        # Degree 20 to integrate (degree-16) squared bubble accurately
+        method = quadpy.t2.get_good_scheme(20)
+
+        for P_msg, sidegrid in intf.project_to_side_grids():
+            # Map (ξ,η) on the side grid -> physical (y,z)
+            side_rot = mdnme.RotatedGrid(sidegrid)
+            R = side_rot.rotation_matrix
+            active = np.where(side_rot.dim_bool)[0]
+            inactive = np.where(~side_rot.dim_bool)[0][0]
+
+            P_yz = np.array([[0.0, 1.0, 0.0],
+                             [0.0, 0.0, 1.0]])
+            T_yz = P_yz @ R.T[:, active]  # (2,2)
+
+            rot_cc_full = R @ sidegrid.cell_centers
+            c_vec = rot_cc_full[inactive, :]
+            n_yz = (P_yz @ R.T[:, inactive]).reshape(2, 1)
+            b_yz = n_yz @ c_vec.reshape(1, sidegrid.num_cells)  # (2, Nsides)
+
+            # Elements and per-side constant λ_h density
+            elements = mdnme.utils.get_quadpy_elements(sidegrid, side_rot)
+            lam_h_dens_side = (P_msg * lam_h_dens_all)  # shape (Nsides,)
+
+            def integrand(xi: np.ndarray) -> np.ndarray:
+                # exact λ at quadrature points
+                yz = np.einsum('ab,bnm->anm', T_yz, xi) + b_yz[:, :, None]
+                lam_e = lam_fun(yz[0], yz[1])  # (Nsides, Nq)
+                # reconstructed constant density per side cell, broadcast over points
+                lam_h = lam_h_dens_side[:, None] * np.ones_like(xi[0])
+                return (lam_e - lam_h) ** 2
+
+            values.append(method.integrate(integrand, elements))
+
+        return np.hstack(values)
+
