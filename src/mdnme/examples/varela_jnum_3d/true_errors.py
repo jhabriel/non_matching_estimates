@@ -411,8 +411,7 @@ class VarelaJNumTrueErrors3D(VarelaJNumExactSolution3D):
 
         # Reconstructed u_h (assume constant-per-cell coefficients via poly2col)
         recon_u = d_matrix["estimates"]["recon_sd_flux"]
-        Uc = mdnme.utils.poly2col(recon_u)  # [ux, uy, uz] constants
-        ux_h, uy_h, uz_h = Uc[0], Uc[1], Uc[2]
+        u = mdnme.utils.poly2col(recon_u)
 
         # Quadrature / elements and region masks
         method = quadpy.t3.get_good_scheme(10)
@@ -426,9 +425,9 @@ class VarelaJNumTrueErrors3D(VarelaJNumExactSolution3D):
                 uy_e = qf[1](X[0], X[1], X[2])
                 uz_e = qf[2](X[0], X[1], X[2])
                 # broadcast u_h constants element-wise
-                ux = ux_h * np.ones_like(X[0])
-                uy = uy_h * np.ones_like(X[0])
-                uz = uz_h * np.ones_like(X[0])
+                ux = u[0] * X[0] + u[1]
+                uy = u[0] * X[1] + u[2]
+                uz = u[0] * X[2] + u[3]
                 return (ux_e - ux) ** 2 + (uy_e - uy) ** 2 + (uz_e - uz) ** 2
 
             out += method.integrate(integrand, elements) * idx
@@ -449,8 +448,7 @@ class VarelaJNumTrueErrors3D(VarelaJNumExactSolution3D):
 
         # reconstructed u_h in local (rotated) yz frame; use constant coeffs
         recon_u = d_frac["estimates"]["recon_sd_flux"]
-        Uc = mdnme.utils.poly2col(recon_u)  # [uy, uz]
-        uy_h, uz_h = Uc[0], Uc[1]
+        u = mdnme.utils.poly2col(recon_u)
 
         # Quad + elements (with rotation mapping you already use)
         method = quadpy.t2.get_good_scheme(10)
@@ -470,8 +468,8 @@ class VarelaJNumTrueErrors3D(VarelaJNumExactSolution3D):
 
         def integrand(xi: np.ndarray) -> np.ndarray:
             # u_h constants
-            uy = uy_h * np.ones_like(xi[0])
-            uz = uz_h * np.ones_like(xi[0])
+            uy = u[0] * xi[0] + u[1]
+            uz = u[0] * xi[1] + u[2]
             # exact in physical yz
             yz = np.einsum('ab,bnm->anm', T_yz, xi) + b_yz[:, :, None]
             qy = qy_fun(yz[0], yz[1])
