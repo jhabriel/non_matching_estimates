@@ -86,11 +86,11 @@ class VarelaJNumTrueErrors3D(VarelaJNumExactSolution3D):
         ]
 
         # Obtain reconstructed pressure and create list of coefficients
-        recon_p = d_matrix["estimates"]["recon_sd_pressure"].copy()
+        recon_p = d_matrix["estimates"]["recon_sd_pressure"]
         pr = mdnme.utils.poly2col(recon_p)
 
         # Obtain elements and declare integration method
-        method = quadpy.t3.get_good_scheme(10)
+        method = quadpy.t3.get_good_scheme(12)
         elements = mdnme.utils.get_quadpy_elements(sd_matrix)
 
         # Compute the true error for each subregion
@@ -147,11 +147,11 @@ class VarelaJNumTrueErrors3D(VarelaJNumExactSolution3D):
         ]
 
         # Get hold of reconstructed pressure and create list of coefficients
-        recon_p = d_frac["estimates"]["recon_sd_pressure"].copy()
+        recon_p = d_frac["estimates"]["recon_sd_pressure"]
         pr = mdnme.utils.poly2col(recon_p)
 
         # Obtain elements and declare integration method
-        method = quadpy.t2.get_good_scheme(10)
+        method = quadpy.t2.get_good_scheme(16)
         elements = mdnme.utils.get_quadpy_elements(sd_frac, sd_rot)
         num_cells = sd_frac.num_cells
 
@@ -222,7 +222,7 @@ class VarelaJNumTrueErrors3D(VarelaJNumExactSolution3D):
         ibg = InternalBoundaryGrid(intf, sd_high, tol=tol)
 
         # --- quadrature on 2D mortar sides ---
-        method = quadpy.t2.get_good_scheme(10)
+        method = quadpy.t2.get_good_scheme(20)
 
         values = []
         # loop sides in the mortar’s canonical order
@@ -340,7 +340,7 @@ class VarelaJNumTrueErrors3D(VarelaJNumExactSolution3D):
             sidegrid_rot = mdnme.RotatedGrid(sidegrid)
 
             # Obtain elements and declare integration method
-            method = quadpy.t2.get_good_scheme(10)
+            method = quadpy.t2.get_good_scheme(20)
             elements = mdnme.utils.get_quadpy_elements(sidegrid, sidegrid_rot)
 
             # 3b) Map rotated -> physical (y,z): y,z = T_yz @ xi + b_yz
@@ -414,7 +414,7 @@ class VarelaJNumTrueErrors3D(VarelaJNumExactSolution3D):
         u = mdnme.utils.poly2col(recon_u)
 
         # Quadrature / elements and region masks
-        method = quadpy.t3.get_good_scheme(10)
+        method = quadpy.t3.get_good_scheme(12)
         elements = mdnme.utils.get_quadpy_elements(sd_matrix)
         cell_idx = self.get_region_indices(where="cc")
 
@@ -451,7 +451,7 @@ class VarelaJNumTrueErrors3D(VarelaJNumExactSolution3D):
         u = mdnme.utils.poly2col(recon_u)
 
         # Quad + elements (with rotation mapping you already use)
-        method = quadpy.t2.get_good_scheme(10)
+        method = quadpy.t2.get_good_scheme(16)
         elements = mdnme.utils.get_quadpy_elements(sd_frac, sd_rot)
 
         active = np.where(sd_rot.dim_bool)[0]
