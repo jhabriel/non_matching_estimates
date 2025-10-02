@@ -10,6 +10,7 @@ import mdnme
 
 from mdnme.estimates.helpers import ErrorEstimatesSaveData
 from mdnme.examples.bit_example_3.boundary_conditions import BoundaryConditionsModified
+from mdnme.examples.bit_example_3.geometry import GeometryNonMatching
 
 from porepy.examples.flow_benchmark_3d_case_3 import (
     FlowBenchmark3dCase3Model,
@@ -55,6 +56,7 @@ class SmallFeaturesSolutionStrategy(
 
 # %% Mixer
 class SmallFeaturesModel(  # type: ignore[misc]
+    GeometryNonMatching,
     ErrorEstimatesSaveData,
     SmallFeaturesSolutionStrategy,
     BoundaryConditionsModified,
@@ -67,6 +69,8 @@ class SmallFeaturesModel(  # type: ignore[misc]
 params = {
     "material_constants": {"solid": solid_constants},
     "refinement_level": 0,
+    "non_matching": True,
 }
 model = SmallFeaturesModel(params)
 pp.run_time_dependent_model(model, params)
+
