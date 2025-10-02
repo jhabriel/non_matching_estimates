@@ -19,10 +19,13 @@ import porepy as pp
 import quadpy
 import scipy.sparse as sps
 
-from mdnme.utils.internal_boundary_grid import InternalBoundaryGrid
-from mdnme.utils.transfer_grid import TransferGrid
+from mdnme.utils.internal_boundary_grid import (
+    InternalBoundaryGrid,
+    InternalBoundaryLineGrid
+)
+from mdnme.utils.transfer_grid import TransferGrid, TransferLine
 from mdnme.utils.primal_projections import (
-    restrict_to_transfer, scott_zhang_quasi_interpolant,
+    restrict_to_transfer, scott_zhang_quasi_interpolant, project_p1_1d
 )
 from mdnme.estimates.helpers import is_nonmatching
 
@@ -739,7 +742,91 @@ def _interface_diffusive_error_1d_nonmatching(
         data_low,
         tol=1e-8,
 ) -> np.ndarray:
-    raise NotImplementedError
+    """Non-matching 1D interface diffusive error:
+       || k^{-1/2} λ + k^{1/2} (p_low − tr p_high) ||^2 per mortar cell,
+       computed *per mortar side* using IBG(1D) -> TransferLine -> SZ."""
+    if intf.dim != 1:
+        raise ValueError("Expected one-dimensional interface grid.")
+
+    # mortar-side scalars
+    eff_perm = data_intf[pp.PARAMETERS]["flow"]["effective_permeability"]
+    k_mortar = (float(eff_perm) * np.ones((intf.num_cells, 1))
+                if np.isscalar(eff_perm)
+                else np.asarray(eff_perm, dtype=float).reshape(-1, 1))
+    normal_vel_mortar = _get_normal_velocity(intf, data_intf)  # (n_mortar, 1)
+
+    # High (2D) pressure trace on high edges that belong to the interface:
+    frac_faces = sps.find(intf.primary_to_mortar_avg())[1]  # these are high *edges* (1D) for a 2D grid
+    p_trace_high = _get_high_pressure_trace(sd_low, sd_high, data_high, frac_faces)  # (n_edges, 2)
+    face2pos = {int(f): i for i, f in enumerate(frac_faces)}
+
+    # Low (1D) pressure on fracture cells:
+    frac_cells = sps.find(intf.secondary_to_mortar_avg())[1]
+    p_low_frac = _get_low_pressure(data_low, frac_cells)  # (n_frac_cells, 2)
+
+    # IBG in 1D (per side), in the canonical interface frame
+    ibg = InternalBoundaryLineGrid(intf, sd_high, tol=tol)
+
+    # Quadrature on 1D mortar sides
+    import quadpy
+    method = quadpy.c1.newton_cotes_closed(4)
+
+    out_global = np.zeros(intf.num_cells)
+
+    for P_msg, mg_side in intf.project_to_side_grids():
+        side_enum = next(k for k, v in intf.side_grids.items() if v is mg_side)
+
+        # IBG side grid and its parent high edge (one parent per IBG cell)
+        ibg_side = ibg.ibg_side_grid(side_enum)
+        parent_edges = ibg.parent_edge_of_cell(side_enum)  # (n_ibg_cells,)
+
+        # Assign tr(p_high) to IBG cells
+        if ibg_side.num_cells == 0:
+            tr_hi_on_ibg = np.zeros((0, 2))
+        else:
+            idx = np.fromiter((face2pos[int(e)] if int(e) in face2pos else -1
+                               for e in parent_edges), dtype=int, count=parent_edges.size)
+            if np.any(idx < 0):
+                # edges that didn’t map (e.g., degenerate) -> set constant zero jump
+                safe_idx = np.maximum(idx, 0)
+            else:
+                safe_idx = idx
+            tr_hi_on_ibg = p_trace_high[safe_idx, :]  # (n_ibg_cells, 2)
+
+        # Transfer IBG -> mortar-side (1D) using TransferLine + SZ
+        if ibg_side.num_cells > 0 and mg_side.num_cells > 0:
+            tr_on_msg = project_p1_1d(ibg_side, mg_side, tr_hi_on_ibg, tol=tol)  # (n_msg_cells, 2)
+        else:
+            tr_on_msg = np.zeros((mg_side.num_cells, 2))
+
+        # Transfer low fracture grid (1D) -> mortar-side (1D)
+        if sd_low.num_cells > 0 and mg_side.num_cells > 0:
+            low_on_msg = project_p1_1d(sd_low, mg_side, p_low_frac, tol=tol)      # (n_msg_cells, 2)
+        else:
+            low_on_msg = np.zeros((mg_side.num_cells, 2))
+
+        # Scalars on this side
+        k_side  = P_msg @ k_mortar           # (n_msg_cells, 1)
+        nv_side = P_msg @ normal_vel_mortar  # (n_msg_cells, 1)
+
+        # Jump on the side grid
+        deltap_side = low_on_msg - tr_on_msg  # (n_msg_cells, 2), coefficients [a,b]
+
+        # Integrate (exact for linears with 2-pt Gauss, but we reuse your c1 rule)
+        elements = mdnme.utils.get_quadpy_elements(mg_side)
+        def integrand(x):
+            # x comes as shape (1, n_cells, n_qp); evaluate a*s+b
+            a = deltap_side[:, 0].reshape(-1, 1)
+            b = deltap_side[:, 1].reshape(-1, 1)
+            pj = a * x + b
+            return (k_side ** (-0.5) * nv_side + k_side ** 0.5 * pj) ** 2
+
+        diff_side = method.integrate(integrand, elements)  # (n_msg_cells,)
+
+        # scatter to global mortar ordering
+        out_global += (P_msg.T @ diff_side).ravel()
+
+    return out_global
 
 
 def _interface_diffusive_error_2d_nonmatching(

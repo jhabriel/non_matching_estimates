@@ -16,7 +16,7 @@ from shapely.geometry import Point, Polygon
 from shapely.prepared import prep
 from shapely.strtree import STRtree
 
-from mdnme.utils.transfer_grid import TransferGrid
+from mdnme.utils.transfer_grid import TransferGrid, TransferLine
 
 
 def restrict_to_transfer(tg: TransferGrid, C_src: np.ndarray) -> np.ndarray:
@@ -240,3 +240,116 @@ def _reconstruct_cellwise_on_target(tg: TransferGrid, u_tgt: np.ndarray):
         C_tgt[k, :] = np.linalg.solve(V.T, uvals)
 
     return C_tgt
+
+def restrict_to_transfer_1d(tl: TransferLine, C_src: np.ndarray) -> np.ndarray:
+    """
+    Source cell-wise P1 on 1D (C_src: n_src × 2 with [a, b] s.t. u(s)=a*s+b)
+    -> transfer cell-wise P1 (n_tr × 2) by sampling at endpoints.
+    """
+    g_tr = tl.transfer
+    t2s = tl.transfer_to_source  # (n_tr × n_src)
+    # endpoints of each transfer cell
+    x = g_tr.nodes[0, :]
+    C_tr = np.empty((g_tr.num_cells, 2))
+    for j in range(g_tr.num_cells):
+        # parent source cell id
+        parents = t2s[j, :].nonzero()[1]
+        if len(parents) != 1:
+            raise RuntimeError(f"Transfer cell {j} has {len(parents)} parents (1D).")
+        K = parents[0]
+        a, b = C_src[K, :]
+        s0, s1 = x[j], x[j + 1]
+        u0, u1 = a * s0 + b, a * s1 + b
+        # P1 on [s0,s1] is determined by two values
+        if abs(s1 - s0) < 1e-16:
+            C_tr[j, :] = [0.0, u0]
+        else:
+            a_loc = (u1 - u0) / (s1 - s0)
+            b_loc = u0 - a_loc * s0
+            C_tr[j, :] = [a_loc, b_loc]
+    return C_tr
+
+# --- NEW: 1D Scott–Zhang onto target grid ---
+def scott_zhang_quasi_interpolant_1d(tl: TransferLine, u_tr: np.ndarray) -> np.ndarray:
+    """
+    1D SZ: compute nodal values on the target by local mass solve on one
+    adjacent coarse cell, then reconstruct cell-wise P1 on target.
+    """
+    g_tr  = tl.transfer
+    g_tgt = tl.g_target
+
+    # barycentric on 1D is trivial; we just need values at quadrature points
+    # choose 2-pt Gauss (exact for linears)
+    quad = [(-1/np.sqrt(3), 1.0), (1/np.sqrt(3), 1.0)]  # r in [-1,1], weight 1
+
+    # Build helper: evaluate transfer P1 on point s by locating the transfer cell
+    # that contains s; since tl has uniform connectivity, we can use binary search
+    xt = g_tr.nodes[0, :]
+
+    def eval_u_transfer(s: float) -> float:
+        # locate transfer cell j
+        j = np.searchsorted(xt, s, side="right") - 1
+        j = min(max(j, 0), g_tr.num_cells - 1)
+        a, b = u_tr[j, :]
+        return a * s + b
+
+    # Node values on target via local mass matrix inversion
+    n_tn = g_tgt.num_nodes
+    u_nodes = np.empty(n_tn)
+
+    # target cell intervals
+    xT = g_tgt.nodes[0, :]
+
+    # Precompute, for each node i, pick one adjacent coarse cell:
+    # for endpoints, pick the only adjacent; for interior, pick left cell.
+    node_cell = np.empty(n_tn, dtype=int)
+    node_cell[0] = 0
+    for i in range(1, n_tn - 1):
+        node_cell[i] = i - 1
+    node_cell[-1] = g_tgt.num_cells - 1
+
+    for i in range(n_tn):
+        k = node_cell[i]
+        aT, bT = xT[k], xT[k + 1]
+        h = bT - aT
+        # local P1 basis φ0, φ1 supported on [aT,bT]
+        # mass matrix M = ∫ φ_i φ_j ds = h/6 * [[2,1],[1,2]]
+        M_inv = (6.0 / h) * np.array([[ 2., -1.],
+                                      [-1.,  2.]]) / 3.0  # exact inverse of h/6*[[2,1],[1,2]]
+        # RHS b_i = ∫ u(s) φ_i(s) ds, do 2-pt Gauss on reference → map to [aT,bT]
+        b = np.zeros(2)
+        for xi, w in quad:
+            s = 0.5 * (aT + bT) + 0.5 * h * xi
+            uval = eval_u_transfer(float(s))
+            # shape functions at s: φ0 = (bT - s)/h, φ1 = (s - aT)/h
+            phi0 = (bT - s) / h
+            phi1 = (s - aT) / h
+            b += (0.5 * h) * w * uval * np.array([phi0, phi1])
+        coeffs = M_inv @ b  # [u_i, u_(i+/-1)] on this element
+        # choose the local coefficient corresponding to node i
+        local = 0 if i == k else (1 if i == k + 1 else (0 if i == 0 else 1))
+        u_nodes[i] = coeffs[local]
+
+    # reconstruct cell-wise P1 on target from nodal values
+    C_tgt = np.empty((g_tgt.num_cells, 2))
+    for K in range(g_tgt.num_cells):
+        aT, bT = xT[K], xT[K + 1]
+        u0, u1 = u_nodes[K], u_nodes[K + 1]
+        a_loc = (u1 - u0) / (bT - aT)
+        b_loc = u0 - a_loc * aT
+        C_tgt[K, :] = [a_loc, b_loc]
+
+    return C_tgt
+
+
+def project_p1_1d(
+        source: pp.Grid,
+        target: pp.Grid,
+        u_source: np.ndarray,
+        tol: float = 1e-10
+    ) -> np.ndarray:
+    """1D pipeline: build TransferLine, restrict, SZ."""
+    tl = TransferLine(source, target, tol=tol)
+    u_tr = restrict_to_transfer_1d(tl, u_source)
+    u_tgt = scott_zhang_quasi_interpolant_1d(tl, u_tr)
+    return u_tgt

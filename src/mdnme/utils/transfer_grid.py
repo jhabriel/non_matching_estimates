@@ -460,3 +460,95 @@ def build_high_internal_surface_grid(
         raise RuntimeError("Parent-face map size mismatch after assembling 2D grid.")
 
     return g2d, frac_faces, parent_face_of_cell
+
+
+class TransferLine:
+    """Transfer 'grid' for 1D->1D mappings (segments on a common line)."""
+
+    def __init__(self,
+                 g_source: pp.Grid,
+                 g_target: pp.Grid,
+                 tol: float = 1e-10,
+                 name: str = "transfer1d"
+        ):
+        if g_source.dim != 1 or g_target.dim != 1:
+            raise ValueError("TransferLine expects 1D source and 1D target grids.")
+        self.tol = tol
+        self.name = name
+        self.g_source = g_source
+        self.g_target = g_target
+
+        self._build_transfer_segments()
+        self._build_connectivity_matrices()
+
+    def _breaks(self, g: pp.Grid) -> np.ndarray:
+        # pp.TensorGrid stores nodes sorted; each cell is [x_i, x_{i+1}]
+        x = g.nodes[0, :]
+        x = np.unique(x)  # robust
+        return x
+
+    def _build_transfer_segments(self):
+        xs = self._breaks(self.g_source)
+        xt = self._breaks(self.g_target)
+        # union of breakpoints
+        xu = np.unique(np.concatenate([xs, xt]))
+        # form segments; keep only those that overlap *both* a source and a target cell
+        segs = []
+        for a, b in zip(xu[:-1], xu[1:]):
+            mid = 0.5 * (a + b)
+            # check containment
+            # source: any cell interval [xs[i], xs[i+1]] containing mid?
+            ok_s = np.any((xs[:-1] - self.tol <= mid) & (mid <= xs[1:] + self.tol))
+            ok_t = np.any((xt[:-1] - self.tol <= mid) & (mid <= xt[1:] + self.tol))
+            if ok_s and ok_t and b - a > self.tol:
+                segs.append((float(a), float(b)))
+
+        if not segs:
+            raise RuntimeError("No 1D intersections between source and target.")
+
+        self.transfer_nodes = np.array(sorted({p for ab in segs for p in ab})).reshape(1, -1)
+        self.transfer = pp.TensorGrid(self.transfer_nodes)
+        self.transfer.compute_geometry()
+
+    def _locate_owner_cells(self, midpoints: np.ndarray, breaks: np.ndarray):
+        # return the index of the cell interval that contains midpoint
+        # cells are 0..len(breaks)-2
+        ids = np.searchsorted(breaks, midpoints, side="right") - 1
+        ids = np.clip(ids, 0, len(breaks) - 2)
+        return ids
+
+    def _build_connectivity_matrices(self):
+        xs = self._breaks(self.g_source)
+        xt = self._breaks(self.g_target)
+        xtf = self._breaks(self.transfer)
+
+        n_src = self.g_source.num_cells
+        n_tr  = self.transfer.num_cells
+        n_tgt = self.g_target.num_cells
+
+        s2t = sps.lil_matrix((n_src, n_tr), dtype=int)
+        t2tg = sps.lil_matrix((n_tr, n_tgt), dtype=int)
+
+        # midpoints of transfer cells
+        mid = 0.5 * (xtf[:-1] + xtf[1:])
+        # owner cells
+        src_owner = self._locate_owner_cells(mid, xs)
+        tgt_owner = self._locate_owner_cells(mid, xt)
+
+        for j in range(n_tr):
+            s2t[src_owner[j], j] = 1
+            t2tg[j, tgt_owner[j]] = 1
+
+        self.source_to_transfer = s2t.tocsr()
+        self.transfer_to_source = self.source_to_transfer.T.tocsr()
+        self.transfer_to_target = t2tg.tocsr()
+        self.target_to_transfer = self.transfer_to_target.T.tocsr()
+
+    def summary(self):
+        return {
+            "n_source_cells": self.g_source.num_cells,
+            "n_target_cells": self.g_target.num_cells,
+            "n_transfer_cells": self.transfer.num_cells,
+            "n_transfer_nodes": self.transfer.num_nodes,
+        }
+
