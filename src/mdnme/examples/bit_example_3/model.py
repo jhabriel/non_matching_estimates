@@ -9,12 +9,12 @@ import porepy as pp
 import mdnme
 
 from mdnme.estimates.helpers import ErrorEstimatesSaveData
+from mdnme.examples.bit_example_3.boundary_conditions import BoundaryConditionsModified
 
 from porepy.examples.flow_benchmark_3d_case_3 import (
     FlowBenchmark3dCase3Model,
     solid_constants,
 )
-from mdnme.examples.bit_example_3.boundary_conditions import BoundaryConditionsModified
 
 
 class SmallFeaturesSolutionStrategy(

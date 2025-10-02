@@ -24,28 +24,31 @@ class BoundaryConditionsModified(pp.PorePyModel):
         # bottom purple region from the original paper
         north_bottom_dir_faces = sd.face_centers[2][domain_sides.north] < (1 / 3)
         # blue region from the original paper
-        south_middle_dif_faces = \
-            (sd.face_centers[2][domain_sides.south] < (2 / 3)) \
-            & (sd.face_centers[2][domain_sides.south] > (1 / 3))
+        south_middle_dif_faces = (sd.face_centers[2][domain_sides.south] < (2 / 3)) & (
+                sd.face_centers[2][domain_sides.south] > (1 / 3)
+        )
         # Set north faces bc-types
         dir_faces[domain_sides.north] = north_top_dir_cells + north_bottom_dir_faces
         # Set south faces bc-types
         dir_faces[domain_sides.south] = south_middle_dif_faces
-        # Assign boundary conditions, the rest are Neumann by default.
         bc = pp.BoundaryCondition(sd, dir_faces, "dir")
         return bc
 
     def bc_values_darcy_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
-        """Assign non-zero Darcy flux to the middle south (y=y_min) boundary."""
+        """Make sure all darcy fluxes are zero"""
+        return np.zeros(bg.num_cells)
+
+    def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
+        """Assign unitary pressure to the middle south (y=y_min) boundary."""
         # Retrieve boundary sides and cell centers.
         domain_sides = self.domain_boundary_sides(bg)
         cc = bg.cell_centers
-        # Get inlet faces.
+        # Get inlet faces
         inlet_faces = np.zeros(bg.num_cells, dtype=bool)
         inlet_faces[domain_sides.south] = (cc[2][domain_sides.south] < (2 / 3)) & (
             cc[2][domain_sides.south] > (1 / 3)
         )
-        # Assign unitary pressure in the inlet boundary (blue region)
+        # Assign unitary pressure
         values = np.zeros(bg.num_cells)
-        values[inlet_faces] = 1
+        values[inlet_faces] = 1  # unitary pressure
         return values
