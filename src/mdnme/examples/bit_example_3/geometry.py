@@ -8,6 +8,7 @@ from typing import cast
 from porepy.applications.md_grids.mdg_library import benchmark_3d_case_3
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
 from mdnme.utils.nested_refinement import GeoNestedRefinementFactory
+from mdnme.utils.grid_rotation import assign_canonical_rotations
 
 class GeometryNonMatching(pp.PorePyModel):
     """Define Geometry as specified in Section 5.3 of the benchmark study [1]."""
@@ -75,6 +76,7 @@ class GeometryNonMatching(pp.PorePyModel):
         if self.params.get("non_matching", False):
             self.mdg = mdg_coarse
             pp.set_local_coordinate_projections(self.mdg)
+            assign_canonical_rotations(self.mdg)
 
         self.set_well_network()
         if len(self.well_network.wells) > 0:
