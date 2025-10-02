@@ -778,6 +778,15 @@ class VarelaJNumGeometry3D:
                 for sd in mdg_final.subdomains():
                     bg = mdg_final.subdomain_to_boundary_grid(sd)
                     bg.compute_geometry()
+
+            else:
+                # The mdg is matching, and we create the mdg in the usual way
+                mdg_final = pp.create_mdg(
+                    self.grid_type(),
+                    self.meshing_arguments(),
+                    self.fracture_network,
+                    **self.meshing_kwargs(),
+                )
         else:
             # The mdg is matching, and we create the mdg in the usual way
             mdg_final = pp.create_mdg(
