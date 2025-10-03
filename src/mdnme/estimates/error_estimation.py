@@ -18,7 +18,7 @@ def estimate_errors(
     pressure_reconstruction_method: str = "keilegavlen_p1",
     sources: list[SpatialFunction] | list[float] | None = None,
     quadrature_degree_for_residual_error: list[int] | None = None,
-    is_nonmatching: bool = False,
+    non_matching_nested: bool = False,
 ) -> None:
     """Estimate local errors and save them in data dictionaries.
 
@@ -58,7 +58,7 @@ def estimate_errors(
     # Error computation
 
     # Diffusive error
-    compute_diffusive_error(mdg)
+    compute_diffusive_error(mdg, non_matching_nested)
 
     # Residual error
     if sources is None:

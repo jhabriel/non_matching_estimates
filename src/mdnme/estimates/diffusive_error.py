@@ -23,14 +23,22 @@ from mdnme.utils.internal_boundary_grid import (
     InternalBoundaryGrid,
     InternalBoundaryLineGrid
 )
-from mdnme.utils.transfer_grid import TransferGrid, TransferLine
+from mdnme.utils.transfer_grid import(
+    TransferGrid,
+    TransferLine,
+    build_transfer_grid_nested,
+    coarse_fine_or_build,
+)
 from mdnme.utils.primal_projections import (
     restrict_to_transfer, scott_zhang_quasi_interpolant, project_p1_1d
 )
 from mdnme.estimates.helpers import is_nonmatching
 
 
-def compute_diffusive_error(mdg: pp.MixedDimensionalGrid) -> None:
+def compute_diffusive_error(
+        mdg: pp.MixedDimensionalGrid,
+        non_matching_nested: bool = False,
+) -> None:
     """Computes square of the diffusive flux error in all the mixed-dimensional grid.
 
     In each data dictionary, the square of the diffusive flux error will be stored
@@ -54,7 +62,7 @@ def compute_diffusive_error(mdg: pp.MixedDimensionalGrid) -> None:
         data_low = mdg.subdomain_data(sd_low)
         # Retrieve interface diffusive error
         data_intf["estimates"]["diffusive_error"] = interface_diffusive_error(
-            intf, data_intf, sd_high, data_high, sd_low, data_low
+            intf, data_intf, sd_high, data_high, sd_low, data_low, non_matching_nested
         )
 
 
@@ -170,6 +178,7 @@ def interface_diffusive_error(
     data_high: dict,
     sd_low: pp.Grid,
     data_low: dict,
+    non_matching_nested: bool,
 ) -> np.ndarray:
     """Computes the square of the diffusive error on interfaces.
 
@@ -258,6 +267,8 @@ def interface_diffusive_error(
                 data_high,
                 sd_low,
                 data_low,
+                non_matching_nested,
+                tol=1e-8
             )
 
     return diffusive_error
@@ -836,6 +847,7 @@ def _interface_diffusive_error_2d_nonmatching(
     data_high: dict,
     sd_low: pp.Grid,
     data_low: dict,
+    non_matching_nested: bool,
     tol: float = 1e-8,
 ) -> np.ndarray:
     """Non-matching 2D interface diffusive error:
@@ -858,7 +870,12 @@ def _interface_diffusive_error_2d_nonmatching(
     # --- face-trace of high-dim pressure, in interface frame ---
     # NOTE: p_trace_high[i] corresponds to sd_high face index frac_faces[i]
     frac_faces = sps.find(intf.primary_to_mortar_avg())[1]
-    p_trace_high = _get_high_pressure_trace(sd_low, sd_high, data_high, frac_faces)  # (n_frac_faces, 3)
+    p_trace_high = _get_high_pressure_trace(
+        sd_low,
+        sd_high,
+        data_high,
+        frac_faces
+    )  # (n_frac_faces, 3)
     # map: high face id -> local index into frac_faces
     face2pos = {int(f): i for i, f in enumerate(frac_faces)}
 
@@ -884,12 +901,33 @@ def _interface_diffusive_error_2d_nonmatching(
         if ibg_side.num_cells == 0:
             tr_hi_on_ibg = np.zeros((0, 3))
         else:
-            idx = np.fromiter((face2pos[int(f)] for f in parent_faces), dtype=int, count=parent_faces.size)
+            idx = np.fromiter(
+                (face2pos[int(f)] for f in parent_faces),
+                dtype=int,
+                count=parent_faces.size
+            )
             tr_hi_on_ibg = p_trace_high[idx, :]  # (n_ibg_cells, 3)
 
-        # (2) Transfer IBG→mortar-side and frac→mortar-side (same canonical frame; no R needed)
-        tg_ibg_msg = TransferGrid(g_source=ibg_side, g_target=mg_side, tol=tol)
-        tg_fg_msg  = TransferGrid(g_source=sd_low, g_target=mg_side, tol=tol)
+        # (2) Transfer IBG→mortar-side and frac→mortar-side
+        if not non_matching_nested:
+            tg_ibg_msg = TransferGrid(g_source=ibg_side, g_target=mg_side, tol=tol)
+            tg_fg_msg = TransferGrid(g_source=sd_low, g_target=mg_side, tol=tol)
+        else:
+            M_ibg_msg = coarse_fine_or_build(mg_side, ibg_side, tol)
+            tg_ibg_msg = TransferGrid.from_nested(
+                g_source=ibg_side,
+                g_target=mg_side,
+                coarse_fine=M_ibg_msg,
+                tol=tol
+            )
+
+            M_fg_msg = coarse_fine_or_build(mg_side, sd_low, tol)
+            tg_fg_msg = TransferGrid.from_nested(
+                g_source=sd_low,
+                g_target=mg_side,
+                coarse_fine=M_fg_msg,
+                tol=tol
+            )
 
         # Internal boundary side grid to mortar side grid pressure projection
         tracep_on_tg = restrict_to_transfer(tg_ibg_msg, tr_hi_on_ibg)
@@ -900,7 +938,7 @@ def _interface_diffusive_error_2d_nonmatching(
         fracp_on_msg = scott_zhang_quasi_interpolant(tg_fg_msg, fracp_on_tg)
 
         # (3) side scalars on mortar side grid
-        k_side  = P_msg @ k_mortar           # (n_msg_cells, 1)
+        k_side = P_msg @ k_mortar  # (n_msg_cells, 1)
         nv_side = P_msg @ normal_vel_mortar  # (n_msg_cells, 1)
 
         # (4) jump and integration on mortar side
@@ -909,7 +947,10 @@ def _interface_diffusive_error_2d_nonmatching(
         elements = mdnme.utils.get_quadpy_elements(mg_side)
         def integrand(x):
             # x is in the interface frame (as provided by elements)
-            p_jump = mdnme.utils.evaluate_p1(deltap_side, x)  # shape broadcast over points
+            p_jump = mdnme.utils.evaluate_p1(
+                deltap_side,
+                x
+            )  # shape broadcast over points
             return (k_side**(-0.5) * nv_side + k_side**0.5 * p_jump)**2
 
         diff_side = method.integrate(integrand, elements)  # (n_msg_cells,)

@@ -5,9 +5,11 @@ import pytest
 import mdnme
 
 from porepy.grids.refinement import GridSequenceFactory
-from mdnme.utils.transfer_grid import TransferGrid
+from mdnme.utils.transfer_grid import TransferGrid, coarse_fine_or_build
 from mdnme.utils.primal_projections import scott_zhang_quasi_interpolant
 from mdnme.utils.primal_projections import restrict_to_transfer
+from mdnme.utils.grid_utils import refine_grid
+from mdnme.utils.grid_rotation import assign_canonical_rotations
 
 
 # ---------- helpers ----------
@@ -212,3 +214,29 @@ def fit_p1_on_grid(grid: pp.Grid, u_fn) -> np.ndarray:
         V     = np.vstack((xy, np.ones(3)))      # 3×3, rows [x;y;1]
         C[k, :] = np.linalg.solve(V.T, uvals)
     return C
+
+
+
+def test_nested_vs_geometric_SZ_projection():
+    domain = pp.Domain({"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1})
+    fn = pp.create_fracture_network([], domain)
+    mdg = pp.create_mdg("simplex", {"cell_size": 0.12}, fn)
+    G0 = mdg.subdomains()[0]
+    G1, _ = refine_grid(G0.copy())  # fine target
+
+    # random per-cell P1 coefficients on source grid (G0)
+    rng = np.random.default_rng(7)
+    C_src = rng.standard_normal((G0.num_cells, 3))
+
+    # geometric path
+    tg_geo = TransferGrid(G0, G1, tol=1e-10)
+    C_tr_geo = restrict_to_transfer(tg_geo, C_src)
+    C_tgt_geo = scott_zhang_quasi_interpolant(tg_geo, C_tr_geo)
+
+    # nested path
+    M = coarse_fine_or_build(G0, G1, tol=1e-10)
+    tg_fast = TransferGrid.from_nested(G0, G1, coarse_fine=M, tol=1e-10)
+    C_tr_fast = restrict_to_transfer(tg_fast, C_src)
+    C_tgt_fast = scott_zhang_quasi_interpolant(tg_fast, C_tr_fast)
+
+    np.testing.assert_allclose(C_tgt_fast, C_tgt_geo, rtol=0, atol=1e-12)

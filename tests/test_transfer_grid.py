@@ -2,9 +2,13 @@ import numpy as np
 import porepy as pp
 import scipy.sparse as sps
 import pytest
-import mdnme
 
-from mdnme.utils.transfer_grid import TransferGrid
+from mdnme.utils.transfer_grid import (
+    TransferGrid,
+    coarse_fine_or_build,
+    transfer_permutation_by_centroids,
+    permute_transfer_columns,
+)
 from mdnme.utils.grid_utils import refine_grid
 
 
@@ -288,3 +292,120 @@ def test_embedded_perturbed_source_and_target(fracture, request):
     tgt_counts = tfo.transfer_to_target.sum(axis=1).A1
     assert np.all(src_counts == 1)
     assert np.all(tgt_counts == 1)
+
+
+def test_nested_fastpath_equals_geometric_when_target_refined():
+    # base grid
+    domain = pp.Domain({"xmin":0,"xmax":1,"ymin":0,"ymax":1})
+    fn = pp.create_fracture_network([], domain)
+    mdg = pp.create_mdg("simplex", {"cell_size": 0.15}, fn)
+    G0 = mdg.subdomains()[0]
+    # refine target globally (fine target)
+    G1, _ = refine_grid(G0.copy())
+    G1.compute_geometry()
+
+    # geometric path
+    tg_geo = TransferGrid(G0, G1, tol=1e-9)
+    # nested path (requires mapping fine×coarse)
+    M = coarse_fine_or_build(G0, G1, tol=1e-9)  # (n_fine x n_coarse)
+    tg_fast = TransferGrid.from_nested(G0, G1, coarse_fine=M, tol=1e-9, name="fast")
+
+    # transfer is the fine mesh (up to ordering)
+    assert tg_fast.transfer.num_cells == G1.num_cells
+    assert tg_fast.transfer.num_nodes == G1.num_nodes
+    np.testing.assert_allclose(
+        tg_fast.transfer.cell_volumes.sum(),
+        G1.cell_volumes.sum(),
+        rtol=0,
+        atol=1e-12,
+    )
+
+    # align geometric matrices to fast by transfer-cell permutation
+    perm = transfer_permutation_by_centroids(tg_fast, tg_geo)
+    s2t_geo_aligned = permute_transfer_columns(tg_geo.source_to_transfer, perm)
+    t2s_geo_aligned = tg_geo.transfer_to_source[perm, :]
+
+    # incidence matrices should agree
+    np.testing.assert_array_equal(
+      s2t_geo_aligned.todense(), tg_fast.source_to_transfer.todense()
+    )
+    np.testing.assert_array_equal(
+        t2s_geo_aligned.todense(), tg_fast.transfer_to_source.todense()
+    )
+
+
+def test_nested_fastpath_equals_geometric_when_source_refined():
+    domain = pp.Domain({"xmin":0,"xmax":1,"ymin":0,"ymax":1})
+    fn = pp.create_fracture_network([], domain)
+    mdg = pp.create_mdg("simplex", {"cell_size": 0.15}, fn)
+    G0 = mdg.subdomains()[0]
+    # refine source globally (fine source)
+    G1, _ = refine_grid(G0.copy())
+    G1.compute_geometry()
+
+    # geometric path
+    tg_geo = TransferGrid(G1, G0, tol=1e-9)
+
+    # fast path (mapping again via coarse_fine_or_build)
+    M = coarse_fine_or_build(G1, G0, tol=1e-9)  # still returns (fine x coarse)
+    tg_fast = TransferGrid.from_nested(G1, G0, coarse_fine=M, tol=1e-9, name="fast")
+
+    # transfer is the fine mesh (up to ordering)
+    assert tg_fast.transfer.num_cells == G1.num_cells
+    assert tg_fast.transfer.num_nodes == G1.num_nodes
+    np.testing.assert_allclose(
+        tg_fast.transfer.cell_volumes.sum(),
+        G1.cell_volumes.sum(),
+        rtol=0,
+        atol=1e-12
+    )
+
+    # align geometric matrices to fast by transfer-cell permutation
+    perm = transfer_permutation_by_centroids(tg_fast, tg_geo)
+    s2t_geo_aligned = permute_transfer_columns(tg_geo.source_to_transfer, perm)
+    t2s_geo_aligned = tg_geo.transfer_to_source[perm, :]
+
+    np.testing.assert_array_equal(
+       s2t_geo_aligned.todense(), tg_fast.source_to_transfer.todense()
+    )
+    np.testing.assert_array_equal(
+        t2s_geo_aligned.todense(), tg_fast.transfer_to_source.todense()
+    )
+
+
+def test_nested_fastpath_equals_geometric_when_source_equal_target():
+    domain = pp.Domain({"xmin":0,"xmax":1,"ymin":0,"ymax":1})
+    fn = pp.create_fracture_network([], domain)
+    mdg = pp.create_mdg("simplex", {"cell_size": 0.15}, fn)
+    G0 = mdg.subdomains()[0]
+    G1 = G0.copy()
+
+    # geometric path
+    tg_geo = TransferGrid(G1, G0, tol=1e-9)
+
+    # fast path (mapping again via coarse_fine_or_build)
+    M = coarse_fine_or_build(G1, G0, tol=1e-9)  # still returns (fine x coarse)
+    tg_fast = TransferGrid.from_nested(G1, G0, coarse_fine=M, tol=1e-9, name="fast")
+
+    # transfer is the fine mesh (up to ordering)
+    assert tg_fast.transfer.num_cells == G1.num_cells
+    assert tg_fast.transfer.num_nodes == G1.num_nodes
+    np.testing.assert_allclose(
+        tg_fast.transfer.cell_volumes.sum(),
+        G1.cell_volumes.sum(),
+        rtol=0,
+        atol=1e-12
+    )
+
+    # align geometric matrices to fast by transfer-cell permutation
+    perm = transfer_permutation_by_centroids(tg_fast, tg_geo)
+    s2t_geo_aligned = permute_transfer_columns(tg_geo.source_to_transfer, perm)
+    t2s_geo_aligned = tg_geo.transfer_to_source[perm, :]
+
+    np.testing.assert_array_equal(
+       s2t_geo_aligned.todense(), tg_fast.source_to_transfer.todense()
+    )
+    np.testing.assert_array_equal(
+        t2s_geo_aligned.todense(), tg_fast.transfer_to_source.todense()
+    )
+
