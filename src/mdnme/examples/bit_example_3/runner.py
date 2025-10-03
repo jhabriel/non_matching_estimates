@@ -16,15 +16,17 @@ for lvl in REFINEMENT_LEVELS:
         "refinement_level": lvl,
         "non_matching": True,
     }
+    print(f"Setting up the model for refinement level {lvl}.")
     model = SmallFeaturesModel(params)
+    print(f"Done setting up the model for refinement ")
 
-    print(f"Solving model for refinement level {lvl}.")
+    print(f"Running model for refinement level {lvl}.")
     pp.run_time_dependent_model(model, params)
-    print(f"Done solving model.")
+    print(f"Done running model.")
 
     # Estimate the errors
     print(f"Estimating errors for refinement level {lvl}.")
-    mdnme.estimate_errors(mdg=model.mdg)
+    mdnme.estimate_errors(mdg=model.mdg, non_matching_nested=False)
     print(f"Done estimating errors.")
 
 

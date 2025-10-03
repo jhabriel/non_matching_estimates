@@ -475,6 +475,7 @@ class TransferLine:
                  g_source: pp.Grid,
                  g_target: pp.Grid,
                  tol: float = 1e-10,
+                 rotation_matrix: np.ndarray | None = None,
                  name: str = "transfer1d"
         ):
         if g_source.dim != 1 or g_target.dim != 1:
@@ -483,36 +484,55 @@ class TransferLine:
         self.name = name
         self.g_source = g_source
         self.g_target = g_target
+        self.rot_matrix = rotation_matrix
 
         self._build_transfer_segments()
         self._build_connectivity_matrices()
 
+    # helper (mirror of TransferGrid._get_rotated_grid logic, simplified for 1D):
+    def _x_in_common_frame(self, g: pp.Grid) -> np.ndarray:
+        import mdnme
+        if self.rot_matrix is None:
+            rot = mdnme.RotatedGrid(g)  # let source set the frame
+            self.rot_matrix = rot.rotation_matrix
+            return rot.nodes[0, :]
+        else:
+            rot = mdnme.RotatedGrid(g, self.rot_matrix)
+            return rot.nodes[0, :]
+
     def _breaks(self, g: pp.Grid) -> np.ndarray:
-        # pp.TensorGrid stores nodes sorted; each cell is [x_i, x_{i+1}]
-        x = g.nodes[0, :]
-        x = np.unique(x)  # robust
+        x = self._x_in_common_frame(g)
+        x = np.unique(x)  # sorted, unique
         return x
 
     def _build_transfer_segments(self):
         xs = self._breaks(self.g_source)
         xt = self._breaks(self.g_target)
-        # union of breakpoints
-        xu = np.unique(np.concatenate([xs, xt]))
-        # form segments; keep only those that overlap *both* a source and a target cell
+        i, j = 0, 0
         segs = []
-        for a, b in zip(xu[:-1], xu[1:]):
-            mid = 0.5 * (a + b)
-            # check containment
-            # source: any cell interval [xs[i], xs[i+1]] containing mid?
-            ok_s = np.any((xs[:-1] - self.tol <= mid) & (mid <= xs[1:] + self.tol))
-            ok_t = np.any((xt[:-1] - self.tol <= mid) & (mid <= xt[1:] + self.tol))
-            if ok_s and ok_t and b - a > self.tol:
+
+        while i < len(xs) - 1 and j < len(xt) - 1:
+            a1, b1 = xs[i], xs[i + 1]
+            a2, b2 = xt[j], xt[j + 1]
+
+            a = max(a1, a2)
+            b = min(b1, b2)
+
+            if b >= a + self.tol:
                 segs.append((float(a), float(b)))
 
+            # advance the interval that ends first (with tolerance)
+            if b1 <= b2 + self.tol:
+                i += 1
+            if b2 <= b1 + self.tol:
+                j += 1
+
         if not segs:
+            # If there is *only* a zero-measure touch (<= tol), treat as no contribution
             raise RuntimeError("No 1D intersections between source and target.")
 
-        self.transfer_nodes = np.array(sorted({p for ab in segs for p in ab})).reshape(1, -1)
+        self.transfer_nodes = np.array(sorted({p for ab in segs for p in ab})).reshape(
+            1, -1)
         self.transfer = pp.TensorGrid(self.transfer_nodes)
         self.transfer.compute_geometry()
 

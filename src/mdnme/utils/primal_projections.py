@@ -346,10 +346,11 @@ def project_p1_1d(
         source: pp.Grid,
         target: pp.Grid,
         u_source: np.ndarray,
+        rotation_matrix: np.ndarray | None = None,
         tol: float = 1e-10
     ) -> np.ndarray:
     """1D pipeline: build TransferLine, restrict, SZ."""
-    tl = TransferLine(source, target, tol=tol)
+    tl = TransferLine(source, target, rotation_matrix=rotation_matrix, tol=tol)
     u_tr = restrict_to_transfer_1d(tl, u_source)
     u_tgt = scott_zhang_quasi_interpolant_1d(tl, u_tr)
     return u_tgt

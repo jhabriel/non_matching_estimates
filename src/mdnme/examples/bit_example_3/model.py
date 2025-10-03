@@ -65,12 +65,12 @@ class SmallFeaturesModel(  # type: ignore[misc]
     """Main model for running the analysis corresponding to example number 3."""
 
 
-# %% Runner
-params = {
-    "material_constants": {"solid": solid_constants},
-    "refinement_level": 0,
-    "non_matching": True,
-}
-model = SmallFeaturesModel(params)
-pp.run_time_dependent_model(model, params)
-
+# # %% Runner
+# params = {
+#     "material_constants": {"solid": solid_constants},
+#     "refinement_level": 0,
+#     "non_matching": True,
+# }
+# model = SmallFeaturesModel(params)
+# pp.run_time_dependent_model(model, params)
+#

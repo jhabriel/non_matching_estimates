@@ -804,15 +804,30 @@ def _interface_diffusive_error_1d_nonmatching(
                 safe_idx = idx
             tr_hi_on_ibg = p_trace_high[safe_idx, :]  # (n_ibg_cells, 2)
 
+        # Get rotation matrix
+        rotM = getattr(intf, "rot_matrix", None)  # set by assign_canonical_rotations
+
         # Transfer IBG -> mortar-side (1D) using TransferLine + SZ
         if ibg_side.num_cells > 0 and mg_side.num_cells > 0:
-            tr_on_msg = project_p1_1d(ibg_side, mg_side, tr_hi_on_ibg, tol=tol)  # (n_msg_cells, 2)
+            tr_on_msg = project_p1_1d(
+                ibg_side,
+                mg_side,
+                tr_hi_on_ibg,
+                rotation_matrix=rotM,
+                tol=tol
+            )  # (n_msg_cells, 2)
         else:
             tr_on_msg = np.zeros((mg_side.num_cells, 2))
 
         # Transfer low fracture grid (1D) -> mortar-side (1D)
         if sd_low.num_cells > 0 and mg_side.num_cells > 0:
-            low_on_msg = project_p1_1d(sd_low, mg_side, p_low_frac, tol=tol)      # (n_msg_cells, 2)
+            low_on_msg = project_p1_1d(
+                sd_low,
+                mg_side,
+                p_low_frac,
+                rotation_matrix=rotM,
+                tol=tol
+            )      # (n_msg_cells, 2)
         else:
             low_on_msg = np.zeros((mg_side.num_cells, 2))
 
@@ -913,7 +928,7 @@ def _interface_diffusive_error_2d_nonmatching(
             tg_ibg_msg = TransferGrid(g_source=ibg_side, g_target=mg_side, tol=tol)
             tg_fg_msg = TransferGrid(g_source=sd_low, g_target=mg_side, tol=tol)
         else:
-            M_ibg_msg = coarse_fine_or_build(mg_side, ibg_side, tol)
+            M_ibg_msg = coarse_fine_or_build(mg_side, ibg_side, tol=tol)
             tg_ibg_msg = TransferGrid.from_nested(
                 g_source=ibg_side,
                 g_target=mg_side,
@@ -921,7 +936,7 @@ def _interface_diffusive_error_2d_nonmatching(
                 tol=tol
             )
 
-            M_fg_msg = coarse_fine_or_build(mg_side, sd_low, tol)
+            M_fg_msg = coarse_fine_or_build(mg_side, sd_low, tol=tol)
             tg_fg_msg = TransferGrid.from_nested(
                 g_source=sd_low,
                 g_target=mg_side,
