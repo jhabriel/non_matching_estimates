@@ -49,7 +49,7 @@ def compute_diffusive_error(
     for sd, d in mdg.subdomains(return_data=True):
         # Handle the case of zero-dimensional subdomains
         if sd.dim == 0:
-            d["estimates"]["diffusive_error"] = 0.0
+            d["estimates"]["diffusive_error"] = np.array([0.0])
             continue
         # Retrieve subdomain diffusive error
         d["estimates"]["diffusive_error"] = subdomain_diffusive_error(sd, d)
