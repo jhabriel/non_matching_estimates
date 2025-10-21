@@ -60,9 +60,13 @@ class SmallFeaturesSolutionStrategy(
         # Transfer from iterate to time step
         transfer_errors_iterate_solutions(self.mdg)
 
-        # Save vtu and pvd
-        # self.save_data_time_step()
-
+        # Export error indicators
+        self.exporter.write_vtu([
+            "pressure",
+            "diffusive_error",
+            "residual_error",
+            "error_indicator",
+        ])
 
     def _is_nonlinear_problem(self) -> bool:
         """The problem is linear."""
