@@ -471,29 +471,30 @@ class TransferGrid:
 class TransferLine:
     """Transfer 'grid' for 1D->1D mappings (segments on a common line)."""
 
-    def __init__(self,
-                 g_source: pp.Grid,
-                 g_target: pp.Grid,
-                 tol: float = 1e-10,
-                 rotation_matrix: np.ndarray | None = None,
-                 name: str = "transfer1d"
-        ):
+    def __init__(
+        self,
+        g_source: pp.Grid,
+        g_target: pp.Grid,
+        tol: float = 1e-10,
+        rotation_matrix: np.ndarray | None = None,
+        name: str = "transfer1d",
+    ):
         if g_source.dim != 1 or g_target.dim != 1:
             raise ValueError("TransferLine expects 1D source and 1D target grids.")
-        self.tol = tol
+        self.tol = float(tol)
         self.name = name
         self.g_source = g_source
         self.g_target = g_target
-        self.rot_matrix = rotation_matrix
+        self.rot_matrix = rotation_matrix  # anchor frame if provided
 
         self._build_transfer_segments()
         self._build_connectivity_matrices()
 
-    # helper (mirror of TransferGrid._get_rotated_grid logic, simplified for 1D):
+    # same as you had
     def _x_in_common_frame(self, g: pp.Grid) -> np.ndarray:
         import mdnme
         if self.rot_matrix is None:
-            rot = mdnme.RotatedGrid(g)  # let source set the frame
+            rot = mdnme.RotatedGrid(g)  # let the first call set the frame
             self.rot_matrix = rot.rotation_matrix
             return rot.nodes[0, :]
         else:
@@ -502,14 +503,17 @@ class TransferLine:
 
     def _breaks(self, g: pp.Grid) -> np.ndarray:
         x = self._x_in_common_frame(g)
-        x = np.unique(x)  # sorted, unique
+        # uniq & sort; also snap tiny negatives to 0 with tol for stability
+        x = np.unique(np.asarray(x, dtype=float))
         return x
 
+
     def _build_transfer_segments(self):
-        xs = self._breaks(self.g_source)
+        xs = self._breaks(self.g_source)  # in common frame
         xt = self._breaks(self.g_target)
+
         i, j = 0, 0
-        segs = []
+        segs: list[tuple[float, float]] = []
 
         while i < len(xs) - 1 and j < len(xt) - 1:
             a1, b1 = xs[i], xs[i + 1]
@@ -518,32 +522,59 @@ class TransferLine:
             a = max(a1, a2)
             b = min(b1, b2)
 
-            if b >= a + self.tol:
+            # keep only positive-length overlaps
+            if b - a > self.tol:
                 segs.append((float(a), float(b)))
 
-            # advance the interval that ends first (with tolerance)
+            # advance pointer(s) with tolerance
             if b1 <= b2 + self.tol:
                 i += 1
             if b2 <= b1 + self.tol:
                 j += 1
 
+        # If we found nothing, it’s a true miss or pure point-touch
         if not segs:
-            # If there is *only* a zero-measure touch (<= tol), treat as no contribution
             raise RuntimeError("No 1D intersections between source and target.")
 
-        self.transfer_nodes = np.array(sorted({p for ab in segs for p in ab})).reshape(
-            1, -1)
+        # --- tolerant dedupe of endpoints after segment filtering ---
+        pts = np.fromiter((p for ab in segs for p in ab), dtype=float)
+        pts.sort()
+
+        # merge neighbors closer than tol
+        merged = [pts[0]]
+        for p in pts[1:]:
+            if abs(p - merged[-1]) > self.tol:
+                merged.append(p)
+
+        # Require at least one *positive* segment
+        if len(merged) < 2:
+            raise RuntimeError("Only point-touch between source and target.")
+        # Also guard against accidental equal neighbors
+        diffs = np.diff(merged)
+        if not np.any(diffs > self.tol):
+            raise RuntimeError("Only point-touch between source and target.")
+
+        self.transfer_nodes = np.array(merged, dtype=float).reshape(1, -1)
         self.transfer = pp.TensorGrid(self.transfer_nodes)
         self.transfer.compute_geometry()
 
-    def _locate_owner_cells(self, midpoints: np.ndarray, breaks: np.ndarray):
-        # return the index of the cell interval that contains midpoint
-        # cells are 0..len(breaks)-2
+    def _locate_owner_cells(self, midpoints: np.ndarray, breaks: np.ndarray) -> np.ndarray:
         ids = np.searchsorted(breaks, midpoints, side="right") - 1
-        ids = np.clip(ids, 0, len(breaks) - 2)
-        return ids
+        return np.clip(ids, 0, len(breaks) - 2)
 
     def _build_connectivity_matrices(self):
+        # handle the 0-cell short-circuit cleanly
+        if self.transfer.num_cells == 0:
+            n_src = self.g_source.num_cells
+            n_tgt = self.g_target.num_cells
+            zst = sps.csr_matrix((n_src, 0), dtype=int)
+            ztt = sps.csr_matrix((0, n_tgt), dtype=int)
+            self.source_to_transfer = zst
+            self.transfer_to_source = zst.T
+            self.transfer_to_target = ztt
+            self.target_to_transfer = ztt.T
+            return
+
         xs = self._breaks(self.g_source)
         xt = self._breaks(self.g_target)
         xtf = self._breaks(self.transfer)
@@ -555,9 +586,7 @@ class TransferLine:
         s2t = sps.lil_matrix((n_src, n_tr), dtype=int)
         t2tg = sps.lil_matrix((n_tr, n_tgt), dtype=int)
 
-        # midpoints of transfer cells
         mid = 0.5 * (xtf[:-1] + xtf[1:])
-        # owner cells
         src_owner = self._locate_owner_cells(mid, xs)
         tgt_owner = self._locate_owner_cells(mid, xt)
 
@@ -569,6 +598,7 @@ class TransferLine:
         self.transfer_to_source = self.source_to_transfer.T.tocsr()
         self.transfer_to_target = t2tg.tocsr()
         self.target_to_transfer = self.transfer_to_target.T.tocsr()
+
 
     def summary(self):
         return {

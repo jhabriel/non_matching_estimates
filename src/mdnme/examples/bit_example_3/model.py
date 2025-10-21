@@ -12,6 +12,12 @@ from mdnme.estimates.helpers import ErrorEstimatesSaveData
 from mdnme.examples.bit_example_3.boundary_conditions import BoundaryConditionsModified
 from mdnme.examples.bit_example_3.geometry import GeometryNonMatching
 
+from mdnme.estimates.error_estimation import (
+    estimate_errors,
+    compute_error_indicators,
+    transfer_errors_iterate_solutions,
+)
+
 from porepy.examples.flow_benchmark_3d_case_3 import (
     FlowBenchmark3dCase3Model,
     solid_constants,
@@ -44,6 +50,19 @@ class SmallFeaturesSolutionStrategy(
         """Method to be called after the simulation has finished."""
         # Save error estimates data
         self.error_estimates_data_saving()
+
+        # Estimate errors
+        estimate_errors(self.mdg)
+
+        # Compute error indicators
+        compute_error_indicators(self.mdg)
+
+        # Transfer from iterate to time step
+        transfer_errors_iterate_solutions(self.mdg)
+
+        # Save vtu and pvd
+        # self.save_data_time_step()
+
 
     def _is_nonlinear_problem(self) -> bool:
         """The problem is linear."""
