@@ -30,7 +30,7 @@ from mdnme.utils.transfer_grid import(
     coarse_fine_or_build,
 )
 from mdnme.utils.primal_projections import (
-    restrict_to_transfer, scott_zhang_quasi_interpolant, project_p1_1d
+    restrict_to_transfer, scott_zhang_quasi_interpolant, project_p1_1d, project_p1_1d_sz
 )
 from mdnme.estimates.helpers import is_nonmatching
 
@@ -49,7 +49,7 @@ def compute_diffusive_error(
     for sd, d in mdg.subdomains(return_data=True):
         # Handle the case of zero-dimensional subdomains
         if sd.dim == 0:
-            d["estimates"]["diffusive_error"] = np.array([0.0])
+            d["estimates"]["diffusive_error"] = 30
             continue
         # Retrieve subdomain diffusive error
         d["estimates"]["diffusive_error"] = subdomain_diffusive_error(sd, d)
@@ -804,32 +804,14 @@ def _interface_diffusive_error_1d_nonmatching(
                 safe_idx = idx
             tr_hi_on_ibg = p_trace_high[safe_idx, :]  # (n_ibg_cells, 2)
 
-        # Get rotation matrix
-        rotM = getattr(intf, "rot_matrix", None)  # set by assign_canonical_rotations
+        # Use canonical rotation characterising the coupling triplet
+        R = intf.rot_matrix
 
-        # Transfer IBG -> mortar-side (1D) using TransferLine + SZ
-        if ibg_side.num_cells > 0 and mg_side.num_cells > 0:
-            tr_on_msg = project_p1_1d(
-                ibg_side,
-                mg_side,
-                tr_hi_on_ibg,
-                rotation_matrix=rotM,
-                tol=tol
-            )  # (n_msg_cells, 2)
-        else:
-            tr_on_msg = np.zeros((mg_side.num_cells, 2))
 
-        # Transfer low fracture grid (1D) -> mortar-side (1D)
-        if sd_low.num_cells > 0 and mg_side.num_cells > 0:
-            low_on_msg = project_p1_1d(
-                sd_low,
-                mg_side,
-                p_low_frac,
-                rotation_matrix=rotM,
-                tol=tol
-            )      # (n_msg_cells, 2)
-        else:
-            low_on_msg = np.zeros((mg_side.num_cells, 2))
+        tr_on_msg = project_p1_1d_sz(ibg_side, mg_side, tr_hi_on_ibg, tol=tol,
+                                     rotation_matrix=R)
+        low_on_msg = project_p1_1d_sz(sd_low, mg_side, p_low_frac, tol=tol,
+                                      rotation_matrix=R)
 
         # Scalars on this side
         k_side  = P_msg @ k_mortar           # (n_msg_cells, 1)
