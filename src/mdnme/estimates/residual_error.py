@@ -113,6 +113,6 @@ def _residual_error(
     if sd.dim in [1, 2, 3]:
         integral = method.integrate(integrand, elements)
     else:
-        integral = (external_sources + intf_jump) ** 2
+        integral = (external_sources + intf_jump.flatten()) ** 2
 
     return integral
