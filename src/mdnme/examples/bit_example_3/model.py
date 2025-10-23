@@ -16,6 +16,7 @@ from mdnme.estimates.error_estimation import (
     estimate_errors,
     compute_error_indicators,
     transfer_errors_iterate_solutions,
+    compute_sd_and_intf_errors_of_equal_dim,
 )
 
 from porepy.examples.flow_benchmark_3d_case_3 import (
@@ -61,12 +62,13 @@ class SmallFeaturesSolutionStrategy(
         transfer_errors_iterate_solutions(self.mdg)
 
         # Export error indicators
-        self.exporter.write_vtu([
-            "pressure",
-            "diffusive_error",
-            "residual_error",
-            "error_indicator",
-        ])
+        if self.params.get("export_to_vtu", False):
+            self.exporter.write_vtu([
+                "pressure",
+                "diffusive_error",
+                "residual_error",
+                "error_indicator",
+            ])
 
     def _is_nonlinear_problem(self) -> bool:
         """The problem is linear."""
