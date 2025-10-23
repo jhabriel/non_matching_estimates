@@ -106,6 +106,53 @@ def get_majorant(mdg: pp.MixedDimensionalGrid) -> float:
     return majorant
 
 
+def compute_sd_and_intf_errors_of_equal_dim(mdg: pp.MixedDimensionalGrid) -> dict:
+    """
+    Compute subdomain and interface errors of equal dimensionality.
+
+    Parameters:
+        mdg : pp.MixedDimensionalGrid
+
+    Returns:
+        Data dictionary with fields `subdomain_error` and `interface_error` and
+        subfields d \in [0, 1, 2, 3], depending on the dimensionality of the
+        mixed-dimensional grid.
+
+    Note:
+        We assume that the error indicators where already computed and are available
+        in data["estimates"]["error_indicators"].
+
+    """
+    d = {}
+    d['subdomain_error'] = {}
+    d['interface_error'] = {}
+
+    # Obtain max and min subdomain dim
+    sd_dims = np.asarray([sd.dim for sd in mdg.subdomains()])
+    min_sd_dims = np.min(sd_dims)
+    max_sd_dims = np.max(sd_dims)
+    dims_sd = np.arange(min_sd_dims, max_sd_dims+1)
+
+    intf_dims = np.asarray([intf.dim for intf in mdg.interfaces()])
+    min_intf_dims = np.min(intf_dims)
+    max_intf_dims = np.max(intf_dims)
+    dims_intf = np.arange(min_intf_dims, max_intf_dims+1)
+
+    # Loop over the mixed-dimensional grid and calculate errors
+    for dim in dims_sd:
+        cum_error = 0
+        for sd, data in mdg.subdomains(dim=dim, return_data=True):
+            cum_error += data["estimates"]["error_indicator"].sum()
+        d['subdomain_error'][dim] = np.sqrt(cum_error)
+
+    for dim in dims_intf:
+        cum_error = 0
+        for intf, data in mdg.interfaces(dim=dim, return_data=True):
+            cum_error += data["estimates"]["error_indicator"].sum()
+        d['interface_error'][dim] = np.sqrt(cum_error)
+
+    return d
+
 def compute_error_indicators(mdg: pp.MixedDimensionalGrid) -> None:
     """
     Compute error indicators (i.e., to be used in the AMR process)
@@ -161,12 +208,3 @@ def transfer_errors_iterate_solutions(mdg: pp.MixedDimensionalGrid) -> None:
     for _, d in mdg.interfaces(return_data=True):
         for error in ["diffusive_error", "error_indicator"]:
             transfer(d, error)
-
-
-def get_elements_to_refine(threshold: float = 0.10) -> None:
-    """
-
-    :param threshold:
-    :return:
-    """
-    ...
