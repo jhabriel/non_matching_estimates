@@ -12,7 +12,6 @@ from typing import Literal, Optional, Union, cast
 import numpy as np
 
 import porepy as pp
-from porepy.fracs.fracture_network_2d import FractureNetwork2d
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
 
 
@@ -53,30 +52,27 @@ def benchmark_3d_case_2(
 
     # Get directory pointing to the `geo` file
     abs_path = Path(__file__)
-    benchmark_path = abs_path.parent / "gmsh_file_library" / "benchmark_3d_case_2"
+    benchmark_path = abs_path.parent / "md_grids"
     if refinement_level == 0:
         full_path = benchmark_path / f"mesh500.geo"
     elif refinement_level == 1:
         full_path = benchmark_path / f"mesh4k.geo"
     elif refinement_level == 2:
         full_path = benchmark_path / f"mesh32k.geo"
-    else:\
-
-
-    num_cells = [30, 140, 350, 500][refinement_level]
-    full_path = benchmark_path / f"mesh{num_cells}k.geo"
+    else:
+        raise ValueError("Unknown mesh file path.")
 
     # Set file permissions. This turned out to be important for GH actions.
     full_path.chmod(777)
 
     # Create mixed-dimensional grid
-    mdg = pp.fracture_importer.dfm_from_gmsh(full_path, dim=3)
+    mdg = pp.fracture_importer.dfm_from_gmsh(str(full_path), dim=3)
 
     # Also import fracture network
     fracture_network_path = benchmark_path / "fracture_network.csv"
     # Set file permissions. This turned out to be important for GH actions.
     fracture_network_path.chmod(777)
 
-    network = pp.fracture_importer.network_3d_from_csv(fracture_network_path)
+    network = pp.fracture_importer.network_3d_from_csv(str(fracture_network_path))
 
     return mdg, network
