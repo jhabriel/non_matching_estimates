@@ -207,7 +207,7 @@ class BoundaryConditions(pp.PorePyModel):
         )
         val = self.units.convert_units(1, "Pa")
         values = np.zeros(nc)
-        values[outlet_faces] = val * values[outlet_faces]
+        values[outlet_faces] = val
         return values
 
 
