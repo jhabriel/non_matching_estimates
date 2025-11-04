@@ -1,5 +1,5 @@
 """
-This module contains the model for the Example 3 of the manuscript.
+This module contains the model for the Example 2 of the manuscript.
 """
 import sys
 
@@ -11,17 +11,19 @@ import mdnme
 from mdnme.estimates.helpers import ErrorEstimatesSaveData
 from mdnme.examples.bit_example_2.boundary_conditions import BoundaryConditionsModified
 from mdnme.examples.bit_example_2.geometry import GeometryNonMatching
+from mdnme.examples.bit_example_2.flow_benchmark_3d_case_2 import (
+    FlowBenchmark3dCase2Model,
+    solid_constants_conductive,
+    solid_constants_blocking,
+)
 
 from mdnme.estimates.error_estimation import (
     estimate_errors,
     compute_error_indicators,
     transfer_errors_iterate_solutions,
+    compute_sd_and_intf_errors_of_equal_dim,
 )
 
-from porepy.examples.flow_benchmark_3d_case_3 import (
-    FlowBenchmark3dCase3Model,
-    solid_constants,
-)
 
 
 class SmallFeaturesSolutionStrategy(
