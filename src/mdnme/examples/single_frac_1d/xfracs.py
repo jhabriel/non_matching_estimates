@@ -149,13 +149,12 @@ class SinglePhaseFlowModifiedSolutionStrategy(
         vals = []
         for sd, data in self.mdg.subdomains(return_data=True):
             val = data["estimates"]["error_indicator"]
-            print(val)
             vals.append(val)
         values = np.hstack(vals)
         print(values)
 
         # Save vtu and pvd
-        #self.save_data_time_step()
+        self.save_data_time_step()
 
 
 # class CustomDataSaving(pp.DataSavingMixin):
@@ -189,3 +188,4 @@ model_params = {
 
 model = SinglePhaseFlow2dCrossingFracs(model_params)
 pp.run_time_dependent_model(model)
+sd_matrix, data_matrix = model.mdg.subdomains(dim=2, return_data=True)[0]
