@@ -26,7 +26,7 @@ from mdnme.estimates.error_estimation import (
 
 
 
-class SmallFeaturesSolutionStrategy(
+class Geiger3dSolutionStrategy(
     pp.fluid_mass_balance.SolutionStrategySinglePhaseFlow
 ):
     """Modified solution strategy for the verification setup."""
@@ -81,22 +81,22 @@ class SmallFeaturesSolutionStrategy(
 
 
 # %% Mixer
-class SmallFeaturesModel(  # type: ignore[misc]
+class Geiger3dModel(  # type: ignore[misc]
     GeometryNonMatching,
     ErrorEstimatesSaveData,
-    SmallFeaturesSolutionStrategy,
+    Geiger3dSolutionStrategy,
     BoundaryConditionsModified,
-    FlowBenchmark3dCase3Model,
+    FlowBenchmark3dCase2Model,
 ):
     """Main model for running the analysis corresponding to example number 3."""
 
 
-# # %% Runner
-# params = {
-#     "material_constants": {"solid": solid_constants},
-#     "refinement_level": 0,
-#     "non_matching": True,
-# }
-# model = SmallFeaturesModel(params)
-# pp.run_time_dependent_model(model, params)
-#
+# %% Runner
+params = {
+    "material_constants": {"solid": solid_constants_conductive},
+    "refinement_level": 0,
+    "non_matching": True,
+}
+model = Geiger3dModel(params)
+pp.run_time_dependent_model(model, params)
+

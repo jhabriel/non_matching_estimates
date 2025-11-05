@@ -96,7 +96,7 @@ class PermeabilitySpecification(Permeability):
         zone_1 = np.logical_and.reduce(
             tuple(
                 [
-                    cc[0, :] < 0.75,
+                    cc[0, :] > 0.75,
                     cc[1, :] > 0.5,
                     cc[1, :] < 0.75,
                     cc[2, :] > 0.5,
