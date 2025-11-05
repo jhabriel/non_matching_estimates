@@ -785,18 +785,23 @@ def _interface_diffusive_error_1d_nonmatching(
     out_global = np.zeros(intf.num_cells)
 
     for P_msg, mg_side in intf.project_to_side_grids():
+
         side_enum = next(k for k, v in intf.side_grids.items() if v is mg_side)
 
         # IBG side grid and its parent high edge (one parent per IBG cell)
         ibg_side = ibg.ibg_side_grid(side_enum)
+        # Parent edge - child cell connectivity
         parent_edges = ibg.parent_edge_of_cell(side_enum)  # (n_ibg_cells,)
 
         # Assign tr(p_high) to IBG cells
         if ibg_side.num_cells == 0:
             tr_hi_on_ibg = np.zeros((0, 2))
         else:
-            idx = np.fromiter((face2pos[int(e)] if int(e) in face2pos else -1
-                               for e in parent_edges), dtype=int, count=parent_edges.size)
+            idx = np.fromiter(
+                (
+                    face2pos[int(e)] if int(e) in face2pos else -1 for e in parent_edges
+                ), dtype=int,
+                count=parent_edges.size)
             if np.any(idx < 0):
                 # edges that didn’t map (e.g., degenerate) -> set constant zero jump
                 safe_idx = np.maximum(idx, 0)
@@ -807,14 +812,25 @@ def _interface_diffusive_error_1d_nonmatching(
         # Use canonical rotation characterising the coupling triplet
         R = intf.rot_matrix
 
+        tr_on_msg = project_p1_1d_sz(
+            ibg_side,
+            mg_side,
+            tr_hi_on_ibg,
+            tol=tol,
+            rotation_matrix=R,
+            rotate_source=False,
+        )
 
-        tr_on_msg = project_p1_1d_sz(ibg_side, mg_side, tr_hi_on_ibg, tol=tol,
-                                     rotation_matrix=R)
-        low_on_msg = project_p1_1d_sz(sd_low, mg_side, p_low_frac, tol=tol,
-                                      rotation_matrix=R)
+        low_on_msg = project_p1_1d_sz(
+            sd_low,
+            mg_side,
+            p_low_frac,
+            tol=tol,
+            rotation_matrix=R,
+        )
 
         # Scalars on this side
-        k_side  = P_msg @ k_mortar           # (n_msg_cells, 1)
+        k_side = P_msg @ k_mortar  # (n_msg_cells, 1)
         nv_side = P_msg @ normal_vel_mortar  # (n_msg_cells, 1)
 
         # Jump on the side grid
@@ -822,6 +838,7 @@ def _interface_diffusive_error_1d_nonmatching(
 
         # Integrate (exact for linears with 2-pt Gauss, but we reuse your c1 rule)
         elements = mdnme.utils.get_quadpy_elements(mg_side)
+
         def integrand(x):
             # x comes as shape (1, n_cells, n_qp); evaluate a*s+b
             a = deltap_side[:, 0].reshape(-1, 1)

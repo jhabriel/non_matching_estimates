@@ -359,9 +359,11 @@ def project_p1_1d(
 def project_p1_1d_sz(
     source: pp.Grid,
     target: pp.Grid,
-    C_src: np.ndarray,                # shape (n_src_cells, 2): [slope, intercept] in a common frame
+    C_src: np.ndarray,  # shape (n_src_cells, 2): [slope, intercept] in a common frame
     tol: float = 1e-10,
     rotation_matrix: np.ndarray | None = None,
+    rotate_source: bool = True,
+    rotate_target: bool = True,
 ) -> np.ndarray:
     """
     1D Scott–Zhang (≃ Clément) quasi-interpolant: broken P1 on `source` -> conforming P1 on `target`.
@@ -376,10 +378,17 @@ def project_p1_1d_sz(
            u(x_0) = avg(K_0), u(x_N) = avg(K_{N-1}), interior i: u(x_i) = 0.5*(avg(K_{i-1})+avg(K_i))
       5) Per target cell K=[a,b], fit P1 from endpoint nodal values with simple stable formula.
     """
-    from mdnme.utils.transfer_grid import TransferLine  # ensure we use your class
+    from mdnme.utils.transfer_grid import TransferLine
 
     # --- 1) Shared 1D frame & connectivity via TransferLine ---
-    tl = TransferLine(source, target, tol=tol, rotation_matrix=rotation_matrix)
+    tl = TransferLine(
+        source,
+        target,
+        tol=tol,
+        rotation_matrix=rotation_matrix,
+        rotate_source=rotate_source,
+        rotate_target=rotate_target,
+    )
 
     gS, gT, gTr = tl.g_source, tl.g_target, tl.transfer
     T2Tr = tl.target_to_transfer  # (n_tgt x n_tr) CSR; rows list transfer cells inside a target cell

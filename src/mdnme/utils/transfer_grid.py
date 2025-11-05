@@ -477,6 +477,8 @@ class TransferLine:
         g_target: pp.Grid,
         tol: float = 1e-10,
         rotation_matrix: np.ndarray | None = None,
+        rotate_source: bool = True,
+        rotate_target: bool = True,
         name: str = "transfer1d",
     ):
         if g_source.dim != 1 or g_target.dim != 1:
@@ -486,31 +488,46 @@ class TransferLine:
         self.g_source = g_source
         self.g_target = g_target
         self.rot_matrix = rotation_matrix  # anchor frame if provided
+        self._rotate_source = rotate_source
+        self._rotate_target = rotate_target
 
         self._build_transfer_segments()
         self._build_connectivity_matrices()
 
     # same as you had
-    def _x_in_common_frame(self, g: pp.Grid) -> np.ndarray:
+    def _x_in_common_frame(self, g: pp.Grid, use_rotation=True) -> np.ndarray:
         import mdnme
-        if self.rot_matrix is None:
-            rot = mdnme.RotatedGrid(g)  # let the first call set the frame
-            self.rot_matrix = rot.rotation_matrix
-            return rot.nodes[0, :]
+        if use_rotation:
+            if self.rot_matrix is None:
+                rot = mdnme.RotatedGrid(g)  # let the first call set the frame
+                self.rot_matrix = rot.rotation_matrix
+                return rot.nodes[0, :]
+            else:
+                rot = mdnme.RotatedGrid(g, self.rot_matrix)
+                return rot.nodes[0, :]
         else:
-            rot = mdnme.RotatedGrid(g, self.rot_matrix)
-            return rot.nodes[0, :]
+            return g.nodes
 
-    def _breaks(self, g: pp.Grid) -> np.ndarray:
-        x = self._x_in_common_frame(g)
+    def _breaks(self, g: pp.Grid, use_rotation=True) -> np.ndarray:
+        x = self._x_in_common_frame(g, use_rotation)
         # uniq & sort; also snap tiny negatives to 0 with tol for stability
         x = np.unique(np.asarray(x, dtype=float))
         return x
 
 
     def _build_transfer_segments(self):
-        xs = self._breaks(self.g_source)  # in common frame
-        xt = self._breaks(self.g_target)
+
+        # Get rotated source grid
+        if self._rotate_source:
+            xs = self._breaks(self.g_source)  # in common frame
+        else:
+            xs = self._breaks(self.g_source, use_rotation=False)
+
+        # Get rotate target grid
+        if self._rotate_target:
+            xt = self._breaks(self.g_target)
+        else:
+            xt = self._breaks(self.g_target, use_rotation=False)
 
         i, j = 0, 0
         segs: list[tuple[float, float]] = []

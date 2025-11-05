@@ -251,15 +251,21 @@ class InternalBoundaryGrid:
 
 
 class InternalBoundaryLineGrid:
-    """Per-side Internal Boundary Grid for 1D mortar interfaces (trace of 2D)."""
+    """Per-side Internal Boundary Grid for 1D traces of 2D subdomains."""
 
-    def __init__(self, intf: pp.MortarGrid, sd_high: pp.Grid, tol: float = 1e-8, name: str = "ibg1d"):
+    def __init__(self,
+                 intf: pp.MortarGrid,
+                 sd_high: pp.Grid,
+                 tol: float = 1e-8,
+                 name: str = "ibg1d"
+                 ):
         if intf.dim != 1:
             raise NotImplementedError("InternalBoundaryLineGrid expects a 1D mortar interface.")
 
         # Must have canonical rotation info (same precondition as the 2D IBG)
         if not hasattr(intf, "rot_matrix") or intf.rot_matrix is None:
             raise RuntimeError("intf.rot_matrix missing; run assign_canonical_rotations().")
+
         if not hasattr(intf, "dim_bool") or intf.dim_bool is None:
             raise RuntimeError("intf.dim_bool missing; run assign_canonical_rotations().")
 
@@ -278,7 +284,10 @@ class InternalBoundaryLineGrid:
         for P_side, g_side in self.intf.project_to_side_grids():
             side_enum = self._enum_of_side_grid(g_side)
             edges_side = self._edges_for_side(P_side)
-            ibg_grid, parent_edge_map = self._build_ibg_for_edges(edges_side, f"{name}_{side_enum.name.lower()}")
+            ibg_grid, parent_edge_map = self._build_ibg_for_edges(
+                edges_side,
+                f"{name}_{side_enum.name.lower()}"
+            )
 
             self._sides[side_enum] = _SideData1D(
                 mortar_to_side=P_side.tocsc(),
@@ -335,7 +344,7 @@ class InternalBoundaryLineGrid:
             g.compute_geometry()
             return g, np.zeros((0,), dtype=int)
 
-        nodes3d = self.sd_high.nodes                    # (3, N)
+        nodes3d = self.sd_high.nodes  # (3, N)
         nodes2d = (self.rot_matrix @ nodes3d)[self.dim_bool, :]  # (2, N)
         # define 1D coordinate s along the first in-plane axis of the canonical frame
         # (we only need a consistent 1D parameter; pick axis 0)
