@@ -15,7 +15,7 @@ class BoundaryConditionsModified(pp.PorePyModel):
         if b_faces != 0:
             b_faces_centers = sd.face_centers[:, b_faces]
             b_inflow = np.logical_and.reduce(
-                tuple(b_faces_centers[i, :] < 0.25 + 1e-8 for i in range(3))
+                tuple(b_faces_centers[i, :] < 0.25 - 1e-8 for i in range(3))
             )
             b_outflow = np.logical_and.reduce(
                 tuple(b_faces_centers[i, :] > 0.875 + 1e-8 for i in range(3))
@@ -43,7 +43,7 @@ class BoundaryConditionsModified(pp.PorePyModel):
         nc = bg.num_cells
 
         faces_inflow = np.logical_and.reduce(
-            tuple(cc[i, :] < 0.25 + 1e-8 for i in range(3))
+            tuple(cc[i, :] < 0.25 - 1e-8 for i in range(3))
         )
 
         faces_outflow = np.logical_and.reduce(
