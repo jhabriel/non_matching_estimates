@@ -9,6 +9,7 @@ from mdnme.estimates.pressure_reconstruction import reconstruct_pressure
 from mdnme.estimates.residual_error import compute_residual_error
 from mdnme.utils.grid_rotation import assign_canonical_rotations
 
+from typing import Literal
 
 SpatialFunction = Callable[..., np.ndarray]
 
@@ -18,7 +19,7 @@ def estimate_errors(
     pressure_reconstruction_method: str = "keilegavlen_p1",
     sources: list[SpatialFunction] | list[float] | None = None,
     quadrature_degree_for_residual_error: list[int] | None = None,
-    non_matching_nested: bool = False,
+    is_non_matching: bool = False,
 ) -> None:
     """Estimate local errors and save them in data dictionaries.
 
@@ -58,7 +59,7 @@ def estimate_errors(
     # Error computation
 
     # Diffusive error
-    compute_diffusive_error(mdg, non_matching_nested)
+    compute_diffusive_error(mdg, is_non_matching)
 
     # Residual error
     if sources is None:
@@ -152,6 +153,137 @@ def compute_sd_and_intf_errors_of_equal_dim(mdg: pp.MixedDimensionalGrid) -> dic
         d['interface_error'][dim] = np.sqrt(cum_error)
 
     return d
+
+
+def aggregate_local_errors(mdg: pp.MixedDimensionalGrid) -> dict:
+    """Aggregate local errors based on their dimensionality.
+
+    Parameters:
+        mdg: pp.MixedDimensionalGrid
+            Mixed-dimensional grid.
+
+    Returns:
+        Dictionary containing the aggregated local errors per dimensionality. To
+        access the errors, use the keywords `subdomain_error` and `interface_error`,
+        and give the dimensionality as an integer.
+
+    Example:
+        local_errors = aggregate_local_errors(model.mdg)
+        # Print aggregated local errors for one-dimensional subdomains
+        print(local_errors['subdomain_error'][1])
+
+    """
+
+    # Create dictionary
+    d = {'subdomain_error': {}, 'interface_error': {}}
+
+    # Obtain max and min subdomain dim
+    sd_dims = np.asarray([sd.dim for sd in mdg.subdomains()])
+    min_sd_dims = np.min(sd_dims)
+    max_sd_dims = np.max(sd_dims)
+    dims_sd = np.arange(min_sd_dims, max_sd_dims + 1)
+
+    intf_dims = np.asarray([intf.dim for intf in mdg.interfaces()])
+    min_intf_dims = np.min(intf_dims)
+    max_intf_dims = np.max(intf_dims)
+    dims_intf = np.arange(min_intf_dims, max_intf_dims + 1)
+
+    # Loop over the mixed-dimensional grid and calculate errors
+    for dim in dims_sd:
+        # Handle the 0d case
+        if dim == 0:
+            continue
+        cum_error = 0
+        for sd, data in mdg.subdomains(dim=dim, return_data=True):
+            cum_error += compute_local_errors(sd, data)
+        d['subdomain_error'][dim] = cum_error
+
+    for dim in dims_intf:
+        cum_error = 0
+        for intf, data in mdg.interfaces(dim=dim, return_data=True):
+            cum_error += compute_local_errors(intf, data)
+        d['interface_error'][dim] = cum_error
+
+    return d
+
+
+def compute_local_errors(
+        g: pp.Grid | pp.MortarGrid,
+        d: dict,
+        error_type: Literal["diffusive", "residual", "all"] = "all",
+) -> float:
+    """Computes the sum of local errors of a subdomain or interface.
+
+    Parameters:
+        g : pp.Grid | pp.MortarGrid
+            Subdomain or Interface grid.
+        d : dict
+            Data dictionary containing the local errors. In particular, we assume
+            diffusive errors are stored in `d['estimates']['diffusive_error'] and
+            for subdomains that residual errors are stored in `d['estimates'][
+            'residual_error'].
+        error_type: Literal['diffusive', 'residual', 'all']
+            Type of local error to be computed. If not given, the sum of all local
+            errors will be returned.
+
+        Returns:
+            Local error.
+
+    Raises:
+        ValueError:
+            - If the grid is not a `pp.Grid` or a `pp.MortarGrid`.
+        ValueError:
+            - If the dimensions of the grid are inconsistent.
+        ValueError:
+            - If the error type is not `diffusive`, `residual` or `all`.
+        ValueError:
+            - If the errors are missing in the data dictionaries.
+        ValueError:
+            - If residual errors are attempted to be retrieved for interfaces.
+
+    """
+
+    # Boolean variable to check if g is pp.MortarGrid or pp.Grid
+    is_mortar: bool = issubclass(type(g), pp.MortarGrid)
+
+    # Raise an error if an invalid error type is requested
+    if is_mortar:
+        if error_type not in ["diffusive_error", "all"]:
+            raise ValueError("Invalid error type for interfaces. See documentation.")
+    else:
+        if error_type not in ["diffusive_error", "residual_error", "all"]:
+            raise ValueError("Invalid error type for subdomains. See documentation.")
+
+    # Raise an error if an invalid grid dimension is passed
+    if is_mortar:
+        if g.dim not in [0, 1, 2]:
+            raise ValueError("Invalid dimension for mortar grid. Expected 0, 1, or 2.")
+    else:
+        if g.dim not in [1, 2, 3]:
+            raise ValueError("Invalid dimension for grid. Expected 1, 2, or 3.")
+
+    # Raise an error if the errors have not been computed
+    if is_mortar:
+        if "diffusive_error" not in d["estimates"]:
+            raise ValueError("Interface errors must be computed first.")
+    else:
+        if "diffusive_error" and "residual_error" not in d["estimates"]:
+            raise ValueError("Subdomain errors must be computed first.")
+
+    # Retrieve the requested error
+    if is_mortar:
+        error = d["estimates"]["diffusive_error"].sum() ** 0.5
+    else:
+        if error_type == "diffusive_error":
+            error = d["estimates"]["diffusive_error"].sum() ** 0.5
+        elif error_type == "residual_error":
+            error = d["estimates"]["residual_error"].sum() ** 0.5
+        else:
+            error = (d["estimates"]["diffusive_error"].sum() +
+                     d["estimates"]["residual_error"].sum()) ** 0.5
+
+    return error
+
 
 def compute_error_indicators(mdg: pp.MixedDimensionalGrid) -> None:
     """
