@@ -37,7 +37,7 @@ from mdnme.estimates.helpers import is_nonmatching
 
 def compute_diffusive_error(
         mdg: pp.MixedDimensionalGrid,
-        non_matching_nested: bool = False,
+        is_non_matching: bool,
 ) -> None:
     """Computes square of the diffusive flux error in all the mixed-dimensional grid.
 
@@ -62,7 +62,7 @@ def compute_diffusive_error(
         data_low = mdg.subdomain_data(sd_low)
         # Retrieve interface diffusive error
         data_intf["estimates"]["diffusive_error"] = interface_diffusive_error(
-            intf, data_intf, sd_high, data_high, sd_low, data_low, non_matching_nested
+            intf, data_intf, sd_high, data_high, sd_low, data_low, is_non_matching
         )
 
 
@@ -178,7 +178,7 @@ def interface_diffusive_error(
     data_high: dict,
     sd_low: pp.Grid,
     data_low: dict,
-    non_matching_nested: bool,
+    is_non_matching: bool,
 ) -> np.ndarray:
     """Computes the square of the diffusive error on interfaces.
 
@@ -217,9 +217,6 @@ def interface_diffusive_error(
     if intf.dim not in [0, 1, 2]:
         raise ValueError("Inconsistent mortar grid dimension. Expected 0, 1, or 2.")
 
-    # Check whether the coupling is non-matching or not
-    non_matching : bool = is_nonmatching(intf, tol=1e-8, mode="strict")
-
     # Obtain diffusive error depending on the dimensionality of the grid
     if intf.dim == 0:
         diffusive_error = _interface_diffusive_error_0d(
@@ -231,7 +228,7 @@ def interface_diffusive_error(
             data_low,
         )
     elif intf.dim == 1:
-        if not non_matching:
+        if not is_non_matching:
             diffusive_error = _interface_diffusive_error_1d(
                 intf,
                 data_intf,
@@ -250,7 +247,7 @@ def interface_diffusive_error(
                 data_low,
             )
     else:
-        if not non_matching:
+        if not is_non_matching:
             diffusive_error = _interface_diffusive_error_2d(
                 intf,
                 data_intf,
@@ -267,8 +264,7 @@ def interface_diffusive_error(
                 data_high,
                 sd_low,
                 data_low,
-                non_matching_nested,
-                tol=1e-8
+                tol=1e-8,
             )
 
     return diffusive_error
@@ -861,7 +857,6 @@ def _interface_diffusive_error_2d_nonmatching(
     data_high: dict,
     sd_low: pp.Grid,
     data_low: dict,
-    non_matching_nested: bool,
     tol: float = 1e-8,
 ) -> np.ndarray:
     """Non-matching 2D interface diffusive error:
@@ -923,25 +918,8 @@ def _interface_diffusive_error_2d_nonmatching(
             tr_hi_on_ibg = p_trace_high[idx, :]  # (n_ibg_cells, 3)
 
         # (2) Transfer IBG→mortar-side and frac→mortar-side
-        if not non_matching_nested:
-            tg_ibg_msg = TransferGrid(g_source=ibg_side, g_target=mg_side, tol=tol)
-            tg_fg_msg = TransferGrid(g_source=sd_low, g_target=mg_side, tol=tol)
-        else:
-            M_ibg_msg = coarse_fine_or_build(mg_side, ibg_side, tol=tol)
-            tg_ibg_msg = TransferGrid.from_nested(
-                g_source=ibg_side,
-                g_target=mg_side,
-                coarse_fine=M_ibg_msg,
-                tol=tol
-            )
-
-            M_fg_msg = coarse_fine_or_build(mg_side, sd_low, tol=tol)
-            tg_fg_msg = TransferGrid.from_nested(
-                g_source=sd_low,
-                g_target=mg_side,
-                coarse_fine=M_fg_msg,
-                tol=tol
-            )
+        tg_ibg_msg = TransferGrid(g_source=ibg_side, g_target=mg_side, tol=tol)
+        tg_fg_msg = TransferGrid(g_source=sd_low, g_target=mg_side, tol=tol)
 
         # Internal boundary side grid to mortar side grid pressure projection
         tracep_on_tg = restrict_to_transfer(tg_ibg_msg, tr_hi_on_ibg)
