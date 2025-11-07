@@ -157,9 +157,10 @@ class ErrorEstimatesSaveData:
         for sd_high in sd_highs:
             intf = self.mdg.subdomain_pair_to_interface((sd, sd_high))
             data_intf = self.mdg.interface_data(intf)
-            fv_intf_vel = data_intf["estimates"]["fv_intf_flux"] / intf.cell_volumes
+            fv_intf = data_intf["estimates"]["fv_intf_flux"]
+            volumes = sd.cell_volumes
             # Obtain source term contribution associated to the neighboring interface
-            internal_source += intf.mortar_to_secondary_int() * fv_intf_vel
+            internal_source += (intf.mortar_to_secondary_int() * fv_intf) / volumes
 
         d["estimates"]["sources_from_intf"] = internal_source.reshape(sd.num_cells, 1)
 
