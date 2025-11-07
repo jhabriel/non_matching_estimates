@@ -134,7 +134,7 @@ class GeometryNonMatching(pp.PorePyModel):
                 sd_map = {}
                 for sd_co, sd_fi in zip(mdg_coarse.subdomains(), mdg_fine.subdomains()):
                     assert sd_co.dim == sd_fi.dim
-                    if sd_co.dim < 3 and sd_co.dim > 0:
+                    if 0 < sd_co.dim < 3:
                         sd_map[sd_co] = sd_fi
                 mdg_coarse.replace_subdomains_and_interfaces(sd_map=sd_map)
 
