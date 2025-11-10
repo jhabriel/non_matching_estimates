@@ -15,6 +15,7 @@ params = {
     "material_constants": {"solid": solid_constants_conductive},
     "refinement_level": 0,
     "non_matching": False,
+    "export_to_vtu": True,
 }
 model = FlowBenchmark3dCase2Model(params)
 pp.run_time_dependent_model(model, {})

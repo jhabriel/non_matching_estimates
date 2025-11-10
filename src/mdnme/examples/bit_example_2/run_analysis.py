@@ -25,7 +25,7 @@ intf_error_2d = []
 majorant = []
 
 # Define refinement levels
-REFINEMENT_LEVELS = [0, 1, 2]
+REFINEMENT_LEVELS = [0, 1]
 
 for lvl in REFINEMENT_LEVELS:
 
@@ -33,7 +33,7 @@ for lvl in REFINEMENT_LEVELS:
     params = {
         "material_constants": {"solid": solid_constants_conductive},
         "refinement_level": lvl,
-        "non_matching": False,
+        "non_matching": True,
         "times_to_export": [],
         "export_results": True,
     }

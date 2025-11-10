@@ -1,12 +1,10 @@
 """
 This module contains the model for the Example 2 of the manuscript.
 """
-import sys
 
 from typing import Callable
 
 import porepy as pp
-import mdnme
 
 from mdnme.estimates.helpers import ErrorEstimatesSaveData
 from mdnme.examples.bit_example_2.boundary_conditions import BoundaryConditionsModified
@@ -23,7 +21,6 @@ from mdnme.estimates.error_estimation import (
     transfer_errors_iterate_solutions,
     compute_sd_and_intf_errors_of_equal_dim,
 )
-
 
 
 class Geiger3dSolutionStrategy(
@@ -54,7 +51,8 @@ class Geiger3dSolutionStrategy(
         self.error_estimates_data_saving()
 
         # Estimate errors
-        estimate_errors(self.mdg)
+        is_non_matching = self.params.get("non_matching", False)
+        estimate_errors(self.mdg, is_non_matching=is_non_matching)
 
         # Compute error indicators
         compute_error_indicators(self.mdg)
@@ -63,9 +61,10 @@ class Geiger3dSolutionStrategy(
         transfer_errors_iterate_solutions(self.mdg)
 
         # Export error indicators
-        if self.params.get("export_to_vtu", False):
+        if self.params.get("export_results", False):
             self.exporter.write_vtu([
                 "pressure",
+                "interface_darcy_flux",
                 "diffusive_error",
                 "residual_error",
                 "error_indicator",
@@ -88,15 +87,15 @@ class Geiger3dModel(  # type: ignore[misc]
     BoundaryConditionsModified,
     FlowBenchmark3dCase2Model,
 ):
-    """Main model for running the analysis corresponding to example number 3."""
+    """Main model for running the analysis corresponding to example number 2."""
 
-
-# %% Runner
-params = {
-    "material_constants": {"solid": solid_constants_conductive},
-    "refinement_level": 0,
-    "non_matching": True,
-}
-model = Geiger3dModel(params)
-pp.run_time_dependent_model(model, params)
+# # %% Runner
+# params = {
+#     "material_constants": {"solid": solid_constants_conductive},
+#     "refinement_level": 0,
+#     "non_matching": True,
+#     "export_to_vtu": True,
+# }
+# model = Geiger3dModel(params)
+# pp.run_time_dependent_model(model, params)
 
