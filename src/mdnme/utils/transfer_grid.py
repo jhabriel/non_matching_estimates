@@ -481,6 +481,11 @@ class TransferLine:
         rotate_target: bool = True,
         name: str = "transfer1d",
     ):
+        """TransferLine Constructor."""
+
+
+
+
         if g_source.dim != 1 or g_target.dim != 1:
             raise ValueError("TransferLine expects 1D source and 1D target grids.")
         self.tol = float(tol)

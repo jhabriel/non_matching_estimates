@@ -356,6 +356,121 @@ def project_p1_1d(
     return u_tgt
 
 
+# def project_p1_1d_sz(
+#     source: pp.Grid,
+#     target: pp.Grid,
+#     C_src: np.ndarray,  # shape (n_src_cells, 2): [slope, intercept] in a common frame
+#     tol: float = 1e-10,
+#     rotation_matrix: np.ndarray | None = None,
+#     rotate_source: bool = True,
+#     rotate_target: bool = True,
+# ) -> np.ndarray:
+#     """
+#     1D Scott–Zhang (≃ Clément) quasi-interpolant: broken P1 on `source` -> conforming P1 on `target`.
+#
+#     Outline (robust 1D variant):
+#       1) Build a TransferLine (which fixes a common 1D frame).
+#       2) For each transfer segment j = [a_j, b_j], integrate u exactly: ∫_j u = 0.5*|j|*(u(a_j)+u(b_j)).
+#          (u is the source broken-P1, evaluated using source cell ownership).
+#       3) Aggregate those exact integrals to get target cell averages:
+#            avg(K) = (sum_j ∫_j u) / |K|
+#       4) Nodal values on the target (SZ/Clément):
+#            u(x_0) = avg(K_0), u(x_N) = avg(K_{N-1}), interior i: u(x_i) = 0.5*(avg(K_{i-1})+avg(K_i))
+#       5) Per target cell K=[a,b], fit P1 from endpoint nodal values with simple stable formula.
+#     """
+#     from mdnme.utils.transfer_grid import TransferLine
+#
+#     # --- 1) Shared 1D frame & connectivity via TransferLine ---
+#     tl = TransferLine(
+#         source,
+#         target,
+#         tol=tol,
+#         rotation_matrix=rotation_matrix,
+#         rotate_source=rotate_source,
+#         rotate_target=rotate_target,
+#     )
+#
+#     gS, gT, gTr = tl.g_source, tl.g_target, tl.transfer
+#
+#     T2Tr = tl.target_to_transfer  # (n_tgt x n_tr) CSR; rows list transfer cells inside a target cell
+#
+#     # Use the transfer line's own break extractors (already sorted & unique in the shared frame)
+#     xs  = tl._breaks(gS)   # len = n_src_nodes
+#     xt  = tl._breaks(gT)   # len = n_tgt_nodes
+#     xtr = tl._breaks(gTr)  # len = n_tr_nodes
+#
+#     n_src = gS.num_cells
+#     n_tgt = gT.num_cells
+#     n_tr  = gTr.num_cells
+#
+#     # Owner source cell (by right-closed convention)
+#     def owner_src(xvals: np.ndarray) -> np.ndarray:
+#         ids = np.searchsorted(xs, xvals, side="right") - 1
+#         return np.clip(ids, 0, len(xs) - 2)
+#
+#     # Evaluate source broken P1 at arbitrary x in the common frame
+#     a_src = C_src[:, 0]      # shape (n_src,)
+#     b_src = C_src[:, 1]      # shape (n_src,)
+#     def u_src(xvals: np.ndarray) -> np.ndarray:
+#         ids = owner_src(xvals)
+#         return a_src[ids] * xvals + b_src[ids]
+#
+#     # --- 2) Exact integrals on transfer segments ---
+#     # For j-th transfer cell [xtr[j], xtr[j+1]],
+#     # ∫_j u = 0.5*h*(u(a)+u(b)); robust if h<=tol -> treat as 0
+#     integ_tr = np.zeros(n_tr, dtype=float)
+#     for j in range(n_tr):
+#         aJ, bJ = float(xtr[j]), float(xtr[j + 1])
+#         h = bJ - aJ
+#         if h <= tol:
+#             # zero-measure or near-zero: contributes nothing
+#             integ_tr[j] = 0.0
+#         else:
+#             ua = float(u_src(np.array([aJ]))[0])
+#             ub = float(u_src(np.array([bJ]))[0])
+#             integ_tr[j] = 0.5 * h * (ua + ub)
+#
+#     # --- 3) Target cell averages: sum intersecting transfer integrals, divide by |K| ---
+#     avg_tgt = np.zeros(n_tgt, dtype=float)
+#     for k in range(n_tgt):
+#         cols = T2Tr.getrow(k).indices  # transfer segments covering target cell k
+#         if cols.size == 0:
+#             # Should not happen if TL is correct; but keep it safe: set avg=0
+#             avg_tgt[k] = 0.0
+#         else:
+#             aK, bK = float(xt[k]), float(xt[k + 1])
+#             hK = bK - aK
+#             if hK <= tol:
+#                 # degenerate target cell (should not happen); set harmless value
+#                 avg_tgt[k] = 0.0
+#             else:
+#                 avg_tgt[k] = integ_tr[cols].sum() / hK
+#
+#     # --- 4) Node values (SZ/Clément in 1D) ---
+#     #   boundary: use adjacent cell average,
+#     #   interior: average of the two neighbors.
+#     u_nodes = np.zeros(n_tgt + 1, dtype=float)
+#     if n_tgt > 0:
+#         u_nodes[0]  = avg_tgt[0]
+#         u_nodes[-1] = avg_tgt[-1]
+#     if n_tgt > 1:
+#         u_nodes[1:-1] = 0.5 * (avg_tgt[:-1] + avg_tgt[1:])
+#
+#     # --- 5) Build P1 per target cell from endpoint values with a stable closed form ---
+#     # Given K=[a,b], ua=u(x=a), ub=u(x=b):
+#     # slope = (ub - ua) / (b - a); intercept = ua - slope * a
+#     C_tgt = np.zeros((n_tgt, 2), dtype=float)
+#     for k in range(n_tgt):
+#         aK, bK = float(xt[k]), float(xt[k + 1])
+#         hK = bK - aK
+#         ua = float(u_nodes[k])
+#         ub = float(u_nodes[k + 1])
+#         slope = (ub - ua) / hK
+#         intercept = ua - slope * aK
+#         C_tgt[k, :] = [slope, intercept]
+#
+#     return C_tgt
+
 def project_p1_1d_sz(
     source: pp.Grid,
     target: pp.Grid,
@@ -366,21 +481,18 @@ def project_p1_1d_sz(
     rotate_target: bool = True,
 ) -> np.ndarray:
     """
-    1D Scott–Zhang (≃ Clément) quasi-interpolant: broken P1 on `source` -> conforming P1 on `target`.
+    1D P1-preserving projection: broken P1 on `source` -> conforming P1 on `target`.
 
-    Outline (robust 1D variant):
-      1) Build a TransferLine (which fixes a common 1D frame).
-      2) For each transfer segment j = [a_j, b_j], integrate u exactly: ∫_j u = 0.5*|j|*(u(a_j)+u(b_j)).
-         (u is the source broken-P1, evaluated using source cell ownership).
-      3) Aggregate those exact integrals to get target cell averages:
-           avg(K) = (sum_j ∫_j u) / |K|
-      4) Nodal values on the target (SZ/Clément):
-           u(x_0) = avg(K_0), u(x_N) = avg(K_{N-1}), interior i: u(x_i) = 0.5*(avg(K_{i-1})+avg(K_i))
-      5) Per target cell K=[a,b], fit P1 from endpoint nodal values with simple stable formula.
+    We:
+      1) Build a TransferLine (which fixes a common 1D coordinate).
+      2) Define u_src(s) from C_src on the source cells (in that common frame).
+      3) Evaluate u_src at each target node.
+      4) On each target cell K = [a, b], fit u(s) = a_K s + b_K from the two endpoint
+         nodal values (P1-exact if C_src is P1 in the same coordinate).
     """
     from mdnme.utils.transfer_grid import TransferLine
 
-    # --- 1) Shared 1D frame & connectivity via TransferLine ---
+    # --- 1) Shared 1D frame via TransferLine ---
     tl = TransferLine(
         source,
         target,
@@ -389,83 +501,46 @@ def project_p1_1d_sz(
         rotate_source=rotate_source,
         rotate_target=rotate_target,
     )
+    gS, gT = tl.g_source, tl.g_target
 
-    gS, gT, gTr = tl.g_source, tl.g_target, tl.transfer
-    T2Tr = tl.target_to_transfer  # (n_tgt x n_tr) CSR; rows list transfer cells inside a target cell
-
-    # Use the transfer line's own break extractors (already sorted & unique in the shared frame)
-    xs  = tl._breaks(gS)   # len = n_src_nodes
-    xt  = tl._breaks(gT)   # len = n_tgt_nodes
-    xtr = tl._breaks(gTr)  # len = n_tr_nodes
+    # Break-points of source/target in the common 1D coordinate
+    xs = tl._breaks(gS)   # len = n_src_nodes
+    xt = tl._breaks(gT)   # len = n_tgt_nodes = n_tgt_cells + 1
 
     n_src = gS.num_cells
     n_tgt = gT.num_cells
-    n_tr  = gTr.num_cells
 
-    # Owner source cell (by right-closed convention)
+    a_src = C_src[:, 0]      # (n_src,)
+    b_src = C_src[:, 1]      # (n_src,)
+
+    # --- 2) Owner map and evaluation of broken P1 on source ---
+
     def owner_src(xvals: np.ndarray) -> np.ndarray:
+        """
+        For each x in xvals, return the index of the source cell whose
+        interval [xs[k], xs[k+1]] contains x (right-closed convention).
+        """
         ids = np.searchsorted(xs, xvals, side="right") - 1
         return np.clip(ids, 0, len(xs) - 2)
 
-    # Evaluate source broken P1 at arbitrary x in the common frame
-    a_src = C_src[:, 0]      # shape (n_src,)
-    b_src = C_src[:, 1]      # shape (n_src,)
     def u_src(xvals: np.ndarray) -> np.ndarray:
+        """Evaluate the broken P1 on the source at arbitrary points xvals."""
         ids = owner_src(xvals)
         return a_src[ids] * xvals + b_src[ids]
 
-    # --- 2) Exact integrals on transfer segments ---
-    # For j-th transfer cell [xtr[j], xtr[j+1]],
-    # ∫_j u = 0.5*h*(u(a)+u(b)); robust if h<=tol -> treat as 0
-    integ_tr = np.zeros(n_tr, dtype=float)
-    for j in range(n_tr):
-        aJ, bJ = float(xtr[j]), float(xtr[j + 1])
-        h = bJ - aJ
-        if h <= tol:
-            # zero-measure or near-zero: contributes nothing
-            integ_tr[j] = 0.0
-        else:
-            ua = float(u_src(np.array([aJ]))[0])
-            ub = float(u_src(np.array([bJ]))[0])
-            integ_tr[j] = 0.5 * h * (ua + ub)
+    # --- 3) Target nodal values (sample the broken P1) ---
+    u_nodes = np.empty_like(xt)
+    for i, s in enumerate(xt):
+        u_nodes[i] = float(u_src(np.array([float(s)]))[0])
 
-    # --- 3) Target cell averages: sum intersecting transfer integrals, divide by |K| ---
-    avg_tgt = np.zeros(n_tgt, dtype=float)
-    for k in range(n_tgt):
-        cols = T2Tr.getrow(k).indices  # transfer segments covering target cell k
-        if cols.size == 0:
-            # Should not happen if TL is correct; but keep it safe: set avg=0
-            avg_tgt[k] = 0.0
-        else:
-            aK, bK = float(xt[k]), float(xt[k + 1])
-            hK = bK - aK
-            if hK <= tol:
-                # degenerate target cell (should not happen); set harmless value
-                avg_tgt[k] = 0.0
-            else:
-                avg_tgt[k] = integ_tr[cols].sum() / hK
-
-    # --- 4) Node values (SZ/Clément in 1D) ---
-    #   boundary: use adjacent cell average,
-    #   interior: average of the two neighbors.
-    u_nodes = np.zeros(n_tgt + 1, dtype=float)
-    if n_tgt > 0:
-        u_nodes[0]  = avg_tgt[0]
-        u_nodes[-1] = avg_tgt[-1]
-    if n_tgt > 1:
-        u_nodes[1:-1] = 0.5 * (avg_tgt[:-1] + avg_tgt[1:])
-
-    # --- 5) Build P1 per target cell from endpoint values with a stable closed form ---
-    # Given K=[a,b], ua=u(x=a), ub=u(x=b):
-    # slope = (ub - ua) / (b - a); intercept = ua - slope * a
+    # --- 4) Build P1 per target cell from endpoint nodal values ---
     C_tgt = np.zeros((n_tgt, 2), dtype=float)
     for k in range(n_tgt):
         aK, bK = float(xt[k]), float(xt[k + 1])
         hK = bK - aK
-        if hK <= tol:
-            # degenerate: constant fit from the single node value
-            ua = float(u_nodes[k])
-            C_tgt[k, :] = [0.0, ua]
+        if abs(hK) <= tol:
+            # Degenerate cell; just propagate the left nodal value as constant
+            C_tgt[k, :] = [0.0, float(u_nodes[k])]
         else:
             ua = float(u_nodes[k])
             ub = float(u_nodes[k + 1])

@@ -775,7 +775,6 @@ def _interface_diffusive_error_1d_nonmatching(
     ibg = InternalBoundaryLineGrid(intf, sd_high, tol=tol)
 
     # Quadrature on 1D mortar sides
-    import quadpy
     method = quadpy.c1.newton_cotes_closed(4)
 
     out_global = np.zeros(intf.num_cells)
@@ -790,20 +789,12 @@ def _interface_diffusive_error_1d_nonmatching(
         parent_edges = ibg.parent_edge_of_cell(side_enum)  # (n_ibg_cells,)
 
         # Assign tr(p_high) to IBG cells
-        if ibg_side.num_cells == 0:
-            tr_hi_on_ibg = np.zeros((0, 2))
-        else:
-            idx = np.fromiter(
-                (
-                    face2pos[int(e)] if int(e) in face2pos else -1 for e in parent_edges
-                ), dtype=int,
-                count=parent_edges.size)
-            if np.any(idx < 0):
-                # edges that didn’t map (e.g., degenerate) -> set constant zero jump
-                safe_idx = np.maximum(idx, 0)
-            else:
-                safe_idx = idx
-            tr_hi_on_ibg = p_trace_high[safe_idx, :]  # (n_ibg_cells, 2)
+        idx = np.fromiter(
+            (face2pos[int(e)] if int(e) in face2pos else -1 for e in parent_edges),
+            dtype=int,
+            count=parent_edges.size
+        )
+        tr_hi_on_ibg = p_trace_high[idx, :]  # (n_ibg_cells, 2)
 
         # Use canonical rotation characterising the coupling triplet
         R = intf.rot_matrix
