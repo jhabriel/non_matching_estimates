@@ -745,65 +745,113 @@ def _interface_diffusive_error_2d(
 
 
 def _interface_diffusive_error_1d_nonmatching(
-        intf,
-        data_intf,
-        sd_high,
-        data_high,
-        sd_low,
-        data_low,
-        tol=1e-8,
+    intf: pp.MortarGrid,
+    data_intf: dict,
+    sd_high: pp.Grid,
+    data_high: dict,
+    sd_low: pp.Grid,
+    data_low: dict,
+    tol: float = 1e-8,
 ) -> np.ndarray:
-    """Non-matching 1D interface diffusive error:
-       || k^{-1/2} λ + k^{1/2} (p_low − tr p_high) ||^2 per mortar cell,
-       computed *per mortar side* using IBG(1D) -> TransferLine -> SZ."""
+    """Non-matching 1D interface diffusive error.
+
+    Note:
+        We compute the following norm:
+                || k^{-1/2} λ + k^{1/2} (p_low − tr p_high) ||^2
+        per mortar cell.
+
+    Geometry: 2D high grid ↔ 1D fracture grid via 1D MortarGrid.
+
+    The workflow mirrors `_interface_diffusive_error_2d_nonmatching`:
+
+      1. Read effective permeability on the mortar and normal velocities.
+      2. Read reconstructed P1 pressures on the low-dim (1D) fracture grid.
+      3. Read high-dim pressure traces on the high edges that feed the interface.
+      4. Build a *single* InternalBoundaryLineGrid per interface (contains both
+         sides, per-side 1D IBGs).
+      5. Loop over sides in `intf.project_to_side_grids()`:
+         - pull the side enum,
+         - grab the side IBG and parent-edge map,
+         - map high trace P1 coeffs to IBG cells via the parent map,
+         - transfer IBG→mortar-side and frac→mortar-side via TransferGrid
+           + Scott–Zhang quasi-interpolation,
+         - compute the jump (p_low - tr p_high) on the mortar side,
+         - integrate (k^{-1/2} λ + k^{1/2} jump)^2 over each mortar-side cell
+           using 1D quadpy,
+         - scatter back to the global mortar ordering.
+
+    Returns
+    -------
+    out_global : np.ndarray, shape (intf.num_cells,)
+        Squared diffusive error per mortar cell.
+
+    """
+
+    # --- sanity ---
     if intf.dim != 1:
         raise ValueError("Expected one-dimensional interface grid.")
 
-    # mortar-side scalars
+    # --- mortar-side scalars ---
     eff_perm = data_intf[pp.PARAMETERS]["flow"]["effective_permeability"]
-    k_mortar = (float(eff_perm) * np.ones((intf.num_cells, 1))
-                if np.isscalar(eff_perm)
-                else np.asarray(eff_perm, dtype=float).reshape(-1, 1))
+    k_mortar = (
+        float(eff_perm) * np.ones((intf.num_cells, 1))
+        if np.isscalar(eff_perm)
+        else np.asarray(eff_perm, dtype=float).reshape(-1, 1)
+    )
+
     normal_vel_mortar = _get_normal_velocity(intf, data_intf)  # (n_mortar, 1)
 
-    # High (2D) pressure trace on high edges that belong to the interface:
-    frac_faces = sps.find(intf.primary_to_mortar_avg())[1]  # these are high *edges* (1D) for a 2D grid
-    p_trace_high = _get_high_pressure_trace(sd_low, sd_high, data_high, frac_faces)  # (n_edges, 2)
-    face2pos = {int(f): i for i, f in enumerate(frac_faces)}
+    # --- low-dim pressure (per-cell P1 on its own 1D grid) ---
+    # shape: (n_frac_cells, n_p1_dofs=2)
+    p_low_frac = data_low["estimates"]["recon_sd_pressure"]
 
-    # Low (1D) pressure on fracture cells:
-    frac_cells = sps.find(intf.secondary_to_mortar_avg())[1]
-    p_low_frac = _get_low_pressure(data_low, frac_cells)  # (n_frac_cells, 2)
+    # --- edge-trace of high-dim pressure, in interface frame ---
+    # primary_to_mortar_avg maps high *edges* to mortar cells for a 1D interface
+    frac_edges = sps.find(intf.primary_to_mortar_avg())[1]
+    # NOTE: we reuse the same helper name as in the 2D code; if you had a
+    # dedicated 1D version, plug it here instead.
+    p_trace_high = _get_high_pressure_trace(
+        sd_low,
+        sd_high,
+        data_high,
+        frac_edges,
+    )  # (n_frac_edges, n_p1_dofs)
+    # map: high edge id -> local index into frac_edges
+    edge2pos = {int(e): i for i, e in enumerate(frac_edges)}
 
-    # IBG in 1D (per side), in the canonical interface frame
+    # --- IBG: one per interface, with per-side IBG 1D grids ---
     ibg = InternalBoundaryLineGrid(intf, sd_high, tol=tol)
 
-    # Quadrature on 1D mortar sides
+    # --- quadrature on 1D mortar sides ---
     method = quadpy.c1.newton_cotes_closed(4)
 
+    # accumulator in global mortar ordering
     out_global = np.zeros(intf.num_cells)
 
+    # loop sides in the mortar’s canonical order
     for P_msg, mg_side in intf.project_to_side_grids():
 
+        # identify the side enum that owns this mortar side grid
         side_enum = next(k for k, v in intf.side_grids.items() if v is mg_side)
 
-        # IBG side grid and its parent high edge (one parent per IBG cell)
+        # IBG side grid and its parent edges (one parent edge per IBG cell)
         ibg_side = ibg.ibg_side_grid(side_enum)
-        # Parent edge - child cell connectivity
         parent_edges = ibg.parent_edge_of_cell(side_enum)  # (n_ibg_cells,)
 
-        # Assign tr(p_high) to IBG cells
+        # (1) IBG-side tr(p_high): assign edge P1 coeffs to each IBG cell via parent map
         idx = np.fromiter(
-            (face2pos[int(e)] if int(e) in face2pos else -1 for e in parent_edges),
+            (edge2pos[int(e)] for e in parent_edges),
             dtype=int,
-            count=parent_edges.size
+            count=parent_edges.size,
         )
-        tr_hi_on_ibg = p_trace_high[idx, :]  # (n_ibg_cells, 2)
+        tr_hi_on_ibg = p_trace_high[idx, :]  # (n_ibg_cells, n_p1_dofs)
 
-        # Use canonical rotation characterising the coupling triplet
+        # NOTE: The 1d IBG is already in rotated coordinates, so we explicitly
+        # avoid rotation of coordinates while creating the transfer line
         rot_matrix, _, _ = mdnme.canonical_frame(intf)
 
-        tr_on_msg = project_p1_1d_sz(
+        # (2) Transfer IBG→mortar-side and frac→mortar-side
+        tracep_on_msg = project_p1_1d_sz(
             ibg_side,
             mg_side,
             tr_hi_on_ibg,
@@ -811,8 +859,10 @@ def _interface_diffusive_error_1d_nonmatching(
             rotation_matrix=rot_matrix,
             rotate_source=False,
         )
+        # shape: (n_msg_cells, n_p1_dofs)
 
-        low_on_msg = project_p1_1d_sz(
+        # Fracture grid to mortar side grid pressure projection
+        fracp_on_msg = project_p1_1d_sz(
             sd_low,
             mg_side,
             p_low_frac,
@@ -820,28 +870,29 @@ def _interface_diffusive_error_1d_nonmatching(
             rotation_matrix=rot_matrix,
         )
 
-        # Scalars on this side
-        k_side = P_msg @ k_mortar  # (n_msg_cells, 1)
+        # (3) side scalars on mortar side grid
+        k_side = P_msg @ k_mortar          # (n_msg_cells, 1)
         nv_side = P_msg @ normal_vel_mortar  # (n_msg_cells, 1)
 
-        # Jump on the side grid
-        deltap_side = low_on_msg - tr_on_msg  # (n_msg_cells, 2), coefficients [a,b]
+        # (4) jump and integration on mortar side (1D)
+        deltap_side = fracp_on_msg - tracep_on_msg  # (n_msg_cells, n_p1_dofs)
 
         elements = mdnme.utils.get_quadpy_elements(mg_side)
 
         def integrand(x):
             coors = x[np.newaxis, :, :]  # add new axis, this is needed for 1D grids
-            p_jump = mdnme.utils.evaluate_p1(deltap_side, coors)
-            return (k_side ** (-0.5) * nv_side + k_side**0.5 * p_jump) ** 2
+            # x is in the interface frame; evaluate P1 on mortar-side cells
+            p_jump = mdnme.utils.evaluate_p1(deltap_side, coors)  # (n_msg_cells, n_pts)
+            # Broadcasting over quadrature points:
+            return (k_side**(-0.5) * nv_side + k_side**0.5 * p_jump) ** 2
 
         diff_side = method.integrate(integrand, elements)  # (n_msg_cells,)
 
-        # scatter to global mortar ordering
+        # (5) scatter to global mortar ordering
         out_global += (P_msg.T @ diff_side).ravel()
 
-    print(f"Nonmatching -> Interface {intf.id} errors: {out_global}")
-
     return out_global
+
 
 
 def _interface_diffusive_error_2d_nonmatching(

@@ -556,25 +556,30 @@ def _reconstruct_cellwise_on_target(tg: TransferGrid, u_tgt: np.ndarray):
 # from mdnme.utils.transfer_grid import TransferLine
 
 
-def restrict_to_transfer_1d(tl: TransferLine, C_src: np.ndarray,
-                            tol: float = 1e-12) -> np.ndarray:
-    """
-    Restrict a broken 1D P1 field from source -> transfer grid.
+def restrict_to_transfer_1d(
+        tl: TransferLine,
+        C_src: np.ndarray,
+        tol: float = 1e-12
+    ) -> np.ndarray:
+    """Restrict a broken 1D P1 field from source -> transfer grid.
 
     Parameters
     ----------
-    tl : TransferLine
-        TransferLine object (has .g_source, .transfer, .transfer_to_source).
-    C_src : (n_src_cells, 2) ndarray
-        Cell-wise P1 coefficients [a, b] on the *source* grid, so that
-        u(s)|_K = a*s + b in the common 1D coordinate.
-    tol : float
-        Tolerance for degenerate segments.
+        tl : TransferLine
+             TransferLine object (has .g_source, .transfer, .transfer_to_source).
+
+        C_src : (n_src_cells, 2) ndarray
+            Cell-wise P1 coefficients [a, b] on the *source* grid, so that
+            u(s)|_K = a*s + b in the common 1D coordinate.
+
+        tol : float
+            Tolerance for degenerate segments.
 
     Returns
     -------
-    C_tr : (n_tr_cells, 2) ndarray
-        Cell-wise P1 coefficients on the transfer grid.
+        C_tr : (n_tr_cells, 2) ndarray
+            Cell-wise P1 coefficients on the transfer grid.
+
     """
     g_tr = tl.transfer
     t2s = tl.transfer_to_source.tocsr()   # (n_tr_cells x n_src_cells)
@@ -772,9 +777,6 @@ def project_p1_1d_sz(
       - Restricts source cell-wise P1 -> transfer P1,
       - Applies 1D Scott–Zhang onto the target grid.
 
-    On matching grids and for conforming P1 input (which your reconstructed
-    fields are), this is P1–exact: the target coefficients equal the source
-    coefficients up to round-off.
     """
     tl = TransferLine(
         source,

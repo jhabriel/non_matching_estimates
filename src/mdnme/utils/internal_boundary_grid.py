@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Dict, Tuple
+from typing import Dict, List, Tuple
 import numpy as np
 import scipy.sparse as sps
 
@@ -27,10 +27,9 @@ class _SideData:
 class _SideData1D:
     mortar_to_side: sps.spmatrix
     mortar_side_grid: pp.Grid
-    ibg_grid: pp.Grid   # 1D grid (segment grid)
+    ibg_grid: pp.Grid
     high_edges: np.ndarray
-    parent_edge_of_cell: np.ndarray  # len = ibg_grid.num_cells (one parent
-                                     # high-edge per ibg cell)
+    parent_edge_of_cell: np.ndarray
 
 
 class InternalBoundaryGrid:
@@ -40,13 +39,6 @@ class InternalBoundaryGrid:
                  tol: float = 1e-8, name: str = "ibg"):
         if intf.dim != 2:
             raise NotImplementedError("IBG currently implemented for 2D mortar interfaces.")
-
-        # TODO: REMOVE
-        # required: assign_canonical_rotations() must have set these
-        # if not hasattr(intf, "rot_matrix") or intf.rot_matrix is None:
-        #     raise RuntimeError("intf.rot_matrix missing; run assign_canonical_rotations().")
-        # if not hasattr(intf, "dim_bool") or intf.dim_bool is None:
-        #     raise RuntimeError("intf.dim_bool missing; run assign_canonical_rotations().")
 
         self.intf = intf
         self.sd_high = sd_high
@@ -253,10 +245,24 @@ class InternalBoundaryGrid:
 
 
 class InternalBoundaryLineGrid:
-    """Per-side Internal Boundary Grid for 1D traces of 2D subdomains.
+    """Per-interface Internal Boundary 1D Grids for traces of 2D subdomains.
 
-    - intf: 1D MortarGrid (interface)
-    - sd_high: 2D high-dimensional grid whose edges feed the interface
+    Usage pattern mirrors InternalBoundaryGrid (2D):
+
+        ibg1d = InternalBoundaryLineGrid(intf, sd_high, tol)
+
+        for P_side, mg_side in intf.project_to_side_grids():
+            side_enum   = ...   # same as you do for 2D
+            ibg_side    = ibg1d.ibg_side_grid(side_enum)
+            parent_edge = ibg1d.parent_edge_of_cell(side_enum)
+            ...
+
+    Internally:
+    - One instance per interface.
+    - For each mortar side, we build a side-specific 1D TensorGrid in the
+      interface canonical frame, plus a map from IBG cells to parent high-edges.
+    - We also maintain a global ordering of all IBG cells across sides
+      (ibg_to_side / side_to_ibg) like in the 2D IBG.
     """
 
     def __init__(
@@ -276,20 +282,22 @@ class InternalBoundaryLineGrid:
         self.tol = tol
         self.name = name
 
-        # Use canonical interface frame (same as 2D IBG)
+        # Canonical interface frame (same as 2D IBG)
         self.rot_matrix, self.dim_bool, _ = mdnme.canonical_frame(intf)
 
         # High (2D) → mortar (1D) projector:
         # used only to detect which *edges* contribute to each side.
         self._Pprim_to_mortar = self.intf.primary_to_mortar_avg().tocsc()
 
+        # Per-side containers
         self._sides: Dict[object, _SideData1D] = {}
-        self._side_order: list[object] = []
+        self._side_order: List[object] = []
 
-        # Build per-side IBGs
+        # Build per-side 1D IBGs
         for P_side, g_side in self.intf.project_to_side_grids():
             side_enum = self._enum_of_side_grid(g_side)
             edges_side = self._edges_for_side(P_side)
+
             ibg_grid, parent_edge_map = self._build_ibg_for_edges(
                 edges_side, f"{name}_{side_enum.name.lower()}"
             )
@@ -303,9 +311,10 @@ class InternalBoundaryLineGrid:
             )
             self._side_order.append(side_enum)
 
+        # Optional: global ordering across sides (like 2D IBG)
         self._finalize_global_ibg_ordering()
 
-    # ---------- public API ----------
+    # ---------- public API (parallel to InternalBoundaryGrid) ----------
 
     def sides(self):
         for s in self._sides.keys():
@@ -318,129 +327,27 @@ class InternalBoundaryLineGrid:
         return self._sides[side].mortar_side_grid
 
     def ibg_side_grid(self, side) -> pp.Grid:
+        """Return the 1D IBG grid for THIS side."""
         return self._sides[side].ibg_grid
 
     def high_edges(self, side) -> np.ndarray:
+        """High-edge indices contributing to THIS side."""
         return self._sides[side].high_edges
 
     def parent_edge_of_cell(self, side) -> np.ndarray:
+        """Parent high-edge index for each IBG cell of THIS side."""
         return self._sides[side].parent_edge_of_cell
 
     @property
     def rotation_matrix(self) -> np.ndarray:
         return self.rot_matrix
 
-    # ---------- internals ----------
-
-    def _enum_of_side_grid(self, g: pp.Grid):
-        for k, v in self.intf.side_grids.items():
-            if v is g:
-                return k
-        raise KeyError("Side grid not found among MortarGrid.side_grids")
-
-    def _edges_for_side(self, P_side: sps.spmatrix) -> np.ndarray:
-        """Return indices of high edges that contribute to this side."""
-        filt = (P_side @ self._Pprim_to_mortar).tocsc()
-        mask = np.asarray(filt.sum(axis=0)).ravel() > 0
-        return np.nonzero(mask)[0].astype(int)
-
-    def _build_ibg_for_edges(
-        self, edges: np.ndarray, name: str
-    ) -> Tuple[pp.Grid, np.ndarray]:
-        """Build a 1D grid (segments) from the union of selected high-side edges.
-
-        Strategy (no merging):
-        1. Project high nodes to interface frame, define scalar coordinate s.
-        2. For each selected high edge, build a segment [s_lo, s_hi].
-        3. Collect all segment endpoints and deduplicate by 'tol'.
-        4. Use sorted unique endpoints as 1D nodes → TensorGrid.
-        5. Each IBG cell [s_i, s_{i+1}] gets a parent high-edge such that
-           [s_i, s_{i+1}] ⊂ [s_lo, s_hi] within 'tol'.
-        """
-
-        if edges.size == 0:
-            g = pp.TensorGrid(np.empty((1, 0)))
-            g.compute_geometry()
-            return g, np.zeros((0,), dtype=int)
-
-        nodes3d = self.sd_high.nodes  # (3, N_nodes)
-        nodes2d = (self.rot_matrix @ nodes3d)[self.dim_bool, :]  # (2, N_nodes)
-        # define 1D coordinate 's' along first in-plane axis
-        s_all = nodes2d[0, :]
-
-        # In a 2D grid, "faces" are edges (1D entities)
-        fn = self.sd_high.face_nodes.tocsc()
-
-        segs: list[Tuple[float, float]] = []
-        parents: list[int] = []
-
-        # 1) Build raw segments in s-coordinate
-        for e in edges:
-            i0, i1 = fn.indptr[e], fn.indptr[e + 1]
-            e_nodes = fn.indices[i0:i1]
-
-            # we expect exactly 2 nodes for an edge
-            if e_nodes.size != 2:
-                continue
-
-            s0, s1 = float(s_all[e_nodes[0]]), float(s_all[e_nodes[1]])
-
-            # discard degenerate edges
-            if abs(s1 - s0) < self.tol:
-                continue
-
-            lo, hi = (s0, s1) if s0 < s1 else (s1, s0)
-            segs.append((lo, hi))
-            parents.append(int(e))
-
-        if not segs:
-            g = pp.TensorGrid(np.empty((1, 0)))
-            g.compute_geometry()
-            return g, np.zeros((0,), dtype=int)
-
-        # 2) Collect all endpoints and deduplicate with tolerance
-        raw_points = sorted({p for lo, hi in segs for p in (lo, hi)})
-
-        unique_points: list[float] = []
-        if raw_points:
-            current = raw_points[0]
-            unique_points.append(current)
-            for p in raw_points[1:]:
-                if abs(p - current) > self.tol:
-                    unique_points.append(p)
-                    current = p
-                # else: same point within tol → skip
-
-        # Need at least 2 points to form a cell
-        if len(unique_points) < 2:
-            g = pp.TensorGrid(np.empty((1, 0)))
-            g.compute_geometry()
-            return g, np.zeros((0,), dtype=int)
-
-        pts_arr = np.array(unique_points).reshape(1, -1)  # shape (1, n_nodes)
-        g1d = pp.TensorGrid(pts_arr, name=name)
-        g1d.compute_geometry()
-
-        # 3) Assign a parent edge to each IBG cell
-        parent_edge_of_cell = np.empty(g1d.num_cells, dtype=int)
-        for c in range(g1d.num_cells):
-            a = unique_points[c]
-            b = unique_points[c + 1]
-            parent = -1
-            # pick the first original segment that fully covers [a, b]
-            for k, (lo, hi) in enumerate(segs):
-                if lo <= a + self.tol and hi + self.tol >= b:
-                    parent = parents[k]
-                    break
-            parent_edge_of_cell[c] = parent
-
-        return g1d, parent_edge_of_cell
-
-    # ---- global ordering utilities (same pattern as 2D IBG) ----
+    # ---------- global ordering (like 2D IBG) ----------
 
     def _finalize_global_ibg_ordering(self) -> None:
+        """Build global IBG cell ordering and per-side offsets."""
         offset = 0
-        self._offsets: dict[object, tuple[int, int]] = {}
+        self._offsets: Dict[object, Tuple[int, int]] = {}
         for side in self._side_order:
             n_side = self._sides[side].ibg_grid.num_cells
             self._offsets[side] = (offset, offset + n_side)
@@ -448,12 +355,15 @@ class InternalBoundaryLineGrid:
         self._n_total = offset
 
     def num_cells(self) -> int:
+        """Total number of IBG cells across all sides."""
         return self._n_total
 
     def ibg_to_side(self, side) -> sps.csc_matrix:
         """Selector from global IBG ordering → this side’s IBG cells.
 
         Shape: (n_side_cells, n_ibg_total).
+        Multiplying with an array of shape (n_ibg_total, ndofs) returns
+        (n_side_cells, ndofs), in the local IBG ordering of THIS side.
         """
         start, end = self._offsets[side]
         n_side = end - start
@@ -476,9 +386,111 @@ class InternalBoundaryLineGrid:
     def project_to_side_ibg(self):
         """Generator like MortarGrid.project_to_side_grids(), but for IBG.
 
-        Yields tuples: (proj, ibg_side_grid)
-          - proj: (n_side_cells, n_ibg_total) selector
-          - ibg_side_grid: pp.Grid for this side
+        Yields tuples: (proj, ibg_side_grid) where
+          - proj : (n_side_cells, n_ibg_total) selector
+          - ibg_side_grid : pp.Grid (TensorGrid) for THIS side
         """
         for side in self._side_order:
             yield self.ibg_to_side(side), self._sides[side].ibg_grid
+
+    # ---------- internals ----------
+
+    def _enum_of_side_grid(self, g: pp.Grid):
+        for k, v in self.intf.side_grids.items():
+            if v is g:
+                return k
+        raise KeyError("Side grid not found among MortarGrid.side_grids")
+
+    def _edges_for_side(self, P_side: sps.spmatrix) -> np.ndarray:
+        """Return indices of high edges that contribute to this side."""
+        filt = (P_side @ self._Pprim_to_mortar).tocsc()
+        mask = np.asarray(filt.sum(axis=0)).ravel() > 0
+        return np.nonzero(mask)[0].astype(int)
+
+    def _build_ibg_for_edges(
+        self, edges: np.ndarray, name: str
+    ) -> Tuple[pp.Grid, np.ndarray]:
+        """Build a 1D TensorGrid for THIS side from its high-edge set.
+
+        Strategy (no merging beyond endpoint dedup):
+        1. Project high nodes to interface frame, define scalar coordinate s.
+        2. For each selected high edge, build a segment [s_lo, s_hi].
+        3. Collect all segment endpoints and deduplicate by 'tol'.
+        4. Use sorted unique endpoints as 1D nodes → TensorGrid.
+        5. Each IBG cell [s_i, s_{i+1}] gets a parent high-edge such that
+           [s_i, s_{i+1}] ⊂ [s_lo, s_hi] within 'tol'.
+        """
+        if edges.size == 0:
+            g = pp.TensorGrid(np.empty((1, 0)), name=name)
+            g.compute_geometry()
+            return g, np.zeros((0,), dtype=int)
+
+        nodes3d = self.sd_high.nodes  # (3, N_nodes)
+        nodes2d = (self.rot_matrix @ nodes3d)[self.dim_bool, :]  # (2, N_nodes)
+        s_all = nodes2d[0, :]  # scalar coordinate along interface line
+
+        fn = self.sd_high.face_nodes.tocsc()  # in 2D, "faces" = edges (1D)
+
+        segs: List[Tuple[float, float]] = []
+        parents: List[int] = []
+
+        # 1) Build raw segments in s-coordinate
+        for e in edges:
+            i0, i1 = fn.indptr[e], fn.indptr[e + 1]
+            e_nodes = fn.indices[i0:i1]
+
+            # expect exactly 2 nodes for an edge
+            if e_nodes.size != 2:
+                continue
+
+            s0, s1 = float(s_all[e_nodes[0]]), float(s_all[e_nodes[1]])
+
+            # discard degenerate edges
+            if abs(s1 - s0) < self.tol:
+                continue
+
+            lo, hi = (s0, s1) if s0 < s1 else (s1, s0)
+            segs.append((lo, hi))
+            parents.append(int(e))
+
+        if not segs:
+            g = pp.TensorGrid(np.empty((1, 0)), name=name)
+            g.compute_geometry()
+            return g, np.zeros((0,), dtype=int)
+
+        # 2) Collect all endpoints and deduplicate with tolerance
+        raw_points = sorted({p for lo, hi in segs for p in (lo, hi)})
+
+        unique_points: List[float] = []
+        if raw_points:
+            current = raw_points[0]
+            unique_points.append(current)
+            for p in raw_points[1:]:
+                if abs(p - current) > self.tol:
+                    unique_points.append(p)
+                    current = p
+
+        # Need at least 2 points to form a cell
+        if len(unique_points) < 2:
+            g = pp.TensorGrid(np.empty((1, 0)), name=name)
+            g.compute_geometry()
+            return g, np.zeros((0,), dtype=int)
+
+        pts_arr = np.array(unique_points).reshape(1, -1)  # (1, n_nodes)
+        g1d = pp.TensorGrid(pts_arr, name=name)
+        g1d.compute_geometry()
+
+        # 3) Assign a parent edge to each IBG cell
+        parent_edge_of_cell = np.empty(g1d.num_cells, dtype=int)
+        for c in range(g1d.num_cells):
+            a = unique_points[c]
+            b = unique_points[c + 1]
+            parent = -1
+            # pick the first original segment that fully covers [a, b]
+            for k, (lo, hi) in enumerate(segs):
+                if lo <= a + self.tol and hi + self.tol >= b:
+                    parent = parents[k]
+                    break
+            parent_edge_of_cell[c] = parent
+
+        return g1d, parent_edge_of_cell

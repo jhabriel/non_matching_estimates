@@ -20,4 +20,4 @@ from mdnme.amr.marking import doerfler_marking
 
 # Utilities
 from mdnme import utils
-from mdnme.utils.grid_rotation import RotatedGrid, rotate_grid
+from mdnme.utils.grid_rotation import RotatedGrid, rotate_grid, canonical_frame

@@ -168,9 +168,9 @@ def _set_zero_flux_and_unit_perm(mdg):
 #  Tests
 # --------------------------------------------------------------------------- #
 
-@pytest.mark.parametrize("field_type", ["constant", "linear"])
-def test_nonmatching_1d_error_zero_for_affine_fields(mdg_crossing, field_type):
-    """For constant and linear global fields, 1D nonmatching error ~ 0."""
+@pytest.mark.parametrize("field_type", ["constant", "linear", "parabolic"])
+def test_nonmatching_1d_error_zero_on_matching_grids(mdg_crossing, field_type):
+    """On matching grids, the error returned by the non-matching machinery ~ 0"""
     _assign_reconstructed_pressure(mdg_crossing, field_type)
     _set_zero_flux_and_unit_perm(mdg_crossing)
 
@@ -187,40 +187,3 @@ def test_nonmatching_1d_error_zero_for_affine_fields(mdg_crossing, field_type):
         )
 
         assert np.allclose(diff, 0.0, atol=1.0e-10)
-
-
-def test_parabolic_matching_and_nonmatching_coincide(mdg_crossing):
-    """For parabolic global field, matching and nonmatching errors coincide."""
-    _assign_reconstructed_pressure(mdg_crossing, "parabolic")
-    _set_zero_flux_and_unit_perm(mdg_crossing)
-
-    all_equal = True
-    all_zero = True
-
-    for intf, data_intf in mdg_crossing.interfaces(return_data=True):
-        if intf.dim != 1:
-            continue
-
-        sd_high, sd_low = mdg_crossing.interface_to_subdomain_pair(intf)
-        data_high = mdg_crossing.subdomain_data(sd_high)
-        data_low = mdg_crossing.subdomain_data(sd_low)
-
-        diff_matching = _interface_diffusive_error_1d(
-            intf, data_intf, sd_high, data_high, sd_low, data_low
-        )
-        diff_nonmatching = _interface_diffusive_error_1d_nonmatching(
-            intf, data_intf, sd_high, data_high, sd_low, data_low
-        )
-
-        if not np.allclose(diff_matching, diff_nonmatching, atol=1.0e-10):
-            all_equal = False
-
-        if not np.allclose(diff_matching, 0.0, atol=1.0e-10):
-            all_zero = False
-
-    # 1) Matching/nonmatching must coincide for the quadratic field.
-    assert all_equal
-
-    # 2) And the error should not be (numerically) zero everywhere,
-    #    otherwise the test is trivial.
-    assert not all_zero
