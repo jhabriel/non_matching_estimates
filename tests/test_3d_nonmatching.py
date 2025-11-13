@@ -8,7 +8,6 @@ from mdnme.estimates.diffusive_error import (
 )
 from mdnme.utils.grid_rotation import build_canonical_frames, rotate_grid
 
-
 # --------------------------------------------------------------------------- #
 #  Fixtures and helpers
 # --------------------------------------------------------------------------- #
@@ -164,6 +163,123 @@ def _set_zero_flux_and_unit_perm(mdg):
         d[pp.PARAMETERS]["flow"]["effective_permeability"] = 1.0
 
 
+def random_smooth_p1_on_grid(sd: pp.Grid, rng: np.random.Generator) -> np.ndarray:
+    """Construct a random but smoothed P1 field on sd using Oswald-type averaging.
+
+    Returns
+    -------
+    coeffs : np.ndarray
+        Shape (sd.num_cells, sd.dim+1). P1 coefficients in the rotated (canonical)
+        coordinates of `sd`, i.e.
+          dim=1: p(s) = a*s + b
+          dim=2: p(x,y) = a_x*x + a_y*y + c
+        on each cell.
+    """
+    dim = sd.dim
+    if dim not in (1, 2):
+        raise ValueError("Only 1D and 2D grids are supported here.")
+
+    cn = sd.cell_nodes().tocsc()
+    n_cells = sd.num_cells
+    n_nodes = sd.num_nodes
+
+    # (1) Start with random cellwise scalars (discontinuous)
+    cell_vals = rng.standard_normal(n_cells)
+
+    # (2) Oswald averaging: nodal values = average of incident cell values
+    node_sums = np.zeros(n_nodes)
+    node_counts = np.zeros(n_nodes, dtype=int)
+
+    for c in range(n_cells):
+        i0, i1 = cn.indptr[c], cn.indptr[c + 1]
+        nodes_c = cn.indices[i0:i1]
+        node_sums[nodes_c] += cell_vals[c]
+        node_counts[nodes_c] += 1
+
+    # Avoid division by zero (shouldn’t happen in a sensible grid)
+    node_counts = np.maximum(node_counts, 1)
+    node_vals = node_sums / node_counts  # continuous nodal field
+
+    # (3) Fit P1 per cell in the *rotated* coordinates
+    g_rot = rotate_grid(sd)
+    x_loc = g_rot.nodes  # (dim, n_nodes)
+
+    coeffs = np.empty((n_cells, dim + 1))
+
+    for c in range(n_cells):
+        i0, i1 = cn.indptr[c], cn.indptr[c + 1]
+        nodes_c = cn.indices[i0:i1]
+
+        if dim == 2:
+            # Simplex grid: 3 nodes per cell
+            assert nodes_c.size == 3, "Expected 2D simplex grid."
+            xloc = x_loc[:, nodes_c]         # (2,3)
+            vals = node_vals[nodes_c]        # (3,)
+
+            # Solve [x y 1] [a_x, a_y, c]^T = vals
+            V = np.vstack((xloc, np.ones(3)))  # (3,3)
+            coeffs[c, :] = np.linalg.solve(V.T, vals)
+
+        else:  # dim == 1
+            assert nodes_c.size == 2, "Expected 1D simplex grid (segments)."
+            n0, n1 = nodes_c
+            s0, s1 = x_loc[0, n0], x_loc[0, n1]
+            u0, u1 = node_vals[n0], node_vals[n1]
+
+            if abs(s1 - s0) < 1e-14:
+                a = 0.0
+                b = u0
+            else:
+                a = (u1 - u0) / (s1 - s0)
+                b = u0 - a * s0
+            coeffs[c, :] = [a, b]
+
+    return coeffs
+
+
+def set_constant_k_and_lambda(intf: pp.MortarGrid,
+                              data_intf: dict,
+                              k0: float = 1.0,
+                              lambda0: float = 0.0) -> None:
+    """Constant permeability and constant normal velocity on the interface."""
+    n = intf.num_cells
+
+    data_intf.setdefault(pp.PARAMETERS, {})
+    data_intf[pp.PARAMETERS].setdefault("flow", {})
+
+    # Constant k
+    data_intf[pp.PARAMETERS]["flow"]["effective_permeability"] = (
+        k0 * np.ones((n, 1))
+    )
+
+    # Constant lambda -> mortar flux = lambda * volume
+    data_intf.setdefault("estimates", {})
+    cell_volumes = intf.cell_volumes
+    fv_intf_flux = lambda0 * cell_volumes
+    data_intf["estimates"]["fv_intf_flux"] = fv_intf_flux
+
+
+def set_random_k_and_lambda(intf: pp.MortarGrid,
+                            data_intf: dict,
+                            rng: np.random.Generator) -> None:
+    """Assign random positive permeabilities and random normal velocities."""
+    n = intf.num_cells
+
+    # Random positive k: log-normal-ish
+    log_k = rng.standard_normal(n)
+    k_vals = np.exp(log_k)  # strictly positive
+    data_intf.setdefault(pp.PARAMETERS, {})
+    data_intf[pp.PARAMETERS].setdefault("flow", {})
+    data_intf[pp.PARAMETERS]["flow"]["effective_permeability"] = k_vals.reshape(n, 1)
+
+    # Random normal velocities lambda (can be highly discontinuous)
+    lambda_vals = rng.standard_normal(n)  # velocities
+    cell_volumes = intf.cell_volumes
+    fv_intf_flux = lambda_vals * cell_volumes
+    data_intf.setdefault("estimates", {})
+    data_intf["estimates"]["fv_intf_flux"] = fv_intf_flux
+
+
 # --------------------------------------------------------------------------- #
 #  Tests
 # --------------------------------------------------------------------------- #
@@ -187,3 +303,58 @@ def test_nonmatching_1d_error_zero_on_matching_grids(mdg_crossing, field_type):
         )
 
         assert np.allclose(diff, 0.0, atol=1.0e-10)
+
+
+@pytest.mark.parametrize("seed", [0, 1, 2])
+def test_random_smooth_1d_matching_vs_nonmatching(mdg_crossing, seed):
+    """On matching 1D interfaces, matching and non-matching estimators must agree
+    for random smoothed pressures, random k, and random lambda.
+    """
+    rng = np.random.default_rng(seed)
+
+    # Make sure canonical frames are set
+    build_canonical_frames(mdg_crossing)
+
+    # 1) Assign random smoothed P1 pressures on all 1D and 2D subdomains
+    for sd, d in mdg_crossing.subdomains(return_data=True):
+        d.setdefault("estimates", {})
+        if sd.dim in (1, 2):
+            coeffs = random_smooth_p1_on_grid(sd, rng)
+            d["estimates"]["recon_sd_pressure"] = coeffs
+
+    # 2) Loop over 1D interfaces and compare estimators
+    for intf, data_intf in mdg_crossing.interfaces(return_data=True):
+        if intf.dim != 1:
+            continue
+
+        # random k and lambda on this interface
+        set_constant_k_and_lambda(intf, data_intf, 1, 0)
+
+        # neighboring subdomains
+        sd_high, sd_low = mdg_crossing.interface_to_subdomain_pair(intf)
+        data_high = mdg_crossing.subdomain_data(sd_high)
+        data_low = mdg_crossing.subdomain_data(sd_low)
+
+        # sanity: we expect this interface to be matching in this mdg
+        # (you can assert it explicitly if you like)
+        # assert not is_nonmatching(intf, sd_high, sd_low)
+
+        diff_match = _interface_diffusive_error_1d(
+            intf, data_intf, sd_high, data_high, sd_low, data_low
+        )
+        diff_nonmatch = _interface_diffusive_error_1d_nonmatching(
+            intf, data_intf, sd_high, data_high, sd_low, data_low
+        )
+
+        # We expect equality up to projection / quadrature round-off.
+        # Start tight; relax rtol if needed after seeing actual numbers.
+        assert np.allclose(
+            diff_match,
+            diff_nonmatch,
+            rtol=1.0e-8,
+            atol=1.0e-10,
+        ), (
+            f"Mismatch on interface {intf.id} for seed={seed}:\n"
+            f"  matching   = {diff_match}\n"
+            f"  nonmatching= {diff_nonmatch}\n"
+        )

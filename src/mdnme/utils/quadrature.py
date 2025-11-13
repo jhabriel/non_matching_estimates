@@ -7,7 +7,11 @@ import scipy.sparse as sps
 import mdnme as amr
 
 
-def get_quadpy_elements(sd: pp.Grid, rotate_grid=True) -> np.ndarray:
+def get_quadpy_elements(
+        sd: pp.Grid,
+        rotate_grid=True,
+        rotation_matrix : np.ndarray | None = None,
+) -> np.ndarray:
     """
     Assembles the elements of a given grid in quadpy format: https://pypi.org/project/quadpy/.
 
@@ -43,7 +47,10 @@ def get_quadpy_elements(sd: pp.Grid, rotate_grid=True) -> np.ndarray:
     if not rotate_grid:
         nodes_coor_cell = sd.nodes[:, nodes_of_cell]
     else:
-        rotated_grid = amr.RotatedGrid(sd)
+        if rotation_matrix is not None:
+            rotated_grid = amr.RotatedGrid(sd)
+        else:
+            rotated_grid = amr.RotatedGrid(sd, rotation_matrix)
         nodes_coor_cell = rotated_grid.nodes[:, nodes_of_cell]
 
     # Stacking node coordinates

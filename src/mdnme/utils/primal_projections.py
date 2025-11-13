@@ -645,14 +645,24 @@ def scott_zhang_quasi_interpolant_1d(
     C_tgt : (n_tgt_cells, 2) ndarray
         Cell-wise P1 coefficients [a, b] on the target grid.
     """
+    # Retrieve canonical rotation matrix and effective dimension from transfer line
+    # Transfer line already knows if we need to rotate node coordinates or not
+    # We use that information here
+    rot_matrix = tl.rot_matrix
+    rotate_source = tl._rotate_source
+    rotate_target = tl._rotate_target
+
+    # Retrieve transfer line grid
     g_tr = tl.transfer
-    g_tgt = tl.g_target
-
-    x_tr = g_tr.nodes[0, :]   # transfer nodes (sorted along the line)
-    x_tgt = g_tgt.nodes[0, :] # target nodes
-
     n_tr_cells = g_tr.num_cells
+    x_tr = g_tr.nodes[0, :].flatten()  # no-need to rotate
+
+    # Retrieve target grid, and interface side grid.
+    g_tgt = tl.g_target
     n_tgt_cells = g_tgt.num_cells
+    # We have to rotate the grid
+    x_tgt_full = rot_matrix @ g_tgt.nodes
+    x_tgt = x_tgt_full[tl.dim_bool].flatten()
 
     # --- helper: evaluate u on the transfer mesh at arbitrary s ---
     def eval_u_transfer(s: float) -> float:
@@ -767,6 +777,7 @@ def project_p1_1d_sz(
     C_src: np.ndarray,  # (n_src_cells, 2): [slope, intercept] in the common 1D coord
     tol: float = 1e-10,
     rotation_matrix: np.ndarray | None = None,
+    dim_bool: np.ndarray | None = None,
     rotate_source: bool = True,
     rotate_target: bool = True,
 ) -> np.ndarray:
@@ -783,6 +794,7 @@ def project_p1_1d_sz(
         target,
         tol=tol,
         rotation_matrix=rotation_matrix,
+        dim_bool=dim_bool,
         rotate_source=rotate_source,
         rotate_target=rotate_target,
     )

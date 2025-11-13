@@ -477,6 +477,7 @@ class TransferLine:
         g_target: pp.Grid,
         tol: float = 1e-10,
         rotation_matrix: np.ndarray | None = None,
+        dim_bool: np.ndarray | None = None,
         rotate_source: bool = True,
         rotate_target: bool = True,
         name: str = "transfer1d",
@@ -490,19 +491,27 @@ class TransferLine:
         self.g_source = g_source
         self.g_target = g_target
         self.rot_matrix = rotation_matrix  # anchor frame if provided
+        self.dim_bool = dim_bool  # anchor array of effective dimension
         self._rotate_source = rotate_source
         self._rotate_target = rotate_target
 
         self._build_transfer_segments()
         self._build_connectivity_matrices()
 
+        # Sanity checks
+        if self.rot_matrix is None and self.dim_bool is not None:
+            raise ValueError('If rotation_matrix is provided, dim_bool must be given.')
+        if self.dim_bool is None and self.rot_matrix is not None:
+            raise ValueError('If dim_bool is provided, rotation_matrix must be given.')
+
     # same as you had
     def _x_in_common_frame(self, g: pp.Grid, use_rotation=True) -> np.ndarray:
-        import mdnme
+
         if use_rotation:
-            if self.rot_matrix is None:
+            if self.rot_matrix is None and self.dim_bool is None:
                 rot = mdnme.RotatedGrid(g)  # let the first call set the frame
                 self.rot_matrix = rot.rotation_matrix
+                self.dim_bool = rot.dim_bool
                 return rot.nodes[0, :]
             else:
                 rot = mdnme.RotatedGrid(g, self.rot_matrix)
@@ -515,7 +524,6 @@ class TransferLine:
         # uniq & sort; also snap tiny negatives to 0 with tol for stability
         x = np.unique(np.asarray(x, dtype=float))
         return x
-
 
     def _build_transfer_segments(self):
 

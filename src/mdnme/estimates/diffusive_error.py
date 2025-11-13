@@ -628,7 +628,7 @@ def _interface_diffusive_error_1d(
     # Concatenate into one numpy array
     diffusive_error = np.concatenate(diffusive)
 
-    print(f"Matching -> Interface {intf.id} errors: {diffusive_error}")
+    # print(f"Matching / Intf {intf.id}: {diffusive_error}")
 
     return diffusive_error
 
@@ -828,6 +828,9 @@ def _interface_diffusive_error_1d_nonmatching(
     # accumulator in global mortar ordering
     out_global = np.zeros(intf.num_cells)
 
+    # Canonical rotation matrix
+    rot_matrix, dim_bool, _ = mdnme.canonical_frame(intf)
+
     # loop sides in the mortar’s canonical order
     for P_msg, mg_side in intf.project_to_side_grids():
 
@@ -846,28 +849,30 @@ def _interface_diffusive_error_1d_nonmatching(
         )
         tr_hi_on_ibg = p_trace_high[idx, :]  # (n_ibg_cells, n_p1_dofs)
 
-        # NOTE: The 1d IBG is already in rotated coordinates, so we explicitly
-        # avoid rotation of coordinates while creating the transfer line
-        rot_matrix, _, _ = mdnme.canonical_frame(intf)
-
         # (2) Transfer IBG→mortar-side and frac→mortar-side
+
+        # Internal boundary side grid -> Mortar side grid
         tracep_on_msg = project_p1_1d_sz(
             ibg_side,
             mg_side,
             tr_hi_on_ibg,
             tol=tol,
             rotation_matrix=rot_matrix,
-            rotate_source=False,
+            dim_bool=dim_bool,
+            rotate_source=False,  # IBG is already given in rotated coordinates.
+            rotate_target=True,  # Mortar side grid is in physical coordinates.
         )
-        # shape: (n_msg_cells, n_p1_dofs)
 
-        # Fracture grid to mortar side grid pressure projection
+        # Fracture grid -> Mortar Side grid
         fracp_on_msg = project_p1_1d_sz(
             sd_low,
             mg_side,
             p_low_frac,
             tol=tol,
             rotation_matrix=rot_matrix,
+            dim_bool=dim_bool,
+            rotate_source=True,  # fracture grid is in physical coordinates.
+            rotate_target=True,  # Mortar side grid is in physical coordinates.
         )
 
         # (3) side scalars on mortar side grid
@@ -877,7 +882,11 @@ def _interface_diffusive_error_1d_nonmatching(
         # (4) jump and integration on mortar side (1D)
         deltap_side = fracp_on_msg - tracep_on_msg  # (n_msg_cells, n_p1_dofs)
 
-        elements = mdnme.utils.get_quadpy_elements(mg_side)
+        elements = mdnme.utils.get_quadpy_elements(
+            mg_side,
+            rotate_grid=True,
+            rotation_matrix=rot_matrix,
+        )
 
         def integrand(x):
             coors = x[np.newaxis, :, :]  # add new axis, this is needed for 1D grids
@@ -890,6 +899,8 @@ def _interface_diffusive_error_1d_nonmatching(
 
         # (5) scatter to global mortar ordering
         out_global += (P_msg.T @ diff_side).ravel()
+
+    # print(f"Nonmatching / Intf {intf.id}: {out_global}")
 
     return out_global
 
