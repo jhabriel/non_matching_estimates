@@ -30,7 +30,9 @@ from mdnme.utils.transfer_grid import(
     coarse_fine_or_build,
 )
 from mdnme.utils.primal_projections import (
-    restrict_to_transfer, scott_zhang_quasi_interpolant, project_p1_1d, project_p1_1d_sz
+    restrict_to_transfer,
+    scott_zhang_quasi_interpolant,
+    project_p1_1d_sz,
 )
 from mdnme.estimates.helpers import is_nonmatching
 
@@ -320,8 +322,8 @@ def _get_high_pressure_trace(
         return lagran_coo
 
     # Rotate both grids, and obtain rotation matrix and effective dimension
-    gh_rot = mdnme.RotatedGrid(sd_high)
-    gl_rot = mdnme.RotatedGrid(sd_low)
+    gh_rot = mdnme.rotate_grid(sd_high)
+    gl_rot = mdnme.rotate_grid(sd_low)
     rotation_matrix = gl_rot.rotation_matrix
     dim_bool = gl_rot.dim_bool
 
@@ -486,7 +488,7 @@ def _interface_diffusive_error_0d(
     frac_cells = sps.find(intf.secondary_to_mortar_avg())[1]
 
     # Rotate 1d-grid
-    sd_rot = mdnme.RotatedGrid(sd_high)
+    sd_rot = mdnme.rotate_grid(sd_high)
 
     # Obtain the trace of the pressure of the 1D grid
     cells_of_frac_faces = sps.find(sd_high.cell_faces[frac_faces])[1]
@@ -625,6 +627,8 @@ def _interface_diffusive_error_1d(
 
     # Concatenate into one numpy array
     diffusive_error = np.concatenate(diffusive)
+
+    print(f"Matching -> Interface {intf.id} errors: {diffusive_error}")
 
     return diffusive_error
 
@@ -797,14 +801,14 @@ def _interface_diffusive_error_1d_nonmatching(
         tr_hi_on_ibg = p_trace_high[idx, :]  # (n_ibg_cells, 2)
 
         # Use canonical rotation characterising the coupling triplet
-        R = intf.rot_matrix
+        rot_matrix, _, _ = mdnme.canonical_frame(intf)
 
         tr_on_msg = project_p1_1d_sz(
             ibg_side,
             mg_side,
             tr_hi_on_ibg,
             tol=tol,
-            rotation_matrix=R,
+            rotation_matrix=rot_matrix,
             rotate_source=False,
         )
 
@@ -813,7 +817,7 @@ def _interface_diffusive_error_1d_nonmatching(
             mg_side,
             p_low_frac,
             tol=tol,
-            rotation_matrix=R,
+            rotation_matrix=rot_matrix,
         )
 
         # Scalars on this side
@@ -823,20 +827,19 @@ def _interface_diffusive_error_1d_nonmatching(
         # Jump on the side grid
         deltap_side = low_on_msg - tr_on_msg  # (n_msg_cells, 2), coefficients [a,b]
 
-        # Integrate (exact for linears with 2-pt Gauss, but we reuse your c1 rule)
         elements = mdnme.utils.get_quadpy_elements(mg_side)
 
         def integrand(x):
-            # x comes as shape (1, n_cells, n_qp); evaluate a*s+b
-            a = deltap_side[:, 0].reshape(-1, 1)
-            b = deltap_side[:, 1].reshape(-1, 1)
-            pj = a * x + b
-            return (k_side ** (-0.5) * nv_side + k_side ** 0.5 * pj) ** 2
+            coors = x[np.newaxis, :, :]  # add new axis, this is needed for 1D grids
+            p_jump = mdnme.utils.evaluate_p1(deltap_side, coors)
+            return (k_side ** (-0.5) * nv_side + k_side**0.5 * p_jump) ** 2
 
         diff_side = method.integrate(integrand, elements)  # (n_msg_cells,)
 
         # scatter to global mortar ordering
         out_global += (P_msg.T @ diff_side).ravel()
+
+    print(f"Nonmatching -> Interface {intf.id} errors: {out_global}")
 
     return out_global
 

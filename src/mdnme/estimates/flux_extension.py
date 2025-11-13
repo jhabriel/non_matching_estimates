@@ -65,7 +65,7 @@ def extend_fv_fluxes(mdg: pp.MixedDimensionalGrid) -> None:
             continue
 
         # Rotate the grid (no effect on highest-dimensional subdomains)
-        sd_rot = mdnme.RotatedGrid(sd)
+        sd_rot = mdnme.rotate_grid(sd)
 
         # Cell-basis arrays
         cell_faces_map = sps.find(sd.cell_faces.T)[1]
@@ -164,7 +164,7 @@ def get_sign_normals(sd: pp.Grid) -> np.ndarray:
     faces_cell = sps.find(sd.cell_faces.T)[1].reshape(sd.num_cells, sd.dim + 1)
 
     # Face centers coordinates for each face associated to each cell
-    sd_rot = mdnme.RotatedGrid(sd)
+    sd_rot = mdnme.rotate_grid(sd)
     face_center_cells = sd_rot.face_centers[:, faces_cell]
 
     # Global normals of the faces per cell

@@ -14,6 +14,10 @@ from mdnme.estimates.error_estimation import (
     aggregate_local_errors,
     get_majorant,
 )
+from mdnme.estimates.diffusive_error import (
+    _interface_diffusive_error_1d,
+    _interface_diffusive_error_1d_nonmatching,
+)
 
 # Initialize lists for exporting results
 sd_error_1d = []
@@ -25,7 +29,7 @@ intf_error_2d = []
 majorant = []
 
 # Define refinement levels
-REFINEMENT_LEVELS = [0, 1]
+REFINEMENT_LEVELS = [0, 1, 2]
 
 for lvl in REFINEMENT_LEVELS:
 
@@ -73,4 +77,56 @@ txt_data = [
     intf_error_2d,
 ]
 export_data_to_txt(txt_data, "geiger_3d_errors.txt")
+mdg = model.mdg.copy()
 
+
+# ---> Debugging
+def compare_matching_nonmatching_1d(mdg: pp.MixedDimensionalGrid):
+    # needed by the non-matching machinery
+    print(" id  n_cells   max|e_match|   max|e_non|   max|e_non-e_match|")
+    print("-------------------------------------------------------------")
+
+    for intf, data_intf in mdg.interfaces(return_data=True):
+        if intf.dim != 1:
+            continue
+
+        sd_high, sd_low = mdg.interface_to_subdomain_pair(intf)
+        data_high = mdg.subdomain_data(sd_high)
+        data_low  = mdg.subdomain_data(sd_low)
+
+        e_match = _interface_diffusive_error_1d(
+            intf, data_intf, sd_high, data_high, sd_low, data_low
+        )
+        e_non = _interface_diffusive_error_1d_nonmatching(
+            intf, data_intf, sd_high, data_high, sd_low, data_low
+        )
+
+        diff_inf = np.linalg.norm(e_non - e_match, ord=np.inf)
+        print(f"{intf.id:3d}  {intf.num_cells:7d}  "
+              f"{np.max(e_match):12.4e}  {np.max(e_non):12.4e}  {diff_inf:14.4e}")
+
+
+def inspect_interface_1d(intf: pp.MortarGrid, mdg: pp.MixedDimensionalGrid):
+    data_intf = mdg.interface_data(intf)
+    sd_high, sd_low = mdg.interface_to_subdomain_pair(intf)
+    data_high = mdg.subdomain_data(sd_high)
+    data_low  = mdg.subdomain_data(sd_low)
+
+    e_match = _interface_diffusive_error_1d(
+        intf, data_intf, sd_high, data_high, sd_low, data_low
+    )
+    e_non = _interface_diffusive_error_1d_nonmatching(
+        intf, data_intf, sd_high, data_high, sd_low, data_low
+    )
+
+    idx = np.argmax(np.abs(e_non - e_match))
+    print(f"Interface {intf.id}, worst mortar cell {idx}:")
+    print(f"  e_match[{idx}] = {e_match[idx]}")
+    print(f"  e_non  [{idx}] = {e_non[idx]}")
+    print(f"  diff           = {e_non[idx] - e_match[idx]}")
+
+# # usage:
+# for intf, _ in mdg.interfaces(return_data=True):
+#     if intf.dim == 1 and intf.id == 93:  # put a "hot" id here
+#         inspect_interface_1d(intf, mdg)
+#         break

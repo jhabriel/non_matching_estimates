@@ -7,7 +7,7 @@ from mdnme.estimates.diffusive_error import compute_diffusive_error
 from mdnme.estimates.flux_extension import extend_fv_fluxes
 from mdnme.estimates.pressure_reconstruction import reconstruct_pressure
 from mdnme.estimates.residual_error import compute_residual_error
-from mdnme.utils.grid_rotation import assign_canonical_rotations
+from mdnme.utils.grid_rotation import build_canonical_frames
 
 from typing import Literal
 
@@ -49,6 +49,9 @@ def estimate_errors(
         reconstructed and are available in the data dictionaries.
 
     """
+
+    # Compute canonical rotations (we only need to be computed them once)
+    build_canonical_frames(mdg)
 
     # Perform extension of finite volume fluxes using RT0 basis functions
     extend_fv_fluxes(mdg)

@@ -17,7 +17,7 @@ from mdnme.estimates.diffusive_error import (
     # Setup the model and solve using MPFA
 params = {
     "material_constants": {"solid": solid_constants_conductive},
-    "refinement_level": 1,
+    "refinement_level": 0,
     "non_matching": True,
     "times_to_export": [],
     "export_results": False,

@@ -102,7 +102,7 @@ def patchwise_p1(
     assert p_cc.size == sd.num_cells
 
     # Rotated grid
-    sd_rot = mdnme.RotatedGrid(sd)
+    sd_rot = mdnme.rotate_grid(sd)
 
     # Retrieving topological data
     nc = sd.num_cells
@@ -173,7 +173,7 @@ def keilegavlen_p1(
     assert p_cc.size == sd.num_cells
 
     # Rotated grid
-    sd_rot = mdnme.RotatedGrid(sd)
+    sd_rot = mdnme.rotate_grid(sd)
 
     # Retrieve topological data
     nc = sd.num_cells
