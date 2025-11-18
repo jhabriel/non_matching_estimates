@@ -121,15 +121,19 @@ class GeometryNonMatching(pp.PorePyModel):
                 else:
                     mdg_fine = mdg
             if mdg_coarse is None or mdg_fine is None:
-                raise RuntimeError("Nested refinement factory did not yield"
-                                   " two levels.")
+                raise RuntimeError(
+                    "Nested refinement factory did not yield two levels."
+                )
 
             # Replace all lower-dim subdomains with those from the refined one
             sd_map = {}
-            for sd_co, sd_fi in zip(mdg_coarse.subdomains(), mdg_fine.subdomains()):
-                assert sd_co.dim == sd_fi.dim
-                if 0 < sd_co.dim < 3:
-                    sd_map[sd_co] = sd_fi
+            for sd_co, sd_fi in zip(
+                    mdg_coarse.subdomains(dim=2),
+                    mdg_fine.subdomains(dim=2)
+            ):
+                sd_map[sd_co] = sd_fi
+
+            # Replace 2d subdomain grids
             mdg_coarse.replace_subdomains_and_interfaces(sd_map=sd_map)
 
             # Also persist the fracture network if not present
@@ -145,7 +149,7 @@ class GeometryNonMatching(pp.PorePyModel):
                 pp.fracture_importer.to_csv(fn_ref, str(csv_path))
 
             # adopt the in-memory mdg/net
-            self.mdg = mdg_coarse
+            self.mdg = mdg_coarse.copy()
             self.fracture_network = pp.fracture_importer.network_3d_from_csv(
                 str(csv_path), dim=3
             )

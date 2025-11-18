@@ -51,6 +51,7 @@ def estimate_errors(
     """
 
     # Compute canonical rotations (we only need to be computed them once)
+    pp.set_local_coordinate_projections(mdg)
     build_canonical_frames(mdg)
 
     # Perform extension of finite volume fluxes using RT0 basis functions

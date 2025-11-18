@@ -10,7 +10,7 @@ import mdnme as amr
 def get_quadpy_elements(
         sd: pp.Grid,
         rotate_grid=True,
-        rotation_matrix : np.ndarray | None = None,
+        rotation_matrix: np.ndarray | None = None,
 ) -> np.ndarray:
     """
     Assembles the elements of a given grid in quadpy format: https://pypi.org/project/quadpy/.

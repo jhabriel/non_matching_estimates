@@ -22,6 +22,8 @@ from mdnme.estimates.error_estimation import (
     compute_sd_and_intf_errors_of_equal_dim,
 )
 
+import numpy as np
+
 
 class Geiger3dSolutionStrategy(
     pp.fluid_mass_balance.SolutionStrategySinglePhaseFlow
@@ -45,10 +47,47 @@ class Geiger3dSolutionStrategy(
 
         super().__init__(params)
 
+    def save_inlet_and_outlet_cells(self):
+        sd, data = self.mdg.subdomains(dim=3, return_data=True)[0]
+        cc = sd.cell_centers
+
+        outflow = np.logical_and.reduce(
+            tuple(cc[i, :] > 0.875 + 1e-8 for i in range(3))
+        )
+        inflow = np.logical_and.reduce(
+            tuple(cc[i, :] < 0.25 + 1e-8 for i in range(3))
+        )
+
+        bc_cells = np.zeros(sd.num_cells)
+        bc_cells[outflow] = -1
+        bc_cells[inflow] = 1
+
+        data[pp.ITERATE_SOLUTIONS]['bc_cells'] = {}
+        data[pp.ITERATE_SOLUTIONS]['bc_cells'][0] = bc_cells
+        data[pp.TIME_STEP_SOLUTIONS]['bc_cells'] = {}
+        data[pp.TIME_STEP_SOLUTIONS]['bc_cells'][0] = bc_cells
+
+    def save_matrix_permeability_cells(self):
+        sd, data = self.mdg.subdomains(dim=3, return_data=True)[0]
+
+        low_perm = self._low_perm_zones(sd)
+        low_perm_cells = np.zeros(sd.num_cells)
+        low_perm_cells[low_perm] = 1
+
+        data[pp.ITERATE_SOLUTIONS]['low_perm_cells'] = {}
+        data[pp.ITERATE_SOLUTIONS]['low_perm_cells'][0] = low_perm_cells
+
+        data[pp.TIME_STEP_SOLUTIONS]['low_perm_cells'] = {}
+        data[pp.TIME_STEP_SOLUTIONS]['low_perm_cells'][0] = low_perm_cells
+
     def after_simulation(self) -> None:
         """Method to be called after the simulation has finished."""
         # Save error estimates data
         self.error_estimates_data_saving()
+
+        # Retrieve zones for visualization
+        self.save_inlet_and_outlet_cells()
+        self.save_matrix_permeability_cells()
 
         # Estimate errors
         is_non_matching = self.params.get("non_matching", False)
@@ -68,8 +107,10 @@ class Geiger3dSolutionStrategy(
                 "diffusive_error",
                 "residual_error",
                 "error_indicator",
+                "bc_cells",
+                "low_perm_cells",
             ])
-
+            
     def _is_nonlinear_problem(self) -> bool:
         """The problem is linear."""
         return False
