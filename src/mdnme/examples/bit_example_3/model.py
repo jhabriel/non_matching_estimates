@@ -7,21 +7,32 @@ from typing import Callable
 
 import porepy as pp
 import mdnme
+import numpy as np
 
 from mdnme.estimates.helpers import ErrorEstimatesSaveData
-from mdnme.examples.bit_example_3.boundary_conditions import BoundaryConditionsModified
+from mdnme.examples.bit_example_3.boundary_conditions import (
+    NoFluxBoundaryConditions,
+    ModifiedBalanceEquation,
+)
 from mdnme.examples.bit_example_3.geometry import GeometryNonMatching
 
 from mdnme.estimates.error_estimation import (
     estimate_errors,
     compute_error_indicators,
+    compute_local_errors,
     transfer_errors_iterate_solutions,
-    compute_sd_and_intf_errors_of_equal_dim,
+    aggregate_local_errors,
 )
 
 from porepy.examples.flow_benchmark_3d_case_3 import (
     FlowBenchmark3dCase3Model,
-    solid_constants,
+    FractureSolidConstants,
+)
+
+solid_constants = FractureSolidConstants(
+    residual_aperture=1e-2,
+    normal_permeability=1e4,
+    fracture_permeability=1e4,
 )
 
 
@@ -47,27 +58,81 @@ class SmallFeaturesSolutionStrategy(
 
         super().__init__(params)
 
+    def assign_ids_to_subdomains(self) -> None:
+        """Assign ids to subdomains"""
+        count = 0
+        for sd, data in self.mdg.subdomains(dim=2, return_data=True):
+
+            data[pp.ITERATE_SOLUTIONS]["ID"] = {}
+            data[pp.ITERATE_SOLUTIONS]["ID"][0] = count * np.ones(sd.num_cells)
+
+            data[pp.TIME_STEP_SOLUTIONS]["ID"] = {}
+            data[pp.TIME_STEP_SOLUTIONS]["ID"][0] = count * np.ones(sd.num_cells)
+
+            count += 1
+
+    def visualize_fluid_sources(self) -> None:
+        """Visualization of fluid sources."""
+        for sd, data in self.mdg.subdomains(dim=2, return_data=True):
+
+            sd_id_inj, cell_idx_inj = self._injector_idx(sd)
+            sd_id_prd, cell_idx_prd = self._productor_idx(sd)
+
+            val_loc = np.zeros(sd.num_cells)
+
+            if sd.id == sd_id_inj:
+                val_loc[cell_idx_inj] = -1
+            if sd.id == sd_id_prd:
+                val_loc[cell_idx_prd] = 1
+
+            data[pp.ITERATE_SOLUTIONS]["well"] = {}
+            data[pp.ITERATE_SOLUTIONS]["well"][0] = val_loc
+
+            data[pp.TIME_STEP_SOLUTIONS]["well"] = {}
+            data[pp.TIME_STEP_SOLUTIONS]["well"][0] = val_loc
+
     def after_simulation(self) -> None:
         """Method to be called after the simulation has finished."""
         # Save error estimates data
-        self.error_estimates_data_saving()
+        #self.error_estimates_data_saving()
 
         # Estimate errors
-        estimate_errors(self.mdg)
+        is_non_matching = self.params.get("non_matching", False)
+        #estimate_errors(self.mdg, is_non_matching=is_non_matching)
 
-        # Compute error indicators
-        compute_error_indicators(self.mdg)
+        # Compute local errors and error indicators
+        #compute_error_indicators(self.mdg)
 
         # Transfer from iterate to time step
-        transfer_errors_iterate_solutions(self.mdg)
+        #transfer_errors_iterate_solutions(self.mdg)
+
+        # Print aggregated local errors
+        # if not is_non_matching:
+        #     print('----- Matching Error Estimates ------')
+        # else:
+        #     print('----- Non-matching Error Estimates ------')
+        # local_errors = aggregate_local_errors(self.mdg)
+        # print(f"3D subdomain error: {local_errors['subdomain_error'][3]}")
+        # print(f"2D subdomain error: {local_errors['subdomain_error'][2]}")
+        # print(f"1D subdomain error: {local_errors['subdomain_error'][1]}")
+        # print(f"2D interface error: {local_errors['interface_error'][2]}")
+        # print(f"1D interface error: {local_errors['interface_error'][1]}")
+
+
+        # Visualization methods
+        self.assign_ids_to_subdomains()
+        self.visualize_fluid_sources()
 
         # Export error indicators
         if self.params.get("export_to_vtu", False):
             self.exporter.write_vtu([
                 "pressure",
-                "diffusive_error",
-                "residual_error",
-                "error_indicator",
+                "ID",
+                "well",
+                #"diffusive_error",
+                #"residual_error",
+                #"error_indicator",
+                "interface_darcy_flux",
             ])
 
     def _is_nonlinear_problem(self) -> bool:
@@ -83,8 +148,9 @@ class SmallFeaturesSolutionStrategy(
 class SmallFeaturesModel(  # type: ignore[misc]
     GeometryNonMatching,
     ErrorEstimatesSaveData,
+    ModifiedBalanceEquation,
+    NoFluxBoundaryConditions,
     SmallFeaturesSolutionStrategy,
-    BoundaryConditionsModified,
     FlowBenchmark3dCase3Model,
 ):
     """Main model for running the analysis corresponding to example number 3."""

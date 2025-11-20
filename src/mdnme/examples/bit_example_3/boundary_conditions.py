@@ -9,46 +9,130 @@ import porepy as pp
 import numpy as np
 
 
-class BoundaryConditionsModified(pp.PorePyModel):
+class NoFluxBoundaryConditions(pp.PorePyModel):
     """Define inlet and outlet boundary conditions."""
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        """Assign Dirichlet to the top and bottom  part of the north (y=y_max)
-        boundary as well as the middle portion of the south (y=y_min)."""
-        # Retrieve boundary sides.
-        domain_sides = self.domain_boundary_sides(sd)
-        # Get Dirichlet faces.
-        dir_faces = np.zeros(sd.num_faces, dtype=bool)
-        # top purple region from the original paper
-        north_top_dir_cells = sd.face_centers[2][domain_sides.north] > (2 / 3)
-        # bottom purple region from the original paper
-        north_bottom_dir_faces = sd.face_centers[2][domain_sides.north] < (1 / 3)
-        # blue region from the original paper
-        south_middle_dif_faces = (sd.face_centers[2][domain_sides.south] < (2 / 3)) & (
-                sd.face_centers[2][domain_sides.south] > (1 / 3)
-        )
-        # Set north faces bc-types
-        dir_faces[domain_sides.north] = north_top_dir_cells + north_bottom_dir_faces
-        # Set south faces bc-types
-        dir_faces[domain_sides.south] = south_middle_dif_faces
-        bc = pp.BoundaryCondition(sd, dir_faces, "dir")
-        return bc
+        """Force no-flux boundary conditions at all sides."""
+        #sides = self.domain_boundary_sides(sd)
+        #dir_faces = sides.south + sides.north
+        #return pp.BoundaryCondition(sd, faces=dir_faces, cond="dir")
+        return pp.BoundaryCondition(sd)
 
     def bc_values_darcy_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
-        """Make sure all darcy fluxes are zero"""
+        """Make sure all darcy fluxes are zero."""
         return np.zeros(bg.num_cells)
 
-    def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
-        """Assign unitary pressure to the middle south (y=y_min) boundary."""
-        # Retrieve boundary sides and cell centers.
-        domain_sides = self.domain_boundary_sides(bg)
-        cc = bg.cell_centers
-        # Get inlet faces
-        inlet_faces = np.zeros(bg.num_cells, dtype=bool)
-        inlet_faces[domain_sides.south] = (cc[2][domain_sides.south] < (2 / 3)) & (
-            cc[2][domain_sides.south] > (1 / 3)
-        )
-        # Assign unitary pressure
-        values = np.zeros(bg.num_cells)
-        values[inlet_faces] = 1  # unitary pressure
-        return values
+    # def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
+    #     """Make sure all pressure values are set to zero."""
+    #     return np.zeros(bg.num_cells)
+
+class ModifiedBalanceEquation(pp.fluid_mass_balance.FluidMassBalanceEquations):
+    """Modify balance equation to account for external sources."""
+
+    def _matches_surface(self, sd: pp.Grid, vertices: np.ndarray, tol: float = 1e-6) -> bool:
+        """Check if the 2D grid sd has all given vertices among its nodes (up to tol)."""
+        assert sd.dim == 2
+
+        nodes = sd.nodes  # shape (3, n_nodes)
+        verts = np.asarray(vertices, dtype=float).reshape(-1, 3)  # (n_verts, 3)
+
+        for v in verts:
+            # squared distance to all nodes
+            diff = nodes.T - v  # (n_nodes, 3)
+            d2 = np.sum(diff**2, axis=1)
+            if np.min(d2) > tol**2:
+                return False
+        return True
+
+    def _injector_idx(self, sd: pp.Grid):
+        assert sd.dim == 2
+
+        injector_vertices = np.array([
+            [0.05, 1.0, 0.5],
+            [0.95, 1.0, 0.5],
+            [0.95, 2.2, 0.85],
+            [0.05, 2.2, 0.85],
+        ])
+
+        if self._matches_surface(sd, injector_vertices, tol=1e-6):
+            cc_centroid = injector_vertices.mean(axis=0)  # [0.5, 1.60, 0.675]
+            cell_idx, distances = sd.closest_cell(
+                cc_centroid.reshape(3, 1),
+                True
+            )
+            cell_idx_unique = cell_idx[np.argmin(cell_idx)]
+            sd_id = sd.id
+        else:
+            cell_idx_unique = np.nan
+            sd_id = -1
+
+        return sd_id, cell_idx_unique
+
+    def _productor_idx(self, sd: pp.Grid):
+        assert sd.dim == 2
+
+        productor_vertices = np.array([
+            [0.05, 0.25, 0.5],
+            [0.95, 0.25, 0.5],
+            [0.95, 2.0, 0.5],
+            [0.05, 2.0, 0.5],
+        ])
+
+        if self._matches_surface(sd, productor_vertices, tol=1e-6):
+            cc_centroid = productor_vertices.mean(axis=0)  # [0.5, 1.125, 0.5]
+            target_location = np.array([0.50, 0.625, 0.50])
+            cell_idx, distances = sd.closest_cell(
+                target_location.reshape(3, 1),
+                True
+            )
+            cell_idx_unique = cell_idx[np.argmin(cell_idx)]
+            sd_id = sd.id
+        else:
+            cell_idx_unique = np.nan
+            sd_id = -1
+
+        return sd_id, cell_idx_unique
+
+    def fluid_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Contribution of mass fluid sources to the mass balance equation.
+
+        Parameters:
+            subdomains: List of subdomains.
+
+        Returns:
+            Cell-wise Ad operator containing the fluid source contributions.
+
+        """
+        # Retrieve internal sources (jump in mortar fluxes) from the base class
+        internal_sources: pp.ad.Operator = super().fluid_source(subdomains)
+
+        # Retrieve external (integrated) sources from the exact solution.
+        values = []
+        for sd in subdomains:
+            if sd.dim == 2:
+
+                sd_id_inj, cell_idx_inj = self._injector_idx(sd)
+                sd_id_prd, cell_idx_prd = self._productor_idx(sd)
+
+                val_loc = np.zeros(sd.num_cells)
+
+                if sd.id == sd_id_inj:
+                    val_loc[cell_idx_inj] = -1
+                    print(f"Injector cell coo {sd.cell_centers[:, cell_idx_inj]}")
+
+                if sd.id == sd_id_prd:
+                    val_loc[cell_idx_prd] = 1
+                    print(f"Productor cell coo {sd.cell_centers[:, cell_idx_prd]}")
+
+                values.append(val_loc)
+            else:
+                values.append(np.zeros(sd.num_cells))
+
+        external_sources = pp.wrap_as_dense_ad_array(np.hstack(values))
+
+        # Add up both contributions
+        source = internal_sources + external_sources
+        source.set_name("fluid sources")
+
+        return source
