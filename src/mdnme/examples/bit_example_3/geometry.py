@@ -208,7 +208,7 @@ class GeometryNonMatching(pp.PorePyModel):
 
 
         # If it is matching, produce the mdg in the usual way
-        if not non_matching:
+        if not non_matching or non_matching:
             mdg = pp.create_mdg(
                 grid_type=grid_type,  # type[ignore]
                 fracture_network=fn,
@@ -217,26 +217,42 @@ class GeometryNonMatching(pp.PorePyModel):
         else:
 
             # Retrieve the target mesh size and create a DFN mdg
+            # h = meshing_args["cell_size"]
+            # mdg_dfn = pp.create_mdg(
+            #     grid_type=grid_type,
+            #     fracture_network=fn,
+            #     meshing_args={"cell_size": h/4},
+            #     dfn=True,
+            # )
             h = meshing_args["cell_size"]
-            mdg_dfn = pp.create_mdg(
+            mdg_fine = pp.create_mdg(
                 grid_type=grid_type,
                 fracture_network=fn,
-                meshing_args={"cell_size": h/2},
+                meshing_args={"cell_size": h},
                 dfn=True,
             )
-
             # Create a coarse mdg
             mdg = pp.create_mdg(
                 grid_type=grid_type,
                 fracture_network=fn,
-                meshing_args=meshing_args,
+                meshing_args={"cell_size": h},
             )
 
             # Prepare mapping dictionary to replace grids
             sd_map = {}
-            for sd, sd_dfn in zip(mdg.subdomains(dim=2), mdg_dfn.subdomains(dim=2)):
-                assert sd.dim == sd_dfn.dim
-                sd_map[sd] = sd_dfn
+            for sd, sd_fine in zip(mdg.subdomains(dim=2), mdg_fine.subdomains(dim=2)):
+                assert sd.dim == sd_fine.dim
+                sd_map[sd] = sd_fine
+
+            for sd, sd_fine in zip(mdg.subdomains(dim=1), mdg_fine.subdomains(dim=1)):
+                assert sd.dim == sd_fine.dim
+                sd_map[sd] = sd_fine
+
+            # intf_map = {}
+            # for intf, intf_fine in zip(mdg.interfaces(dim=2), mdg_fine.interfaces(
+            #         dim=2)):
+            #     assert intf.dim == intf_fine.dim
+            #     intf_map[intf] = intf_fine
 
             # Replace grids
             mdg.replace_subdomains_and_interfaces(sd_map=sd_map)

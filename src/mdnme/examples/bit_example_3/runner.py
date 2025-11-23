@@ -18,20 +18,21 @@ intf_error_1d = []
 intf_error_2d = []
 majorant = []
 
-for is_nonmatching in [True]:
+for is_nonmatching in [False, True]:
 
     # Setup the model and solve using MPFA
     if not is_nonmatching:
-        folder_name = "ex3_matching"
+        file_name = "matching"
     else:
-        folder_name = "ex3_nonmatching"
+        file_name = "non_matching"
 
     params = {
         "material_constants": {"solid": solid_constants},
         "refinement_level": 0,
         "non_matching": is_nonmatching,
         "export_to_vtu": True,
-        "folder_name": folder_name,
+        "file_name": file_name,
+        "folder_name": "example_3",
         "times_to_export": [],
         "darcy_flux_discretization": "mpfa",
     }

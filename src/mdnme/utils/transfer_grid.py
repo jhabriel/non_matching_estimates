@@ -35,7 +35,7 @@ class TransferGrid:
                  g_source: pp.GridLike,
                  g_target: pp.GridLike,
                  rotation_matrix: np.ndarray = None,
-                 tol: float = 1e-8,
+                 tol: float = 1e-5,
                  name: str = "transfer"
                  ):
 
@@ -475,7 +475,7 @@ class TransferLine:
         self,
         g_source: pp.Grid,
         g_target: pp.Grid,
-        tol: float = 1e-10,
+        tol: float = 1e-5,
         rotation_matrix: np.ndarray | None = None,
         dim_bool: np.ndarray | None = None,
         rotate_source: bool = True,
@@ -495,29 +495,25 @@ class TransferLine:
         self._rotate_source = rotate_source
         self._rotate_target = rotate_target
 
+        # Sanity checks first
+        if (self.rot_matrix is None) ^ (self.dim_bool is None):
+            raise ValueError(
+                "rotation_matrix and dim_bool must be provided together or both None."
+            )
         self._build_transfer_segments()
         self._build_connectivity_matrices()
 
-        # Sanity checks
-        if self.rot_matrix is None and self.dim_bool is not None:
-            raise ValueError('If rotation_matrix is provided, dim_bool must be given.')
-        if self.dim_bool is None and self.rot_matrix is not None:
-            raise ValueError('If dim_bool is provided, rotation_matrix must be given.')
-
-    # same as you had
     def _x_in_common_frame(self, g: pp.Grid, use_rotation=True) -> np.ndarray:
 
-        if use_rotation:
-            if self.rot_matrix is None and self.dim_bool is None:
-                rot = mdnme.RotatedGrid(g)  # let the first call set the frame
-                self.rot_matrix = rot.rotation_matrix
-                self.dim_bool = rot.dim_bool
-                return rot.nodes[0, :]
-            else:
-                rot = mdnme.RotatedGrid(g, self.rot_matrix)
-                return rot.nodes[0, :]
+        if use_rotation:  # whether to rotate the line grid or not
+            # Rotate the grid using the canonical rotation frame
+            rot_grid = mdnme.RotatedGrid(g, self.rot_matrix)
+            # rot_grid will return only one dimension, so it is safe to retrieve it
+            return rot_grid.nodes[0]
         else:
-            return g.nodes
+            # We are already in rotated coordinates, but since the grid went
+            # through the pp.TensorGrid machinery, we have to retrieve the first dim
+            return g.nodes[0]
 
     def _breaks(self, g: pp.Grid, use_rotation=True) -> np.ndarray:
         x = self._x_in_common_frame(g, use_rotation)
@@ -529,7 +525,8 @@ class TransferLine:
 
         # Get rotated source grid
         if self._rotate_source:
-            xs = self._breaks(self.g_source)  # in common frame
+            # NOTE: Will be used only in the IBG - Mortar coupling
+            xs = self._breaks(self.g_source)
         else:
             xs = self._breaks(self.g_source, use_rotation=False)
 
@@ -602,9 +599,19 @@ class TransferLine:
             self.target_to_transfer = ztt.T
             return
 
-        xs = self._breaks(self.g_source)
-        xt = self._breaks(self.g_target)
-        xtf = self._breaks(self.transfer)
+        if self._rotate_source:
+            xs = self._breaks(self.g_source)
+        else:
+            xs = self._breaks(self.g_source, use_rotation=False)
+
+        if self._rotate_target:
+            xt = self._breaks(self.g_target)
+        else:
+            xt = self._breaks(self.g_target, use_rotation=False)
+
+        # Transfer grid always constructed in rotated coordinates, so we
+        # explicitly avoid rotating it again.
+        xtf = self._breaks(self.transfer, use_rotation=False)
 
         n_src = self.g_source.num_cells
         n_tr  = self.transfer.num_cells

@@ -278,6 +278,8 @@ def _get_high_pressure_trace(
     sd_high: pp.Grid,
     data_sd_high: dict,
     frac_faces: np.ndarray,
+    rotation_matrix : np.ndarray | None = None,
+    dim_bool : np.ndarray | None = None,
 ) -> np.ndarray:
     """Obtains the coefficients of the P1 (projected) traces of the pressure.
 
@@ -321,48 +323,40 @@ def _get_high_pressure_trace(
 
         return lagran_coo
 
-    # Rotate both grids, and obtain rotation matrix and effective dimension
+    # 1) always use the *same* rotation used to build p_high
     gh_rot = mdnme.rotate_grid(sd_high)
-    gl_rot = mdnme.rotate_grid(sd_low)
-    rotation_matrix = gl_rot.rotation_matrix
-    dim_bool = gl_rot.dim_bool
 
-    # Obtain the cells corresponding to the frac_faces
+    # 2) choose the target frame
+    if rotation_matrix is None or dim_bool is None:
+        gl_rot = mdnme.rotate_grid(sd_low)
+        rotation_matrix = gl_rot.rotation_matrix
+        dim_bool = gl_rot.dim_bool
+
+    # Cells that correspond to frac_faces
     cells_of_frac_faces = sps.find(sd_high.cell_faces[frac_faces])[1]
 
-    # Retrieve the coefficients of the polynomials corresponding to those cells
-    if "recon_sd_pressure" in data_sd_high["estimates"]:
-        p_high_full = data_sd_high["estimates"]["recon_sd_pressure"]
-    else:
+    if "recon_sd_pressure" not in data_sd_high["estimates"]:
         raise ValueError("Pressure must be reconstructed first")
+    p_high_full = data_sd_high["estimates"]["recon_sd_pressure"]
     p_high = p_high_full[cells_of_frac_faces]
 
-    # NOTE: Use the rotated coordinates to perform the evaluation of the pressure,
-    # but use the original coordinates to rotate the edge using the rotation matrix of
-    # the lower-dimensional grid as reference.
-
-    # Evaluate the polynomials at the relevant Lagrangian nodes
+    # 3) evaluate p_high in the *correct* (subdomain) frame
     point_coo_rot = get_intf_lagrangian_coo(gh_rot)
     point_val = mdnme.utils.evaluate_p1(p_high, point_coo_rot)
 
-    # Rotate the coordinates of the Lagrangian nodes w.r.t. the lower-dimensional grid
-    point_coo = get_intf_lagrangian_coo(sd_high)
+    # 4) rotate the same physical points into the target frame
+    point_coo = get_intf_lagrangian_coo(sd_high)  # original 3D coords
     point_edge_coo_rot = np.empty_like(point_coo)
     for element in range(frac_faces.size):
-        point_edge_coo_rot[:, element] = np.dot(rotation_matrix, point_coo[:, element])
+        point_edge_coo_rot[:, element] = rotation_matrix @ point_coo[:, element]
     point_edge_coo_rot = point_edge_coo_rot[dim_bool]
 
-    # Construct a polynomial (of reduced dimensionality) using the rotated coo
+    # 5) fit a P1 in the target frame
     trace_pressure = mdnme.utils.interpolate_p1(point_val, point_edge_coo_rot)
 
-    # Test if the values of the original polynomial match the new one
+    # sanity check: in target frame, this P1 reproduces values at those points
     point_val_rot = mdnme.utils.evaluate_p1(trace_pressure, point_edge_coo_rot)
-    np.testing.assert_allclose(
-        point_val,
-        point_val_rot,
-        rtol=1e-9,
-        atol=1e-8,
-    )
+    np.testing.assert_allclose(point_val, point_val_rot, rtol=1e-9, atol=1e-8)
 
     return trace_pressure
 
@@ -628,8 +622,6 @@ def _interface_diffusive_error_1d(
     # Concatenate into one numpy array
     diffusive_error = np.concatenate(diffusive)
 
-    # print(f"Matching / Intf {intf.id}: {diffusive_error}")
-
     return diffusive_error
 
 
@@ -851,6 +843,14 @@ def _interface_diffusive_error_1d_nonmatching(
 
         # (2) Transfer IBG→mortar-side and frac→mortar-side
 
+        # TODO: This is turning extremely hacky. What should be done?
+        #  Well, need to construct, both the internal boundary grid and the
+        #  transfer grid using physical coordinates (similar to what a side-grid
+        #  or a fracture grid is constructed), avoiding the need of keeping track
+        #  of which grid should be rotated and which should not. In other words,
+        #  ALL grids are rotated ALWAYS. This is a little bit less efficient,
+        #  but is worth it.
+
         # Internal boundary side grid -> Mortar side grid
         tracep_on_msg = project_p1_1d_sz(
             ibg_side,
@@ -871,12 +871,12 @@ def _interface_diffusive_error_1d_nonmatching(
             tol=tol,
             rotation_matrix=rot_matrix,
             dim_bool=dim_bool,
-            rotate_source=True,  # fracture grid is in physical coordinates.
+            rotate_source=True,  # Fracture grid is in physical coordinates.
             rotate_target=True,  # Mortar side grid is in physical coordinates.
         )
 
         # (3) side scalars on mortar side grid
-        k_side = P_msg @ k_mortar          # (n_msg_cells, 1)
+        k_side = P_msg @ k_mortar  # (n_msg_cells, 1)
         nv_side = P_msg @ normal_vel_mortar  # (n_msg_cells, 1)
 
         # (4) jump and integration on mortar side (1D)
@@ -900,8 +900,6 @@ def _interface_diffusive_error_1d_nonmatching(
         # (5) scatter to global mortar ordering
         out_global += (P_msg.T @ diff_side).ravel()
 
-    # print(f"Nonmatching / Intf {intf.id}: {out_global}")
-
     return out_global
 
 
@@ -913,7 +911,7 @@ def _interface_diffusive_error_2d_nonmatching(
     data_high: dict,
     sd_low: pp.Grid,
     data_low: dict,
-    tol: float = 1e-8,
+    tol: float = 1e-5,
 ) -> np.ndarray:
     """Non-matching 2D interface diffusive error:
        || k^{-1/2} λ + k^{1/2} (p_low − tr p_high) ||^2 per mortar cell.
@@ -921,6 +919,9 @@ def _interface_diffusive_error_2d_nonmatching(
     # --- sanity ---
     if intf.dim != 2:
         raise ValueError("Expected two-dimensional interface grid.")
+
+    # Get canonical frame of rotation
+    rot_matrix, dim_bool, _ = mdnme.canonical_frame(intf)
 
     # --- mortar-side scalars ---
     eff_perm = data_intf[pp.PARAMETERS]["flow"]["effective_permeability"]
@@ -939,7 +940,9 @@ def _interface_diffusive_error_2d_nonmatching(
         sd_low,
         sd_high,
         data_high,
-        frac_faces
+        frac_faces,
+        rot_matrix,
+        dim_bool
     )  # (n_frac_faces, 3)
     # map: high face id -> local index into frac_faces
     face2pos = {int(f): i for i, f in enumerate(frac_faces)}
@@ -974,8 +977,18 @@ def _interface_diffusive_error_2d_nonmatching(
             tr_hi_on_ibg = p_trace_high[idx, :]  # (n_ibg_cells, 3)
 
         # (2) Transfer IBG→mortar-side and frac→mortar-side
-        tg_ibg_msg = TransferGrid(g_source=ibg_side, g_target=mg_side, tol=tol)
-        tg_fg_msg = TransferGrid(g_source=sd_low, g_target=mg_side, tol=tol)
+        tg_ibg_msg = TransferGrid(
+            g_source=ibg_side,
+            g_target=mg_side,
+            rotation_matrix=rot_matrix,
+            tol=tol)
+
+        tg_fg_msg = TransferGrid(
+            g_source=sd_low,
+            g_target=mg_side,
+            rotation_matrix=rot_matrix,
+            tol=tol
+        )
 
         # Internal boundary side grid to mortar side grid pressure projection
         tracep_on_tg = restrict_to_transfer(tg_ibg_msg, tr_hi_on_ibg)
@@ -992,7 +1005,11 @@ def _interface_diffusive_error_2d_nonmatching(
         # (4) jump and integration on mortar side
         deltap_side = fracp_on_msg - tracep_on_msg  # (n_msg_cells, 3)
 
-        elements = mdnme.utils.get_quadpy_elements(mg_side)
+        elements = mdnme.utils.get_quadpy_elements(
+            mg_side,
+            rotate_grid=True,
+            rotation_matrix=rot_matrix,
+        )
         def integrand(x):
             # x is in the interface frame (as provided by elements)
             p_jump = mdnme.utils.evaluate_p1(

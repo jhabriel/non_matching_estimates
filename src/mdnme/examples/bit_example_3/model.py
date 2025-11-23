@@ -91,32 +91,68 @@ class SmallFeaturesSolutionStrategy(
             data[pp.TIME_STEP_SOLUTIONS]["well"] = {}
             data[pp.TIME_STEP_SOLUTIONS]["well"][0] = val_loc
 
+    def get_list_of_sources(self) -> list[np.ndarray]:
+        """Returns the all external sources imposed in the mdg."""
+
+        def reshape(array: np.ndarray) -> np.ndarray:
+            return np.reshape(array, (array.size, 1))
+
+        sources = []
+        for sd in self.mdg.subdomains():
+
+            if sd.dim != 2:
+                sources.append(reshape(np.zeros(sd.num_cells)))
+            else:
+
+                sd_id_inj, cell_idx_inj = self._injector_idx(sd)
+                sd_id_prd, cell_idx_prd = self._productor_idx(sd)
+
+                source_loc = np.zeros(sd.num_cells)
+
+                if sd.id == sd_id_inj:
+                    source_loc[cell_idx_inj] = -1 / sd.cell_volumes[cell_idx_inj]
+
+                if sd.id == sd_id_prd:
+                    source_loc[cell_idx_prd] = 1 / sd.cell_volumes[cell_idx_prd]
+
+                sources.append(reshape(source_loc))
+
+        return sources
+
+
     def after_simulation(self) -> None:
         """Method to be called after the simulation has finished."""
-        # Save error estimates data
-        #self.error_estimates_data_saving()
+
+        # Save error estimates data (needed for running the estimates machinery)
+        self.error_estimates_data_saving()
+
+        # Get list of source arrays
+        source_list = self.get_list_of_sources()
 
         # Estimate errors
         is_non_matching = self.params.get("non_matching", False)
-        #estimate_errors(self.mdg, is_non_matching=is_non_matching)
+        estimate_errors(
+            self.mdg,
+            sources=source_list,
+            is_non_matching=is_non_matching)
 
         # Compute local errors and error indicators
-        #compute_error_indicators(self.mdg)
+        compute_error_indicators(self.mdg)
 
         # Transfer from iterate to time step
-        #transfer_errors_iterate_solutions(self.mdg)
+        transfer_errors_iterate_solutions(self.mdg)
 
         # Print aggregated local errors
-        # if not is_non_matching:
-        #     print('----- Matching Error Estimates ------')
-        # else:
-        #     print('----- Non-matching Error Estimates ------')
-        # local_errors = aggregate_local_errors(self.mdg)
-        # print(f"3D subdomain error: {local_errors['subdomain_error'][3]}")
-        # print(f"2D subdomain error: {local_errors['subdomain_error'][2]}")
-        # print(f"1D subdomain error: {local_errors['subdomain_error'][1]}")
-        # print(f"2D interface error: {local_errors['interface_error'][2]}")
-        # print(f"1D interface error: {local_errors['interface_error'][1]}")
+        if not is_non_matching:
+            print('----- Matching Error Estimates ------')
+        else:
+            print('----- Non-matching Error Estimates ------')
+        local_errors = aggregate_local_errors(self.mdg)
+        print(f"3D subdomain error: {local_errors['subdomain_error'][3]}")
+        print(f"2D subdomain error: {local_errors['subdomain_error'][2]}")
+        print(f"1D subdomain error: {local_errors['subdomain_error'][1]}")
+        print(f"2D interface error: {local_errors['interface_error'][2]}")
+        print(f"1D interface error: {local_errors['interface_error'][1]}")
 
 
         # Visualization methods
@@ -129,9 +165,9 @@ class SmallFeaturesSolutionStrategy(
                 "pressure",
                 "ID",
                 "well",
-                #"diffusive_error",
-                #"residual_error",
-                #"error_indicator",
+                "diffusive_error",
+                "residual_error",
+                "error_indicator",
                 "interface_darcy_flux",
             ])
 

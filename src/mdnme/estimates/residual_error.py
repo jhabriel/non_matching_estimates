@@ -98,7 +98,11 @@ def _residual_error(
 
     # Declare integrand
     def integrand(x: np.ndarray) -> np.ndarray:
-        if not isinstance(external_sources, float):
+        if not isinstance(
+                external_sources, float
+        ) and not isinstance(
+                external_sources, np.ndarray
+        ):  # we are in a situation where a Sympy spatially-defined function is given
             if sd.dim == 3:
                 out = (external_sources(x[0], x[1], x[2]) - div_u + intf_jump) ** 2
             elif sd.dim == 2:

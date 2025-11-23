@@ -36,7 +36,7 @@ class InternalBoundaryGrid:
     """Per-interface Internal Boundary Grid built in the interface frame."""
 
     def __init__(self, intf: pp.MortarGrid, sd_high: pp.Grid,
-                 tol: float = 1e-8, name: str = "ibg"):
+                 tol: float = 1e-5, name: str = "ibg"):
         if intf.dim != 2:
             raise NotImplementedError("IBG currently implemented for 2D mortar interfaces.")
 

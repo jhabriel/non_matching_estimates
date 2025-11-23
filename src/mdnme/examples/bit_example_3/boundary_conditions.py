@@ -23,10 +23,6 @@ class NoFluxBoundaryConditions(pp.PorePyModel):
         """Make sure all darcy fluxes are zero."""
         return np.zeros(bg.num_cells)
 
-    # def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
-    #     """Make sure all pressure values are set to zero."""
-    #     return np.zeros(bg.num_cells)
-
 class ModifiedBalanceEquation(pp.fluid_mass_balance.FluidMassBalanceEquations):
     """Modify balance equation to account for external sources."""
 
