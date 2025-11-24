@@ -125,7 +125,7 @@ class GeometryNonMatching(pp.PorePyModel):
                     "Nested refinement factory did not yield two levels."
                 )
 
-            # Replace all lower-dim subdomains with those from the refined one
+            # Get hold of 2d subdomain mappings
             sd_map = {}
             for sd_co, sd_fi in zip(
                     mdg_coarse.subdomains(dim=2),
@@ -133,7 +133,7 @@ class GeometryNonMatching(pp.PorePyModel):
             ):
                 sd_map[sd_co] = sd_fi
 
-            # Replace 2d subdomain grids
+            # Replace grids
             mdg_coarse.replace_subdomains_and_interfaces(sd_map=sd_map)
 
             # Also persist the fracture network if not present
