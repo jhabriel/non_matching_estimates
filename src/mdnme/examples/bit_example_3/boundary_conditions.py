@@ -14,14 +14,26 @@ class NoFluxBoundaryConditions(pp.PorePyModel):
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Force no-flux boundary conditions at all sides."""
-        #sides = self.domain_boundary_sides(sd)
-        #dir_faces = sides.south + sides.north
-        #return pp.BoundaryCondition(sd, faces=dir_faces, cond="dir")
-        return pp.BoundaryCondition(sd)
+        cc = sd.face_centers
+        south = cc[1] < 1e-5
+        north = cc[1] > np.max(cc[1]) - 1e-5
+        dir_faces = south + north
+        if sd.dim == 3:
+            return pp.BoundaryCondition(sd, faces=dir_faces, cond="dir")
+        else:
+            return pp.BoundaryCondition(sd)
 
     def bc_values_darcy_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Make sure all darcy fluxes are zero."""
         return np.zeros(bg.num_cells)
+
+    def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
+        """Make sure all darcy fluxes are zero."""
+        cc = bg.cell_centers
+        south = cc[1] < 1e-5
+        vals = np.zeros(bg.num_cells)
+        vals[south] = 0
+        return vals
 
 class ModifiedBalanceEquation(pp.fluid_mass_balance.FluidMassBalanceEquations):
     """Modify balance equation to account for external sources."""
@@ -113,12 +125,14 @@ class ModifiedBalanceEquation(pp.fluid_mass_balance.FluidMassBalanceEquations):
 
                 val_loc = np.zeros(sd.num_cells)
 
+                rate = self.params.get("source_rate", 1)
+
                 if sd.id == sd_id_inj:
-                    val_loc[cell_idx_inj] = -1
+                    val_loc[cell_idx_inj] = -rate
                     print(f"Injector cell coo {sd.cell_centers[:, cell_idx_inj]}")
 
                 if sd.id == sd_id_prd:
-                    val_loc[cell_idx_prd] = 1
+                    val_loc[cell_idx_prd] = rate
                     print(f"Productor cell coo {sd.cell_centers[:, cell_idx_prd]}")
 
                 values.append(val_loc)
