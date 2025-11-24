@@ -206,70 +206,125 @@ class GeometryNonMatching(pp.PorePyModel):
         grid_type = self.params.get("grid_type", "simplex")
         meshing_args = self.params.get('meshing_arguments', {"cell_size": 0.25})
 
-
         # If it is matching, produce the mdg in the usual way
-        if not non_matching or non_matching:
-            mdg = pp.create_mdg(
-                grid_type=grid_type,  # type[ignore]
-                fracture_network=fn,
-                meshing_args=meshing_args,
-            )
+        if not non_matching:
+
+            print('Running model using matching grids.')
+
+            # Decide whether to mesh from geo or from fracture network
+            from_geo = self.params.get("matching_from_geo", True)
+
+            if not from_geo:
+
+                print("Meshing using mesh parameters.")
+                mdg_coarse = pp.create_mdg(
+                    grid_type=grid_type,  # type[ignore]
+                    fracture_network=fn,
+                    meshing_args=meshing_args,
+                )
+            else:  # generate from geo
+
+                print("Meshing using geo files.")
+                mdg_coarse, _ = benchmark_3d_case_3(refinement_level=0)
+
         else:
 
-            # Retrieve the target mesh size and create a DFN mdg
-            # h = meshing_args["cell_size"]
-            # mdg_dfn = pp.create_mdg(
-            #     grid_type=grid_type,
-            #     fracture_network=fn,
-            #     meshing_args={"cell_size": h/4},
-            #     dfn=True,
-            # )
-            h = meshing_args["cell_size"]
-            mdg_fine = pp.create_mdg(
-                grid_type=grid_type,
-                fracture_network=fn,
-                meshing_args={"cell_size": h},
-                dfn=True,
-            )
-            # Create a coarse mdg
-            mdg = pp.create_mdg(
-                grid_type=grid_type,
-                fracture_network=fn,
-                meshing_args={"cell_size": h},
-            )
+            print('Running model using non-matching grids')
+
+            # Get refinement strategy
+            ref_stgy = self.params.get('refinement', 'unstructured')
+
+            if ref_stgy == "unstructured":  # do unstructured refinement
+
+                print('Refinement strategy: unstructured')
+
+                # Retrieve the target mesh size and create a DFN mdg
+                h = meshing_args["cell_size"]
+
+                # Create a coarse mdg
+                mdg_coarse = pp.create_mdg(
+                    grid_type=grid_type,
+                    fracture_network=fn,
+                    meshing_args={"cell_size": h},
+                )
+
+                # Create a fine mdg
+                mdg_fine = pp.create_mdg(
+                    grid_type=grid_type,
+                    fracture_network=fn,
+                    meshing_args={"cell_size": h/2},
+                    # dfn=True,
+                )
+
+            elif ref_stgy == "nested":  # do nested refinement
+
+                print('Refinement strategy: nested')
+
+                # Create a nested refinement (one-level) of the whole mdg
+                dim = 3
+                num_refinements = 1
+                factory = GeoNestedRefinementFactory(
+                    src_path=str('grids/mesh30k.geo'),
+                    dim=dim,
+                    num_refinements=num_refinements,
+                    out_stem='non_match',
+                )
+
+                # Retrieve the coarse and the fine mdg. First item of the list
+                # corresponds to the coarse mdg and second list correspond to fine mdg
+                mdg_coarse = None
+                mdg_fine = None
+                for i, mdg in enumerate(factory):
+                    if i == 0:
+                        mdg_coarse = mdg
+                    else:
+                        mdg_fine = mdg
+
+                # Sanity check
+                if mdg_coarse is None or mdg_fine is None:
+                    msg = "Nested refinement factory did not yield two levels."
+                    raise RuntimeError(msg)
+            else:
+                raise ValueError('Unsupported refinement strategy.')
 
             # Prepare mapping dictionary to replace grids
             sd_map = {}
-            for sd, sd_fine in zip(mdg.subdomains(dim=2), mdg_fine.subdomains(dim=2)):
-                assert sd.dim == sd_fine.dim
-                sd_map[sd] = sd_fine
+            intf_map = {}
 
-            for sd, sd_fine in zip(mdg.subdomains(dim=1), mdg_fine.subdomains(dim=1)):
-                assert sd.dim == sd_fine.dim
-                sd_map[sd] = sd_fine
+            # Get mapping of subdomains
+            for dim in [2]:
+                for sd_coarse, sd_fine in zip(
+                    mdg_coarse.subdomains(dim=dim),
+                    mdg_fine.subdomains(dim=dim)
+                ):
+                    assert sd_coarse.dim == sd_fine.dim
+                    sd_map[sd_coarse] = sd_fine
 
-            # intf_map = {}
-            # for intf, intf_fine in zip(mdg.interfaces(dim=2), mdg_fine.interfaces(
-            #         dim=2)):
-            #     assert intf.dim == intf_fine.dim
-            #     intf_map[intf] = intf_fine
+            # # Get mapping of interfaces
+            # for dim in [2]:
+            #     for intf, intf_fine in zip(
+            #         mdg.interfaces(dim=dim),
+            #         mdg_fine.interfaces(dim=dim)
+            #     ):
+            #         assert intf.dim == intf_fine.dim
+            #         intf_map[intf] = intf_fine
 
-            # Replace grids
-            mdg.replace_subdomains_and_interfaces(sd_map=sd_map)
+            # Perform replacement
+            mdg_coarse.replace_subdomains_and_interfaces(
+                sd_map=sd_map,
+                # interface_map=intf_map
+            )
 
         # Finally, set mdg and fracture network as a public attribute
         self.fracture_network = fn
-        self.mdg = mdg
-
-        # Update local projections
-        pp.set_local_coordinate_projections(mdg)
+        self.mdg = mdg_coarse
 
         # Bookkeeping: dim, domain, fractures
         self.nd: int = self.mdg.dim_max()
         self._domain = cast(pp.Domain, self.fracture_network.domain)
         self._fractures = self.fracture_network.fractures
 
-        # Projections and canonical rotations
+        # Update local projections
         pp.set_local_coordinate_projections(self.mdg)
 
         # Wells (unchanged)
