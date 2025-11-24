@@ -107,13 +107,13 @@ class SmallFeaturesSolutionStrategy(
                 sd_id_inj, cell_idx_inj = self._injector_idx(sd)
                 sd_id_prd, cell_idx_prd = self._productor_idx(sd)
 
+                rate = self.params.get("source_rate", 1)
                 source_loc = np.zeros(sd.num_cells)
-
                 if sd.id == sd_id_inj:
-                    source_loc[cell_idx_inj] = -1 / sd.cell_volumes[cell_idx_inj]
+                    source_loc[cell_idx_inj] = -rate / sd.cell_volumes[cell_idx_inj]
 
                 if sd.id == sd_id_prd:
-                    source_loc[cell_idx_prd] = 1 / sd.cell_volumes[cell_idx_prd]
+                    source_loc[cell_idx_prd] = rate / sd.cell_volumes[cell_idx_prd]
 
                 sources.append(reshape(source_loc))
 
@@ -147,13 +147,13 @@ class SmallFeaturesSolutionStrategy(
             print('----- Matching Error Estimates ------')
         else:
             print('----- Non-matching Error Estimates ------')
+        print(f"Majorant : {mdnme.estimates.error_estimation.get_majorant(self.mdg)}")
         local_errors = aggregate_local_errors(self.mdg)
         print(f"3D subdomain error: {local_errors['subdomain_error'][3]}")
         print(f"2D subdomain error: {local_errors['subdomain_error'][2]}")
         print(f"1D subdomain error: {local_errors['subdomain_error'][1]}")
         print(f"2D interface error: {local_errors['interface_error'][2]}")
         print(f"1D interface error: {local_errors['interface_error'][1]}")
-
 
         # Visualization methods
         self.assign_ids_to_subdomains()
@@ -190,14 +190,3 @@ class SmallFeaturesModel(  # type: ignore[misc]
     FlowBenchmark3dCase3Model,
 ):
     """Main model for running the analysis corresponding to example number 3."""
-
-
-# # %% Runner
-# params = {
-#     "material_constants": {"solid": solid_constants},
-#     "refinement_level": 0,
-#     "non_matching": True,
-# }
-# model = SmallFeaturesModel(params)
-# pp.run_time_dependent_model(model, params)
-#
