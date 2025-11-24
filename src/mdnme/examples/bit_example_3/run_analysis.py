@@ -1,97 +1,82 @@
-"""
-Module containing the script to run the analysis for the third numerical example of
-the paper.
-
-Run this script to generate the `txt` files for both, uniform and adaptive mesh
-refinement.
-
-"""
-from __future__ import annotations
-
-import pickle
-
-import numpy as np
+"""Module for running the third numerical example"""
+import mdnme
 import porepy as pp
-from porepy.utils.txt_io import TxtData, export_data_to_txt
+import numpy as np
 
-import mdamr
-from mdamr.estimates.error_estimation import (
-    compute_error_indicators,
+from mdnme.examples.bit_example_3.model import SmallFeaturesModel, solid_constants
+from mdnme.estimates.error_estimation import (
+    compute_sd_and_intf_errors_of_equal_dim,
     get_majorant,
-    transfer_errors_iterate_solutions,
 )
-from mdamr.examples.example_3.model import Example3Model
-from examples.flow_benchmark_3d_case_3 import solid_constants
+from porepy.utils.txt_io import export_data_to_txt, TxtData
 
-pickle_mdg = False
-print_to_console = True
-refinement_levels = [0]  # [0, 1, 2, 3] are available
-out_dofs = []
-out_majorant = []
+# Initialize lists for exporting results
+sd_error_1d = []
+sd_error_2d = []
+sd_error_3d = []
+intf_error_1d = []
+intf_error_2d = []
+majorant = []
 
-for refinement_level in refinement_levels:
-    # Declare parameters
+for is_nonmatching in [False, True]:
+
+    # Setup the model and solve using MPFA
+    if not is_nonmatching:
+        file_name = "matching"
+    else:
+        file_name = "non_matching"
+
     params = {
         "material_constants": {"solid": solid_constants},
-        "refinement_level": refinement_level,
+        "refinement_level": 0,
+        "non_matching": is_nonmatching,
+        "export_to_vtu": True,
+        "file_name": file_name,
+        "folder_name": "example_3",
+        "times_to_export": [],  # avoid exporting in regular way
+        "refinement": 'nested',  # used for non-matching grid generation
+        "matching_from_geo": True,  # used for matching grid generation
+        "source_rate": 0.1,  # defines the magnitude of injection/production
     }
+    print(f"Setting up the model for refinement level {0}.")
+    model = SmallFeaturesModel(params)
+    print(f"Done setting up the model for refinement ")
 
-    # Run the model
-    setup = Example3Model(params)
-    pp.run_time_dependent_model(setup, {})
-    mdg = setup.mdg
-    dofs = setup.equation_system.num_dofs()
+    print(f"Running model for refinement level {0}.")
+    pp.run_time_dependent_model(model, params)
+    print(f"Done running model.")
 
-    # %% Export and read mdg (this is experimental for the moment)
-    if pickle_mdg:
-        # Pickling the mdg
-        print("Saving the mdg into a pickle file.")
-        with open("mdg.pickle", "wb") as handle:
-            pickle.dump(setup.mdg, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        print("Done.")
+    # Estimate the errors
+    # print(f"Estimating errors for refinement level {lvl}.")
+    # mdnme.estimate_errors(
+    #     mdg=model.mdg,
+    #     is_non_matching=False,
+    # )
+    # print(f"Done estimating errors.")
 
-        # Reloading the mdg
-        with open("mdg.pickle", "rb") as handle:
-            mdg = pickle.load(handle)
+    # Store errors in the corresponding lists
 
-    for intf, d in setup.mdg.interfaces(return_data=True):
-        subdomains = setup.interfaces_to_subdomains([intf])
-        print("Id: ", intf.id)
-        print("Dim: ", intf.dim)
-        print("Num subdomain neighbors: ", len(subdomains))
-        print("Subdomain dims.", "High:", subdomains[0].dim, "Low:", subdomains[1].dim)
-        print(50 * "-")
+    # Compute errors of the same dimensionality
+    # errors_of_same_dim = compute_sd_and_intf_errors_of_equal_dim(model.mdg)
+    # sd_error_1d.append(errors_of_same_dim['subdomain_error'][1])
+    # sd_error_2d.append(errors_of_same_dim['subdomain_error'][2])
+    # sd_error_3d.append(errors_of_same_dim['subdomain_error'][3])
+    # intf_error_1d.append(errors_of_same_dim['interface_error'][1])
+    # intf_error_2d.append(errors_of_same_dim['interface_error'][2])
+    # majorant.append(get_majorant(model.mdg))
 
-    # %% Estimate errors
-    mdamr.estimate_errors(
-        mdg, pressure_reconstruction_method="patchwise_p1"
-    )  # Assume no sources and compute residual error separately
-
-    # Global error
-    majorant = get_majorant(mdg)
-
-    # Printing
-    if print_to_console:
-        print(50 * "=")
-        print("Refinement level: ", refinement_level)
-        print("Degrees of freedom: ", dofs)
-        print("Majorant: ", majorant)
-        print(50 * "=")
-
-    # Append results to export
-    out_dofs.append(dofs)
-    out_majorant.append(majorant)
-
-# %% Export to txt file
-data_dofs = TxtData("dofs", np.asarray(out_dofs), "%d")
-data_majorant = TxtData("majorant", np.asarray(out_majorant), "%2.2e")
-list_of_data_to_export = [data_dofs, data_majorant]
-export_data_to_txt(list_of_data_to_export, "error_analysis.txt")
-
-# %% Compute error indicator and transfer errors to pp.ITERATE_SOLUTIONS
-compute_error_indicators(mdg)
-transfer_errors_iterate_solutions(mdg)
-
-# %% Export results to ParaView
-exporter = pp.Exporter(mdg, "out")
-exporter.write_vtu(["pressure", "diffusive_error", "error_indicator"])
+# Export results
+# sd_error_1d = TxtData(header="sd_1d", array=np.asarray(sd_error_1d))
+# sd_error_2d = TxtData(header="sd_2d", array=np.asarray(sd_error_2d))
+# sd_error_3d = TxtData(header="sd_3d", array=np.asarray(sd_error_3d))
+# intf_error_1d = TxtData(header="intf_1d", array=np.asarray(intf_error_1d))
+# intf_error_2d = TxtData(header="intf_2d", array=np.asarray(intf_error_2d))
+# majorant = TxtData(header="majorant", array=np.asarray(majorant))
+# txt_data = [
+#     sd_error_1d,
+#     sd_error_2d,
+#     sd_error_3d,
+#     intf_error_1d,
+#     intf_error_2d,
+# ]
+# export_data_to_txt(txt_data, "small_features_error.txt")
