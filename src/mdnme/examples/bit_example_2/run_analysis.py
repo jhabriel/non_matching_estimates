@@ -29,7 +29,7 @@ intf_error_2d = []
 majorant = []
 
 # Define refinement levels
-REFINEMENT_LEVELS = [0]
+REFINEMENT_LEVELS = [0, 1, 2]
 
 for non_match in [True]:
 
@@ -42,7 +42,7 @@ for non_match in [True]:
             "non_matching": non_match,
             "times_to_export": [],
             "export_results": True,
-            "folder": "geiger3d",
+            "folder_name": "geiger3d",
         }
         print(f"Setting up the model for refinement level {lvl}.")
         model = Geiger3dModel(params)
