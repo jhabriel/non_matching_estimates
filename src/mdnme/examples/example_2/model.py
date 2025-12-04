@@ -1,25 +1,21 @@
-"""
-This module contains the model for the Example 2 of the manuscript.
-"""
+"""This module contains the model for the Example 2 of the manuscript."""
 
 from typing import Callable
 
 import porepy as pp
 
 from mdnme.estimates.helpers import ErrorEstimatesSaveData
-from mdnme.examples.bit_example_2.boundary_conditions import BoundaryConditionsModified
-from mdnme.examples.bit_example_2.geometry import GeometryNonMatching
-from mdnme.examples.bit_example_2.flow_benchmark_3d_case_2 import (
+from mdnme.examples.example_2.boundary_conditions import BoundaryConditionsModified
+from mdnme.examples.example_2.geometry import GeometryNonMatching
+from mdnme.examples.example_2.flow_benchmark_3d_case_2 import (
     FlowBenchmark3dCase2Model,
-    solid_constants_conductive,
-    solid_constants_blocking,
+    solid_constants_conductive,  # to be imported by "example_2.model"
 )
 
 from mdnme.estimates.error_estimation import (
     estimate_errors,
     compute_error_indicators,
     transfer_errors_iterate_solutions,
-    compute_sd_and_intf_errors_of_equal_dim,
 )
 
 import numpy as np
@@ -129,14 +125,3 @@ class Geiger3dModel(  # type: ignore[misc]
     FlowBenchmark3dCase2Model,
 ):
     """Main model for running the analysis corresponding to example number 2."""
-
-# # %% Runner
-# params = {
-#     "material_constants": {"solid": solid_constants_conductive},
-#     "refinement_level": 0,
-#     "non_matching": True,
-#     "export_to_vtu": True,
-# }
-# model = Geiger3dModel(params)
-# pp.run_time_dependent_model(model, params)
-

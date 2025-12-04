@@ -9,9 +9,9 @@ import numpy as np
 import porepy as pp
 
 # mdnme imports
-from mdnme.models.varela_jnum_3d import VarelaJNumSetup3D
+from mdnme.models.varela_jnum_3d.model import VarelaJNumSetup3D
 from mdnme.models.varela_jnum_2d.model import manu_incomp_fluid, manu_incomp_solid
-from mdnme.models.varela_jnum_3d import VarelaJNumTrueErrors3D
+from mdnme.models.varela_jnum_3d.true_errors import VarelaJNumTrueErrors3D
 from mdnme.estimates.error_estimation import estimate_errors
 
 

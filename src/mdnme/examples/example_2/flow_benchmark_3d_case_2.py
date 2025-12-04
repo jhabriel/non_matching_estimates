@@ -23,8 +23,7 @@ from typing import cast
 
 import numpy as np
 
-import mdnme
-from mdnme.examples.bit_example_2.mdg_library import benchmark_3d_case_2
+from mdnme.examples.example_2.mdg_library import benchmark_3d_case_2
 
 import porepy as pp
 from porepy.applications.discretizations.flux_discretization import FluxDiscretization

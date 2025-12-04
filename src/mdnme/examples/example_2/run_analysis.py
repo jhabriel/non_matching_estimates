@@ -5,18 +5,13 @@ from porepy.utils.txt_io import export_data_to_txt, TxtData
 
 import numpy as np
 
-from mdnme.examples.bit_example_2.model import (
+from mdnme.examples.example_2.model import (
     Geiger3dModel,
     solid_constants_conductive,
-    solid_constants_blocking
 )
 from mdnme.estimates.error_estimation import (
     aggregate_local_errors,
     get_majorant,
-)
-from mdnme.estimates.diffusive_error import (
-    _interface_diffusive_error_1d,
-    _interface_diffusive_error_1d_nonmatching,
 )
 
 # Initialize lists for exporting results
@@ -31,7 +26,7 @@ majorant = []
 # Define refinement levels
 REFINEMENT_LEVELS = [0, 1, 2]
 
-for non_match in [True]:
+for non_match in [True]:  # You can also add False to check the matching estimators
 
     for lvl in REFINEMENT_LEVELS:
 
@@ -79,5 +74,6 @@ for non_match in [True]:
         intf_error_1d,
         intf_error_2d,
     ]
+
+    # Finally, export the results in a `txt` file
     export_data_to_txt(txt_data, "geiger_3d_errors.txt")
-    mdg = model.mdg.copy()
