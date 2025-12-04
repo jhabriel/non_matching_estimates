@@ -4,8 +4,8 @@ import mdnme
 import porepy as pp
 import pytest
 
-from mdnme.examples.varela_jnum_3d.model import VarelaJNumSetup3D
-from mdnme.examples.varela_jnum_2d.model import manu_incomp_fluid, manu_incomp_solid
+from mdnme.models.varela_jnum_3d import VarelaJNumSetup3D
+from mdnme.models.varela_jnum_2d.model import manu_incomp_fluid, manu_incomp_solid
 from mdnme.estimates.diffusive_error import (
     _interface_diffusive_error_2d_nonmatching,
     _interface_diffusive_error_2d,

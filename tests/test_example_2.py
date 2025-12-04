@@ -8,7 +8,7 @@ import numpy as np
 import porepy as pp
 
 import mdnme
-from mdnme.examples.benchmark_2d_case_3.model import ComplexNetworkModel, solid_constants
+from mdnme.models.benchmark_2d_case_3 import ComplexNetworkModel, solid_constants
 
 
 def test_example_2_with_mesh_size_005() -> None:

@@ -3,12 +3,10 @@ import porepy as pp
 import numpy as np
 import pytest
 
-from porepy.grids.mortar_grid import MortarSides
-from porepy.grids.refinement import GridSequenceFactory
 from mdnme.utils.grid_rotation import assign_canonical_rotations
 
-from mdnme.examples.varela_jnum_3d.model import VarelaJNumSetup3D
-from mdnme.examples.varela_jnum_2d.model import (
+from mdnme.models.varela_jnum_3d import VarelaJNumSetup3D
+from mdnme.models.varela_jnum_2d.model import (
     manu_incomp_fluid,
     manu_incomp_solid,
     )

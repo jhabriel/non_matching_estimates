@@ -7,7 +7,7 @@
 #     _interface_diffusive_error_2d_nonmatching
 # )
 # from mdnme.utils.grid_rotation import build_canonical_frames, rotate_grid
-# from mdnme.examples.bit_example_2.geometry import (
+# from mdnme.examples.example_2.geometry import (
 #     create_mdg_from_msh_file,
 #     _paths_for_level,
 #     _stem_for_refinement_level

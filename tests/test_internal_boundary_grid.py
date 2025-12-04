@@ -1,5 +1,4 @@
 """Module for testing the correct construction of the internal boundary grid."""
-import mdnme
 import porepy as pp
 import numpy as np
 import pytest
@@ -7,8 +6,8 @@ import pytest
 
 from mdnme.utils.internal_boundary_grid import InternalBoundaryGrid
 from mdnme.utils.transfer_grid import TransferGrid
-from mdnme.examples.varela_jnum_3d.model import VarelaJNumSetup3D
-from mdnme.examples.varela_jnum_2d.model import (
+from mdnme.models.varela_jnum_3d import VarelaJNumSetup3D
+from mdnme.models.varela_jnum_2d.model import (
     manu_incomp_fluid,
     manu_incomp_solid,
     )
