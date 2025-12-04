@@ -124,7 +124,7 @@ def _run_single(h: float, *, non_matching: bool, translation: Tuple[int, int, in
 
     # Run the time-dependent model and estimate errors
     pp.run_time_dependent_model(setup, {})
-    estimate_errors(setup.mdg)
+    estimate_errors(setup.mdg, is_non_matching=non_matching)
 
     mdg = setup.mdg
 
