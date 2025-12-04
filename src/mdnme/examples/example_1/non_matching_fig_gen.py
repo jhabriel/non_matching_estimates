@@ -48,7 +48,7 @@ import matplotlib.pyplot as plt
 import porepy as pp
 
 # mdnme imports
-from mdnme.models.varela_jnum_3d import VarelaJNumSetup3D
+from mdnme.models.varela_jnum_3d.model import VarelaJNumSetup3D
 from mdnme.models.varela_jnum_2d.model import manu_incomp_fluid, manu_incomp_solid
 from mdnme.utils.internal_boundary_grid import InternalBoundaryGrid
 from mdnme.utils.transfer_grid import TransferGrid

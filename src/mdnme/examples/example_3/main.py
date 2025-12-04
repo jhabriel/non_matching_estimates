@@ -10,15 +10,16 @@ from mdnme.estimates.error_estimation import (
 )
 from porepy.utils.txt_io import export_data_to_txt, TxtData
 
-# Initialize lists for exporting results
-sd_error_1d = []
-sd_error_2d = []
-sd_error_3d = []
-intf_error_1d = []
-intf_error_2d = []
-majorant = []
-
+# Loop through the matching and the non-matching case
 for is_nonmatching in [False, True]:
+
+    # Initialize lists for exporting results
+    sd_error_1d = []
+    sd_error_2d = []
+    sd_error_3d = []
+    intf_error_1d = []
+    intf_error_2d = []
+    majorant = []
 
     # Setup the model and solve using MPFA
     if not is_nonmatching:
@@ -27,12 +28,12 @@ for is_nonmatching in [False, True]:
         file_name = "non_matching"
 
     params = {
-        "material_constants": {"solid": solid_constants},
-        "refinement_level": 0,
-        "non_matching": is_nonmatching,
-        "export_to_vtu": True,
-        "file_name": file_name,
-        "folder_name": "example_3",
+        "material_constants": {"solid": solid_constants},  # material parameters
+        "refinement_level": 0,  # coarsest level
+        "non_matching": is_nonmatching,  # whether to use matching or nonmatching
+        "export_to_vtu": True,  # whether to export results to paraview
+        "file_name": file_name,  # name of the file used to store the results
+        "folder_name": "example_3",  # name of the folder used to store the results
         "times_to_export": [],  # avoid exporting in regular way
         "refinement": 'nested',  # used for non-matching grid generation
         "matching_from_geo": True,  # used for matching grid generation
@@ -40,11 +41,11 @@ for is_nonmatching in [False, True]:
     }
     print(f"Setting up the model for refinement level {0}.")
     model = SmallFeaturesModel(params)
-    print(f"Done setting up the model for refinement ")
+    print("Done setting up the model for refinement ")
 
     print(f"Running model for refinement level {0}.")
     pp.run_time_dependent_model(model, params)
-    print(f"Done running model.")
+    print("Done running model.")
 
     # Compute errors of same dimensionality and the global majorant
     local_errors = aggregate_local_errors(model.mdg)
@@ -72,4 +73,6 @@ for is_nonmatching in [False, True]:
     ]
 
     # Finally, export the results in a `txt` file
+    print("{Exporting results to TXT file.}")
     export_data_to_txt(txt_data, f"small_features_error_{file_name}.txt")
+    print("{Done exporting results to TXT file.}")
