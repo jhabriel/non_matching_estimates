@@ -1,11 +1,11 @@
-"""Module for running the third numerical example"""
-import mdnme
+"""This module contains the convergence analysis for numerical example 3."""
+
 import porepy as pp
 import numpy as np
 
 from mdnme.examples.example_3.model import SmallFeaturesModel, solid_constants
 from mdnme.estimates.error_estimation import (
-    compute_sd_and_intf_errors_of_equal_dim,
+    aggregate_local_errors,
     get_majorant,
 )
 from porepy.utils.txt_io import export_data_to_txt, TxtData
@@ -46,37 +46,30 @@ for is_nonmatching in [False, True]:
     pp.run_time_dependent_model(model, params)
     print(f"Done running model.")
 
-    # Estimate the errors
-    # print(f"Estimating errors for refinement level {lvl}.")
-    # mdnme.estimate_errors(
-    #     mdg=model.mdg,
-    #     is_non_matching=False,
-    # )
-    # print(f"Done estimating errors.")
+    # Compute errors of same dimensionality and the global majorant
+    local_errors = aggregate_local_errors(model.mdg)
+    sd_error_1d.append(local_errors['subdomain_error'][1])
+    sd_error_2d.append(local_errors['subdomain_error'][2])
+    sd_error_3d.append(local_errors['subdomain_error'][3])
+    intf_error_1d.append(local_errors['interface_error'][1])
+    intf_error_2d.append(local_errors['interface_error'][2])
+    majorant.append(get_majorant(model.mdg))
 
-    # Store errors in the corresponding lists
+    # Export results
+    sd_error_1d = TxtData(header="sd_1d", array=np.asarray(sd_error_1d))
+    sd_error_2d = TxtData(header="sd_2d", array=np.asarray(sd_error_2d))
+    sd_error_3d = TxtData(header="sd_3d", array=np.asarray(sd_error_3d))
+    intf_error_1d = TxtData(header="intf_1d", array=np.asarray(intf_error_1d))
+    intf_error_2d = TxtData(header="intf_2d", array=np.asarray(intf_error_2d))
+    majorant = TxtData(header="majorant", array=np.asarray(majorant))
+    txt_data = [
+        majorant,
+        sd_error_1d,
+        sd_error_2d,
+        sd_error_3d,
+        intf_error_1d,
+        intf_error_2d,
+    ]
 
-    # Compute errors of the same dimensionality
-    # errors_of_same_dim = compute_sd_and_intf_errors_of_equal_dim(model.mdg)
-    # sd_error_1d.append(errors_of_same_dim['subdomain_error'][1])
-    # sd_error_2d.append(errors_of_same_dim['subdomain_error'][2])
-    # sd_error_3d.append(errors_of_same_dim['subdomain_error'][3])
-    # intf_error_1d.append(errors_of_same_dim['interface_error'][1])
-    # intf_error_2d.append(errors_of_same_dim['interface_error'][2])
-    # majorant.append(get_majorant(model.mdg))
-
-# Export results
-# sd_error_1d = TxtData(header="sd_1d", array=np.asarray(sd_error_1d))
-# sd_error_2d = TxtData(header="sd_2d", array=np.asarray(sd_error_2d))
-# sd_error_3d = TxtData(header="sd_3d", array=np.asarray(sd_error_3d))
-# intf_error_1d = TxtData(header="intf_1d", array=np.asarray(intf_error_1d))
-# intf_error_2d = TxtData(header="intf_2d", array=np.asarray(intf_error_2d))
-# majorant = TxtData(header="majorant", array=np.asarray(majorant))
-# txt_data = [
-#     sd_error_1d,
-#     sd_error_2d,
-#     sd_error_3d,
-#     intf_error_1d,
-#     intf_error_2d,
-# ]
-# export_data_to_txt(txt_data, "small_features_error.txt")
+    # Finally, export the results in a `txt` file
+    export_data_to_txt(txt_data, f"small_features_error_{file_name}.txt")
