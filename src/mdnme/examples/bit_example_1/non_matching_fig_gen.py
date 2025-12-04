@@ -88,8 +88,8 @@ def export_transfer_grids(mdg, side: str, out_prefix: str = "tg") -> None:
     )
 
     # export PDFs (uses self.name+".pdf")
-    tg_ibg2msg.plot(base_cmap="tab10", alpha=0.95)
-    tg_frac2msg.plot(base_cmap="tab10", alpha=0.95)
+    tg_ibg2msg.plot(base_cmap="viridis", alpha=0.95)
+    tg_frac2msg.plot(base_cmap="viridis", alpha=0.95)
     print("Saved:", f"{tg_ibg2msg.name}.pdf", f"{tg_frac2msg.name}.pdf")
 
 
@@ -386,6 +386,8 @@ def make_figure_with_transfers(mdg: pp.MixedDimensionalGrid, side: str, outfile:
 if __name__ == "__main__":
     print(f"[coupling+transfers] Building non-matching mdg (h={H}, translation={TRANSLATION}, side={SIDE}) …")
     mdg = build_mdg(H, non_matching=True, translation=TRANSLATION)
+    exporter = pp.Exporter(mdg, "single_frac", "figs")
+    exporter.write_vtu()
     # after mdg = build_mdg(...)
     export_transfer_grids(mdg, side=SIDE, out_prefix="transfer")
     make_figure_with_transfers(mdg, side=SIDE, outfile=OUTFILE)
