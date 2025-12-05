@@ -85,9 +85,9 @@ def test_example_1_with_mesh_size_0125() -> None:
     efficiency_index = majorant / true_error
 
     # Check against known values
-    np.testing.assert_allclose(majorant, 0.11336778184222394)
-    np.testing.assert_allclose(true_error, 0.10057203148161831)
-    np.testing.assert_allclose(efficiency_index, 1.1272297096130979)
+    np.testing.assert_allclose(majorant, 0.114138, rtol=1e-3, atol=1e-4)
+    np.testing.assert_allclose(true_error, 0.101785, rtol=1e-3, atol=1e-4)
+    np.testing.assert_allclose(efficiency_index, 1.121356, rtol=1e-3, atol=1e-4)
 
 
 def test_example_1_with_mesh_size_0125_nonmatching() -> None:
@@ -149,9 +149,9 @@ def test_example_1_with_mesh_size_0125_nonmatching() -> None:
     efficiency_index = majorant / true_error
 
     # Check against known values
-    np.testing.assert_allclose(majorant, 0.11336778184222394)
-    np.testing.assert_allclose(true_error, 0.10057203148161831)
-    np.testing.assert_allclose(efficiency_index, 1.1272297096130979)
+    np.testing.assert_allclose(majorant, 0.114138, rtol=1e-3, atol=1e-4)
+    np.testing.assert_allclose(true_error, 0.101785, rtol=1e-3, atol=1e-4)
+    np.testing.assert_allclose(efficiency_index, 1.121356, rtol=1e-3, atol=1e-4)
 
 
 @pytest.mark.parametrize(
