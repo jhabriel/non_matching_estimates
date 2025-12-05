@@ -7,7 +7,7 @@ import pytest
 import mdnme
 
 from mdnme.utils.transfer_grid import TransferGrid
-from mdnme.utils.primal_projections import restrict_to_transfer
+from mdnme.utils.primal_projections import prolong_to_transfer
 
 
 @pytest.fixture(scope="module")
@@ -53,7 +53,7 @@ def test_constant_field(coarse_fracture, fine_fracture):
     # Synthetic constant field on the source grid (coarse grid)
     constant_field = np.zeros((coarse_fracture.num_cells, 3))
     constant_field[:, -1] = 1
-    transfer_p1 = restrict_to_transfer(transfer, constant_field)
+    transfer_p1 = prolong_to_transfer(transfer, constant_field)
     desired = np.zeros((transfer.transfer.num_cells, 3))
     desired[:, -1] = 1
     np.testing.assert_array_almost_equal(transfer_p1, desired, 10)
@@ -67,7 +67,7 @@ def test_local_linear_field(coarse_fracture, fine_fracture):
 
     # Synthetic constant field on the source grid (coarse grid)
     constant_field = np.tile([2, 3, 5], (coarse_fracture.num_cells, 1))
-    transfer_p1 = restrict_to_transfer(transfer, constant_field)
+    transfer_p1 = prolong_to_transfer(transfer, constant_field)
     desired = np.tile([2, 3, 5], (transfer.transfer.num_cells, 1))
     np.testing.assert_array_almost_equal(transfer_p1, desired, 10)
 
@@ -108,7 +108,7 @@ def test_global_linear_field_param(
         C_src[k,:] = np.linalg.solve(V.T, uvals)
 
     # 3) Restrict to transfer cells
-    C_tr = restrict_to_transfer(tg, C_src)
+    C_tr = prolong_to_transfer(tg, C_src)
 
     # 4) Evaluate at transfer‐cell centroids
     cc   = tg.transfer.cell_centers

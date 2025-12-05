@@ -17,7 +17,7 @@ from mdnme.estimates.diffusive_error import (
     _get_low_pressure,
 )
 from mdnme.utils.internal_boundary_grid import InternalBoundaryGrid
-from mdnme.utils.primal_projections import restrict_to_transfer, \
+from mdnme.utils.primal_projections import prolong_to_transfer, \
     scott_zhang_quasi_interpolant
 from mdnme.utils.transfer_grid import TransferGrid
 
@@ -252,11 +252,11 @@ class VarelaJNumTrueErrors3D(VarelaJNumExactSolution3D):
             tg_fg_msg = TransferGrid(g_source=sd_low, g_target=mg_side, tol=tol)
 
             # Internal boundary side grid to mortar side grid pressure projection
-            tracep_on_tg = restrict_to_transfer(tg_ibg_msg, tr_hi_on_ibg)
+            tracep_on_tg = prolong_to_transfer(tg_ibg_msg, tr_hi_on_ibg)
             tracep_on_msg = scott_zhang_quasi_interpolant(tg_ibg_msg, tracep_on_tg)
 
             # Fracture grid to mortar side grid pressure projection
-            fracp_on_tg = restrict_to_transfer(tg_fg_msg, p_low_frac)
+            fracp_on_tg = prolong_to_transfer(tg_fg_msg, p_low_frac)
             fracp_on_msg = scott_zhang_quasi_interpolant(tg_fg_msg, fracp_on_tg)
 
             # 3b) Map rotated -> physical (y,z): y,z = T_yz @ xi + b_yz

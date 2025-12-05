@@ -7,7 +7,7 @@ import mdnme
 from porepy.grids.refinement import GridSequenceFactory
 from mdnme.utils.transfer_grid import TransferGrid, coarse_fine_or_build
 from mdnme.utils.primal_projections import scott_zhang_quasi_interpolant
-from mdnme.utils.primal_projections import restrict_to_transfer
+from mdnme.utils.primal_projections import prolong_to_transfer
 from mdnme.utils.grid_utils import refine_grid
 from mdnme.utils.grid_rotation import assign_canonical_rotations
 
@@ -80,7 +80,7 @@ def grid_sequence():
 def sz_on_same_grid(grid: pp.Grid, p1_broken: np.ndarray) -> np.ndarray:
     """Make a broken P1 field H¹-conforming on the *same* grid via SZ."""
     tg = TransferGrid(grid, grid)                  # same mesh -> same frame
-    p_on_tg = restrict_to_transfer(tg, p1_broken)  # evaluate on transfer
+    p_on_tg = prolong_to_transfer(tg, p1_broken)  # evaluate on transfer
     return scott_zhang_quasi_interpolant(tg, p_on_tg)
 
 
@@ -102,7 +102,7 @@ def test_matching_equals_nonmatching_after_h1_conformity():
 
     # 5) non-matching pipeline, but with source==target (should act as identity on H¹)
     tg = TransferGrid(g, g)
-    p_on_tg = restrict_to_transfer(tg, p_h1)
+    p_on_tg = prolong_to_transfer(tg, p_h1)
     p_nonmatch = scott_zhang_quasi_interpolant(tg, p_on_tg)
 
     # 6) they must coincide (up to roundoff)
@@ -230,13 +230,13 @@ def test_nested_vs_geometric_SZ_projection():
 
     # geometric path
     tg_geo = TransferGrid(G0, G1, tol=1e-10)
-    C_tr_geo = restrict_to_transfer(tg_geo, C_src)
+    C_tr_geo = prolong_to_transfer(tg_geo, C_src)
     C_tgt_geo = scott_zhang_quasi_interpolant(tg_geo, C_tr_geo)
 
     # nested path
     M = coarse_fine_or_build(G0, G1, tol=1e-10)
     tg_fast = TransferGrid.from_nested(G0, G1, coarse_fine=M, tol=1e-10)
-    C_tr_fast = restrict_to_transfer(tg_fast, C_src)
+    C_tr_fast = prolong_to_transfer(tg_fast, C_src)
     C_tgt_fast = scott_zhang_quasi_interpolant(tg_fast, C_tr_fast)
 
     np.testing.assert_allclose(C_tgt_fast, C_tgt_geo, rtol=0, atol=1e-12)

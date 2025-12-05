@@ -4,7 +4,7 @@ import pytest
 
 from mdnme.utils.transfer_grid import TransferLine
 from mdnme.utils.primal_projections import (
-    restrict_to_transfer_1d,
+    prolong_to_transfer_1d,
     scott_zhang_quasi_interpolant_1d,
 )
 

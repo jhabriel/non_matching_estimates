@@ -30,7 +30,7 @@ from mdnme.utils.transfer_grid import(
     coarse_fine_or_build,
 )
 from mdnme.utils.primal_projections import (
-    restrict_to_transfer,
+    prolong_to_transfer,
     scott_zhang_quasi_interpolant,
     project_p1_1d_sz,
 )
@@ -991,11 +991,11 @@ def _interface_diffusive_error_2d_nonmatching(
         )
 
         # Internal boundary side grid to mortar side grid pressure projection
-        tracep_on_tg = restrict_to_transfer(tg_ibg_msg, tr_hi_on_ibg)
+        tracep_on_tg = prolong_to_transfer(tg_ibg_msg, tr_hi_on_ibg)
         tracep_on_msg = scott_zhang_quasi_interpolant(tg_ibg_msg, tracep_on_tg)
 
         # Fracture grid to mortar side grid pressure projection
-        fracp_on_tg = restrict_to_transfer(tg_fg_msg, p_low_frac)
+        fracp_on_tg = prolong_to_transfer(tg_fg_msg, p_low_frac)
         fracp_on_msg = scott_zhang_quasi_interpolant(tg_fg_msg, fracp_on_tg)
 
         # (3) side scalars on mortar side grid

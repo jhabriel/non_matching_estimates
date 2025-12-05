@@ -4,7 +4,7 @@ import pytest
 
 from mdnme.utils.transfer_grid import TransferLine
 from mdnme.utils.primal_projections import (
-    restrict_to_transfer_1d,
+    prolong_to_transfer_1d,
     scott_zhang_quasi_interpolant_1d,
     project_p1_1d,
 )
@@ -29,7 +29,7 @@ def g_tgt():
 def test_constant_exact(g_src, g_tgt):
     tl = TransferLine(g_src, g_tgt)
     C_src = np.zeros((g_src.num_cells, 2)); C_src[:, 1] = 3.14  # u(s)=3.14
-    C_tr  = restrict_to_transfer_1d(tl, C_src)
+    C_tr  = prolong_to_transfer_1d(tl, C_src)
     # evaluate on transfer midpoints
     x = tl.transfer.nodes[0, :]
     mids = 0.5 * (x[:-1] + x[1:])
@@ -59,7 +59,7 @@ def test_sz_stability_random(g_src, g_tgt):
     rng = np.random.default_rng(123)
     C_src = rng.standard_normal((g_src.num_cells, 2))
     tl = TransferLine(g_src, g_tgt)
-    C_tr = restrict_to_transfer_1d(tl, C_src)
+    C_tr = prolong_to_transfer_1d(tl, C_src)
     C_tgt = scott_zhang_quasi_interpolant_1d(tl, C_tr)
     assert C_tgt.shape == (g_tgt.num_cells, 2)
     assert np.isfinite(C_tgt).all()
