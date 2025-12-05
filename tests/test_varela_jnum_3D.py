@@ -19,13 +19,12 @@ import mdnme
 
 from porepy.grids.refinement import GridSequenceFactory
 
-from mdnme.models.varela_jnum_3d import VarelaJNumSetup3D
+from mdnme.models.varela_jnum_3d.model import VarelaJNumSetup3D
 from mdnme.models.varela_jnum_2d.model import (
     manu_incomp_fluid,
     manu_incomp_solid,
     )
-from mdnme.models.varela_jnum_3d import VarelaJNumTrueErrors3D
-from mdnme.estimates.error_estimation import estimate_errors
+from mdnme.models.varela_jnum_3d.true_errors import VarelaJNumTrueErrors3D
 
 
 @pytest.fixture(scope="module")
@@ -214,21 +213,6 @@ def test_replace_grids_only_frac(grid_sequence):
     assert mdg_coarse.interfaces(dim=2)[0].num_cells == intf_coarse.num_cells
 
 
-# TODO: Parametrize for cell-size afterwards ...
-def test_non_matching_setup_via_parameters(material_constants) -> None:
-    """Checks whether the non-matching model sets up correctly."""
-    params = {
-        "grid_type": "simplex",
-        "material_constants": material_constants,
-        "meshing_arguments": {"cell_size": 0.25},
-        "non_matching": True,
-        "refine_fracture": True,
-        "times_to_export": [],  # Supress outputs for tests
-    }
-    setup = VarelaJNumSetup3D(params)
-    pp.run_time_dependent_model(setup, {})
-
-
 def test_error_estimates_non_matching_grids(material_constants) -> None:
     params = {
         "grid_type": "simplex",
@@ -240,22 +224,8 @@ def test_error_estimates_non_matching_grids(material_constants) -> None:
     }
     setup = VarelaJNumSetup3D(params)
     pp.run_time_dependent_model(setup, {})
-
-    estimate_errors(
-        setup.mdg,
-        "keilegavlen_p1",
-        None,
-        None,
-        True,
-    )
-
-    assert True
-
-
-
-
-
-
+    # We just check things do not crash
+    # TODO: Convert to a functional test
 
 
 

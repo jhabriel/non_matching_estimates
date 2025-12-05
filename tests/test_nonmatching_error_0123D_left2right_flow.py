@@ -2,9 +2,8 @@ import pytest
 
 import porepy as pp
 import numpy as np
-import mdnme
 
-from typing import Callable, Literal
+from typing import Callable
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
 
 from mdnme.estimates.helpers import ErrorEstimatesSaveData
@@ -12,7 +11,6 @@ from mdnme.estimates.error_estimation import (
     estimate_errors,
     compute_error_indicators,
     transfer_errors_iterate_solutions,
-    compute_sd_and_intf_errors_of_equal_dim,
 )
 
 

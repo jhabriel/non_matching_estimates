@@ -1,12 +1,11 @@
+"""Module for testing convergence of Scott-Zhang quasi-interpolator on 1d grids."""
+
 import numpy as np
 import porepy as pp
 import pytest
 
 from mdnme.utils.transfer_grid import TransferLine
-from mdnme.utils.primal_projections import (
-    prolong_to_transfer_1d,
-    scott_zhang_quasi_interpolant_1d,
-)
+from mdnme.utils.primal_projections import scott_zhang_quasi_interpolant_1d
 
 def make_1d(level):
     n = 8 * 2**level  # refine by doubling

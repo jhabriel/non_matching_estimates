@@ -1,4 +1,5 @@
-# tests/test_sz_quadratic_convergence.py
+"""Module for testing convergence of Scott-Zhang quasi-interpolator on 2d grids."""
+
 import numpy as np
 import porepy as pp
 import pytest
@@ -9,7 +10,6 @@ from mdnme.utils.transfer_grid import TransferGrid, coarse_fine_or_build
 from mdnme.utils.primal_projections import scott_zhang_quasi_interpolant
 from mdnme.utils.primal_projections import prolong_to_transfer
 from mdnme.utils.grid_utils import refine_grid
-from mdnme.utils.grid_rotation import assign_canonical_rotations
 
 
 # ---------- helpers ----------
