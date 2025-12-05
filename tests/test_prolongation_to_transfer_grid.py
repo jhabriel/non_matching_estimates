@@ -1,4 +1,4 @@
-"""Module for testing the restriction of scalar fields from a source grid onto the
+"""Module for testing the prolongation of scalar fields from a source grid onto the
 transfer grid."""
 
 import numpy as np
@@ -7,7 +7,7 @@ import pytest
 import mdnme
 
 from mdnme.utils.transfer_grid import TransferGrid
-from mdnme.utils.primal_projections import restrict_to_transfer, scott_zhang_quasi_interpolant
+from mdnme.utils.primal_projections import restrict_to_transfer
 
 
 @pytest.fixture(scope="module")
