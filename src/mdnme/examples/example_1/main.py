@@ -47,10 +47,10 @@ class Metrics:
     eta_right_intf: float
     # global majorant and true errors
     majorant: float
-    true_p: float     # || p - s_h ||
-    true_u: float     # || u - sigma_h ||
-    eff_p: float      # M^oplus / true_p
-    eff_u: float      # M^oplus / true_u
+    true_p: float  # || p - s_h ||
+    true_u: float  # || u - sigma_h ||
+    eff_p: float  # M^oplus / true_p
+    eff_u: float  # M^oplus / true_u
 
     def as_list(self) -> List[float]:
         return [
@@ -71,13 +71,16 @@ class Metrics:
 # Helpers
 # -----------------------------
 
+
 def _material_constants() -> Dict[str, pp.PhysicalConstants]:
     solid_constants = pp.SolidConstants(**manu_incomp_solid)
     fluid_constants = pp.FluidComponent(**manu_incomp_fluid)
     return {"solid": solid_constants, "fluid": fluid_constants}
 
 
-def _split_interface_lr(diff_intf: np.ndarray, n_cells: int) -> Tuple[np.ndarray, np.ndarray]:
+def _split_interface_lr(
+    diff_intf: np.ndarray, n_cells: int
+) -> Tuple[np.ndarray, np.ndarray]:
     """Split interface diffusive error array into left/right halves."""
     half = n_cells // 2
     right = diff_intf[:half]
@@ -85,7 +88,9 @@ def _split_interface_lr(diff_intf: np.ndarray, n_cells: int) -> Tuple[np.ndarray
     return left, right
 
 
-def _run_single(h: float, *, non_matching: bool, translation: Tuple[int, int, int] | None) -> Metrics:
+def _run_single(
+    h: float, *, non_matching: bool, translation: Tuple[int, int, int] | None
+) -> Metrics:
     """Run one configuration and compute scalar metrics.
 
     Parameters
@@ -107,7 +112,9 @@ def _run_single(h: float, *, non_matching: bool, translation: Tuple[int, int, in
     }
 
     if non_matching:
-        assert translation is not None, "translation must be provided in non-matching runs"
+        assert (
+            translation is not None
+        ), "translation must be provided in non-matching runs"
         params = dict(
             common_params,
             non_matching=True,
@@ -129,14 +136,14 @@ def _run_single(h: float, *, non_matching: bool, translation: Tuple[int, int, in
     mdg = setup.mdg
 
     # Extract data: subdomains and interfaces
-    (sd_mat, d_mat), = mdg.subdomains(dim=3, return_data=True)
-    (sd_frac, d_frac), = mdg.subdomains(dim=2, return_data=True)
-    (intf, d_intf), = mdg.interfaces(dim=2, return_data=True)
+    ((sd_mat, d_mat),) = mdg.subdomains(dim=3, return_data=True)
+    ((sd_frac, d_frac),) = mdg.subdomains(dim=2, return_data=True)
+    ((intf, d_intf),) = mdg.interfaces(dim=2, return_data=True)
 
     # Diffusive errors (arrays per cell)
-    diff_sd_mat = np.asarray(d_mat["estimates"]["diffusive_error"])   # (n_matrix_cells,)
-    diff_sd_frac = np.asarray(d_frac["estimates"]["diffusive_error"]) # (n_frac_cells,)
-    diff_intf = np.asarray(d_intf["estimates"]["diffusive_error"])    # (n_mortar_cells,)
+    diff_sd_mat = np.asarray(d_mat["estimates"]["diffusive_error"])  # (n_matrix_cells,)
+    diff_sd_frac = np.asarray(d_frac["estimates"]["diffusive_error"])  # (n_frac_cells,)
+    diff_intf = np.asarray(d_intf["estimates"]["diffusive_error"])  # (n_mortar_cells,)
 
     # Interface split into left / right halves
     diff_intf_left, diff_intf_right = _split_interface_lr(diff_intf, intf.num_cells)
@@ -242,7 +249,9 @@ def build_latex_table_majorant(rows: List[Tuple[str, List[str], List[str]]]) -> 
     body_lines = []
     n = len(rows)
     for i, (h_str, cols_match, cols_nm) in enumerate(rows):
-        body_lines.append(f"\\multirow{{2}}{{*}}{{{h_str}}} & " + " & ".join(cols_match) + " \\\\")
+        body_lines.append(
+            f"\\multirow{{2}}{{*}}{{{h_str}}} & " + " & ".join(cols_match) + " \\\\"
+        )
         # non-matching line under it
         body_lines.append(" & " + " & ".join(cols_nm) + " \\\\")
         # midrule between blocks, but not after last
@@ -268,7 +277,9 @@ def build_latex_table_local(rows: List[Tuple[str, List[str], List[str]]]) -> str
     body_lines = []
     n = len(rows)
     for i, (h_str, cols_match, cols_nm) in enumerate(rows):
-        body_lines.append(f"\\multirow{{2}}{{*}}{{{h_str}}} & " + " & ".join(cols_match) + " \\\\")
+        body_lines.append(
+            f"\\multirow{{2}}{{*}}{{{h_str}}} & " + " & ".join(cols_match) + " \\\\"
+        )
         body_lines.append(" & " + " & ".join(cols_nm) + " \\\\")
         if i != n - 1:
             body_lines.append("\\midrule")
@@ -311,19 +322,21 @@ def main() -> None:
         ]
 
         # CSV record for matching
-        csv_records.append({
-            "h": h,
-            "case": 0,  # 0=matching, 1=nonmatching
-            "eta_matrix": m_match.eta_matrix,
-            "eta_frac": m_match.eta_frac,
-            "eta_left_intf": m_match.eta_left_intf,
-            "eta_right_intf": m_match.eta_right_intf,
-            "majorant": m_match.majorant,
-            "true_p": m_match.true_p,
-            "true_u": m_match.true_u,
-            "eff_p": m_match.eff_p,
-            "eff_u": m_match.eff_u,
-        })
+        csv_records.append(
+            {
+                "h": h,
+                "case": 0,  # 0=matching, 1=nonmatching
+                "eta_matrix": m_match.eta_matrix,
+                "eta_frac": m_match.eta_frac,
+                "eta_left_intf": m_match.eta_left_intf,
+                "eta_right_intf": m_match.eta_right_intf,
+                "majorant": m_match.majorant,
+                "true_p": m_match.true_p,
+                "true_u": m_match.true_u,
+                "eff_p": m_match.eff_p,
+                "eff_u": m_match.eff_u,
+            }
+        )
 
         # Non-matching batch
         print(f"=== h = {h:.4f} | Non-matching (8 translations) ===")
@@ -333,20 +346,24 @@ def main() -> None:
             m_nm = _run_single(h, non_matching=True, translation=tr)
             ms.append(m_nm)
             # CSV record for each realization
-            csv_records.append({
-                "h": h,
-                "case": 1,  # 0=matching, 1=nonmatching
-                "tr_x": tr[0], "tr_y": tr[1], "tr_z": tr[2],
-                "eta_matrix": m_nm.eta_matrix,
-                "eta_frac": m_nm.eta_frac,
-                "eta_left_intf": m_nm.eta_left_intf,
-                "eta_right_intf": m_nm.eta_right_intf,
-                "majorant": m_nm.majorant,
-                "true_p": m_nm.true_p,
-                "true_u": m_nm.true_u,
-                "eff_p": m_nm.eff_p,
-                "eff_u": m_nm.eff_u,
-            })
+            csv_records.append(
+                {
+                    "h": h,
+                    "case": 1,  # 0=matching, 1=nonmatching
+                    "tr_x": tr[0],
+                    "tr_y": tr[1],
+                    "tr_z": tr[2],
+                    "eta_matrix": m_nm.eta_matrix,
+                    "eta_frac": m_nm.eta_frac,
+                    "eta_left_intf": m_nm.eta_left_intf,
+                    "eta_right_intf": m_nm.eta_right_intf,
+                    "majorant": m_nm.majorant,
+                    "true_p": m_nm.true_p,
+                    "true_u": m_nm.true_u,
+                    "eff_p": m_nm.eff_p,
+                    "eff_u": m_nm.eff_u,
+                }
+            )
 
         agg = _aggregate(ms)
 
@@ -375,15 +392,20 @@ def main() -> None:
     if export_to_latex:
         tex_majorant = build_latex_table_majorant(rows_majorant)
         TABLE_TEX_MAJORANT.write_text(tex_majorant)
-        print(f"\nLaTeX table (majorant/true/eff) written to: {TABLE_TEX_MAJORANT.resolve()}")
+        print(
+            f"\nLaTeX table (majorant/true/eff) written to: {TABLE_TEX_MAJORANT.resolve()}"
+        )
 
         tex_local = build_latex_table_local(rows_local)
         TABLE_TEX_LOCAL.write_text(tex_local)
-        print(f"LaTeX table (local components) written to: {TABLE_TEX_LOCAL.resolve()}\n")
+        print(
+            f"LaTeX table (local components) written to: {TABLE_TEX_LOCAL.resolve()}\n"
+        )
 
     # Optional CSV export of raw numbers
     try:
         import pandas as pd
+
         df = pd.DataFrame.from_records(csv_records)
         df.to_csv(CSV_RAW, index=False)
         print(f"Raw results written to: {CSV_RAW.resolve()}")

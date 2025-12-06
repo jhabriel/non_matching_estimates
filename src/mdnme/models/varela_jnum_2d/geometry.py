@@ -10,7 +10,6 @@ Reference:
 
 """
 
-
 from typing import Callable, Literal
 
 import numpy as np
@@ -69,19 +68,16 @@ class VarelaJNumGeometry2D:
         self.set_fractures()
 
         # Create a fracture network.
-        self.fracture_network = pp.create_fracture_network(
-            self.fractures,
-            self.domain
-        )
+        self.fracture_network = pp.create_fracture_network(self.fractures, self.domain)
 
         # Generate the mixed-dimensional grid
 
         # If `non_matching_cell_sizes` is not given, then the mdg is matching, and
         # we create it in the usual way
         if (
-                self.params.get("non_matching_cell_sizes") is None and
-                self.params.get("full_non_matching_cell_sizes") is None
-            ):
+            self.params.get("non_matching_cell_sizes") is None
+            and self.params.get("full_non_matching_cell_sizes") is None
+        ):
 
             mdg_final = pp.create_mdg(
                 self.grid_type(),
@@ -168,7 +164,7 @@ class VarelaJNumGeometry2D:
 
             # Get left interface side grid
             left_intf = mdgs[1].interfaces()[0]
-            left_mortar_side =  left_intf.sides[0]
+            left_mortar_side = left_intf.sides[0]
             left_side_grid = left_intf.side_grids[left_mortar_side]
 
             # Get fracture grid
@@ -184,13 +180,12 @@ class VarelaJNumGeometry2D:
             mdg_final = mdgs[0]
             mdg_final.replace_subdomains_and_interfaces(
                 sd_map={mdg_final.subdomains()[1]: frac_grid},
-                interface_map={mdg_final.interfaces()[0]:
-                              {
-                                  left_mortar_side: left_side_grid,
-                                  right_mortar_side: right_side_grid,
-                              }
-                         }
-                ,
+                interface_map={
+                    mdg_final.interfaces()[0]: {
+                        left_mortar_side: left_side_grid,
+                        right_mortar_side: right_side_grid,
+                    }
+                },
             )
 
             # Make sure the geometry of the replaced boundary grids are computed.

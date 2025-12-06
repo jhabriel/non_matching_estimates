@@ -35,10 +35,13 @@ class NoFluxBoundaryConditions(pp.PorePyModel):
         vals[south] = 0
         return vals
 
+
 class ModifiedBalanceEquation(pp.fluid_mass_balance.FluidMassBalanceEquations):
     """Modify balance equation to account for external sources."""
 
-    def _matches_surface(self, sd: pp.Grid, vertices: np.ndarray, tol: float = 1e-6) -> bool:
+    def _matches_surface(
+        self, sd: pp.Grid, vertices: np.ndarray, tol: float = 1e-6
+    ) -> bool:
         """Check if the 2D grid sd has all given vertices among its nodes (up to tol)."""
         assert sd.dim == 2
 
@@ -56,19 +59,18 @@ class ModifiedBalanceEquation(pp.fluid_mass_balance.FluidMassBalanceEquations):
     def _injector_idx(self, sd: pp.Grid):
         assert sd.dim == 2
 
-        injector_vertices = np.array([
-            [0.05, 1.0, 0.5],
-            [0.95, 1.0, 0.5],
-            [0.95, 2.2, 0.85],
-            [0.05, 2.2, 0.85],
-        ])
+        injector_vertices = np.array(
+            [
+                [0.05, 1.0, 0.5],
+                [0.95, 1.0, 0.5],
+                [0.95, 2.2, 0.85],
+                [0.05, 2.2, 0.85],
+            ]
+        )
 
         if self._matches_surface(sd, injector_vertices, tol=1e-6):
             cc_centroid = injector_vertices.mean(axis=0)  # [0.5, 1.60, 0.675]
-            cell_idx, distances = sd.closest_cell(
-                cc_centroid.reshape(3, 1),
-                True
-            )
+            cell_idx, distances = sd.closest_cell(cc_centroid.reshape(3, 1), True)
             cell_idx_unique = cell_idx[np.argmin(cell_idx)]
             sd_id = sd.id
         else:
@@ -80,20 +82,19 @@ class ModifiedBalanceEquation(pp.fluid_mass_balance.FluidMassBalanceEquations):
     def _productor_idx(self, sd: pp.Grid):
         assert sd.dim == 2
 
-        productor_vertices = np.array([
-            [0.05, 0.25, 0.5],
-            [0.95, 0.25, 0.5],
-            [0.95, 2.0, 0.5],
-            [0.05, 2.0, 0.5],
-        ])
+        productor_vertices = np.array(
+            [
+                [0.05, 0.25, 0.5],
+                [0.95, 0.25, 0.5],
+                [0.95, 2.0, 0.5],
+                [0.05, 2.0, 0.5],
+            ]
+        )
 
         if self._matches_surface(sd, productor_vertices, tol=1e-6):
             cc_centroid = productor_vertices.mean(axis=0)  # [0.5, 1.125, 0.5]
             target_location = np.array([0.50, 0.625, 0.50])
-            cell_idx, distances = sd.closest_cell(
-                target_location.reshape(3, 1),
-                True
-            )
+            cell_idx, distances = sd.closest_cell(target_location.reshape(3, 1), True)
             cell_idx_unique = cell_idx[np.argmin(cell_idx)]
             sd_id = sd.id
         else:

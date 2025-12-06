@@ -61,9 +61,7 @@ def run_constant_test(
     data_high["estimates"]["recon_sd_pressure"] = set_constant_p1_on_grid(
         sd_high, c_high
     )
-    data_low["estimates"]["recon_sd_pressure"] = set_constant_p1_on_grid(
-        sd_low, c_low
-    )
+    data_low["estimates"]["recon_sd_pressure"] = set_constant_p1_on_grid(sd_low, c_low)
 
     # effective k on mortar (as vector)
     eff_perm = data_intf[pp.PARAMETERS]["flow"]["effective_permeability"]
@@ -134,17 +132,14 @@ def _base_params(
         (False, False, "zero", 1.23, 1.23),
         (False, False, "cancel", 0.50, 1.10),
         (False, False, "jump_only", 0.00, 2.00),
-
         # non-matching cases (e.g. refined mortar)
         (True, False, "zero", 1.00, 1.00),
         (True, False, "cancel", 0.50, 1.25),
         (True, False, "jump_only", 0.00, 3.00),
-
         # non-matching cases (e.g. refined fracture)
         (False, True, "zero", 1.00, 1.00),
         (False, True, "cancel", 0.50, 1.25),
         (False, True, "jump_only", 0.00, 3.00),
-
         # non-matching cases (refined mortar and fracture)
         (True, True, "zero", 1.00, 1.00),
         (True, True, "cancel", 0.50, 1.25),

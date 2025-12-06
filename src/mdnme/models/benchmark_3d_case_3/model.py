@@ -1,6 +1,7 @@
 """
 This module contains the model for the Example 3 of the manuscript.
 """
+
 import sys
 from typing import Callable
 

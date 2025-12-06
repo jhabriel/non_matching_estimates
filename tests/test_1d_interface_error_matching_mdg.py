@@ -12,6 +12,7 @@ from mdnme.utils.grid_rotation import build_canonical_frames, rotate_grid
 #  Fixtures and helpers
 # --------------------------------------------------------------------------- #
 
+
 @pytest.fixture(scope="module")
 def mdg_crossing():
     """3D mdg with two intersecting planes, simplex grids."""
@@ -107,8 +108,8 @@ def _assign_reconstructed_pressure(mdg, field_type):
                 nodes_k = cn.indices[i0:i1]
                 assert nodes_k.size == 3, "Simplex 2D grid expected."
 
-                xloc = x_loc[:, nodes_k]   # (2, 3)
-                z = x_phys[2, nodes_k]     # z-coordinates
+                xloc = x_loc[:, nodes_k]  # (2, 3)
+                z = x_phys[2, nodes_k]  # z-coordinates
                 vals = _global_pressure(z, field_type)
 
                 # Solve [x y 1] [a_x, a_y, c]^T = vals
@@ -213,8 +214,8 @@ def random_smooth_p1_on_grid(sd: pp.Grid, rng: np.random.Generator) -> np.ndarra
         if dim == 2:
             # Simplex grid: 3 nodes per cell
             assert nodes_c.size == 3, "Expected 2D simplex grid."
-            xloc = x_loc[:, nodes_c]         # (2,3)
-            vals = node_vals[nodes_c]        # (3,)
+            xloc = x_loc[:, nodes_c]  # (2,3)
+            vals = node_vals[nodes_c]  # (3,)
 
             # Solve [x y 1] [a_x, a_y, c]^T = vals
             V = np.vstack((xloc, np.ones(3)))  # (3,3)
@@ -237,10 +238,9 @@ def random_smooth_p1_on_grid(sd: pp.Grid, rng: np.random.Generator) -> np.ndarra
     return coeffs
 
 
-def set_constant_k_and_lambda(intf: pp.MortarGrid,
-                              data_intf: dict,
-                              k0: float = 1.0,
-                              lambda0: float = 0.0) -> None:
+def set_constant_k_and_lambda(
+    intf: pp.MortarGrid, data_intf: dict, k0: float = 1.0, lambda0: float = 0.0
+) -> None:
     """Constant permeability and constant normal velocity on the interface."""
     n = intf.num_cells
 
@@ -248,9 +248,7 @@ def set_constant_k_and_lambda(intf: pp.MortarGrid,
     data_intf[pp.PARAMETERS].setdefault("flow", {})
 
     # Constant k
-    data_intf[pp.PARAMETERS]["flow"]["effective_permeability"] = (
-        k0 * np.ones((n, 1))
-    )
+    data_intf[pp.PARAMETERS]["flow"]["effective_permeability"] = k0 * np.ones((n, 1))
 
     # Constant lambda -> mortar flux = lambda * volume
     data_intf.setdefault("estimates", {})
@@ -259,9 +257,9 @@ def set_constant_k_and_lambda(intf: pp.MortarGrid,
     data_intf["estimates"]["fv_intf_flux"] = fv_intf_flux
 
 
-def set_random_k_and_lambda(intf: pp.MortarGrid,
-                            data_intf: dict,
-                            rng: np.random.Generator) -> None:
+def set_random_k_and_lambda(
+    intf: pp.MortarGrid, data_intf: dict, rng: np.random.Generator
+) -> None:
     """Assign random positive permeabilities and random normal velocities."""
     n = intf.num_cells
 
@@ -283,6 +281,7 @@ def set_random_k_and_lambda(intf: pp.MortarGrid,
 # --------------------------------------------------------------------------- #
 #  Tests
 # --------------------------------------------------------------------------- #
+
 
 @pytest.mark.parametrize("field_type", ["constant", "linear", "parabolic"])
 def test_nonmatching_1d_error_zero_on_matching_grids(mdg_crossing, field_type):

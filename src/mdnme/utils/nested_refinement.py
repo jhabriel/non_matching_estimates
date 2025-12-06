@@ -109,7 +109,7 @@ class GeoNestedRefinementFactory:
 
             # nested refinements: refine the *current* gmsh model in place
             for k in range(1, self.num_refinements + 1):
-                gmsh.model.mesh.refine()      # global uniform refinement
+                gmsh.model.mesh.refine()  # global uniform refinement
                 self._counter = k
                 yield self._write_and_import()
         finally:

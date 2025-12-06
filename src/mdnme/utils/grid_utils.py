@@ -14,11 +14,11 @@ def is_ccw(coords):
 def point_in_triangle(pt, tri):
     (x, y), (x1, y1), (x2, y2) = pt, tri[0], tri[1]
     (x3, y3) = tri[2]
-    denom = ((y2 - y3)*(x1 - x3) + (x3 - x2)*(y1 - y3))
+    denom = (y2 - y3) * (x1 - x3) + (x3 - x2) * (y1 - y3)
     if denom == 0:
         return False
-    a = ((y2 - y3)*(x - x3) + (x3 - x2)*(y - y3)) / denom
-    b = ((y3 - y1)*(x - x3) + (x1 - x3)*(y - y3)) / denom
+    a = ((y2 - y3) * (x - x3) + (x3 - x2) * (y - y3)) / denom
+    b = ((y3 - y1) * (x - x3) + (x1 - x3) * (y - y3)) / denom
     c = 1 - a - b
     return (0 < a < 1) and (0 < b < 1) and (0 < c < 1)
 
@@ -35,11 +35,13 @@ def merge_close_vertices(verts, cells, tol=1e-8):
     if arr.size == 0:
         raise ValueError(
             "merge_close_vertices: received empty vertex list"
-            " (no intersection triangles).")
+            " (no intersection triangles)."
+        )
     if arr.ndim != 2 or arr.shape[1] != 2:
         raise ValueError(
             f"merge_close_vertices: expected verts to be (N,2),"
-            f" got array shape {arr.shape}.")
+            f" got array shape {arr.shape}."
+        )
 
     tree = cKDTree(arr)
     groups = tree.query_ball_tree(tree, r=tol)
@@ -70,7 +72,7 @@ def merge_close_vertices(verts, cells, tol=1e-8):
 def merge_close_vertices_3d(verts3d, cells, tol=1e-8):
     arr = np.array(verts3d)  # (N,3)
     if arr.size == 0:
-        return np.zeros((3,0)), []
+        return np.zeros((3, 0)), []
     tree = cKDTree(arr)
     groups = tree.query_ball_tree(tree, r=tol)
     rep = {i: min(neigh) for i, neigh in enumerate(groups)}
@@ -80,7 +82,6 @@ def merge_close_vertices_3d(verts3d, cells, tol=1e-8):
     new_verts = arr[uniq, :].T  # (3, Nnew)
     new_cells = [[old_to_new[i] for i in tri] for tri in cells]
     return new_verts, new_cells
-
 
 
 def ear_clip_triangulate(coords, tol=1e-12):
@@ -98,15 +99,19 @@ def ear_clip_triangulate(coords, tol=1e-12):
             prev = verts[(i - 1) % n]
             curr = verts[i]
             nxt = verts[(i + 1) % n]
-            ax, ay = prev; bx, by = curr; cx, cy = nxt
+            ax, ay = prev
+            bx, by = curr
+            cx, cy = nxt
             # convexity test
-            if (bx - ax)*(cy - ay) - (by - ay)*(cx - ax) <= 0:
+            if (bx - ax) * (cy - ay) - (by - ay) * (cx - ax) <= 0:
                 continue
             tri = [prev, curr, nxt]
             # no other point inside
-            if any(point_in_triangle(p, tri)
-                   for j, p in enumerate(verts)
-                   if j not in {(i - 1) % n, i, (i + 1) % n}):
+            if any(
+                point_in_triangle(p, tri)
+                for j, p in enumerate(verts)
+                if j not in {(i - 1) % n, i, (i + 1) % n}
+            ):
                 continue
             # clip ear
             tris.append(tri)
@@ -120,9 +125,7 @@ def ear_clip_triangulate(coords, tol=1e-12):
     # filter tiny
     filtered = []
     for t in tris:
-        area = 0.5 * abs(
-            np.cross(np.subtract(t[1], t[0]), np.subtract(t[2], t[0]))
-        )
+        area = 0.5 * abs(np.cross(np.subtract(t[1], t[0]), np.subtract(t[2], t[0])))
         if area > tol:
             filtered.append(t)
     return filtered
@@ -135,7 +138,7 @@ def ensure_ccw(cells, coords_arr):
         p0 = coords_arr[:, i0]
         p1 = coords_arr[:, i1]
         p2 = coords_arr[:, i2]
-        cross = (p1[0] - p0[0])*(p2[1] - p0[1]) - (p1[1] - p0[1])*(p2[0] - p0[0])
+        cross = (p1[0] - p0[0]) * (p2[1] - p0[1]) - (p1[1] - p0[1]) * (p2[0] - p0[0])
         if cross < 0:
             new_cells.append([i0, i2, i1])
         else:
@@ -175,8 +178,10 @@ def refine_grid(g: pp.TriangleGrid) -> tuple[pp.TriangleGrid, np.ndarray]:
             # find first place where diff is zero
             row_hits = np.where(diffs[:, cell] == 0)[0]
             if len(row_hits) == 0:
-                msg = (f"Could not find duplicated vertex for cell {cell} during"
-                       f" refinement.")
+                msg = (
+                    f"Could not find duplicated vertex for cell {cell} during"
+                    f" refinement."
+                )
                 raise RuntimeError(msg)
             row = row_hits[0]
             dup_node[cell] = loc_n[row, cell]
@@ -209,5 +214,3 @@ def refine_grid(g: pp.TriangleGrid) -> tuple[pp.TriangleGrid, np.ndarray]:
     new_grid.history = history
 
     return new_grid, parent
-
-

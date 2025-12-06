@@ -14,6 +14,7 @@ from mdnme.utils.nested_refinement import GeoNestedRefinementFactory
 
 # ---------- small helpers ----------
 
+
 def _stem_for_refinement_level(refinement_level: Literal[0, 1, 2, 3]) -> str:
     """Map refinement_level -> base stem used in both .geo and .msh names."""
     if refinement_level == 0:
@@ -26,15 +27,14 @@ def _stem_for_refinement_level(refinement_level: Literal[0, 1, 2, 3]) -> str:
 
 
 def _paths_for_level(
-        refinement_level: Literal[0, 1, 2],
-        folder: str = "md_grids"
-    ) -> Tuple[Path, Path, Path, str]:
+    refinement_level: Literal[0, 1, 2], folder: str = "md_grids"
+) -> Tuple[Path, Path, Path, str]:
     """
-        Returns (geo_path, msh_path, csv_path, out_stem)
-            geo_path: <stem>.geo (expected at project root or folder root; see below)
-            msh_path: <folder>/<stem>_nonmatch.msh
-            csv_path: <folder>/fracture_network.csv
-            out_stem: <folder>/<stem> (used by factory; it writes <out_stem>_<k>.msh)
+    Returns (geo_path, msh_path, csv_path, out_stem)
+        geo_path: <stem>.geo (expected at project root or folder root; see below)
+        msh_path: <folder>/<stem>_nonmatch.msh
+        csv_path: <folder>/fracture_network.csv
+        out_stem: <folder>/<stem> (used by factory; it writes <out_stem>_<k>.msh)
     """
     stem = _stem_for_refinement_level(refinement_level)
     folder_path = Path(folder)
@@ -76,6 +76,7 @@ def create_mdg_from_msh_file(refinement_level: Literal[0, 1, 2]):
 
 # ---------- main geometry mixin ----------
 
+
 class GeometryNonMatching(pp.PorePyModel):
     """Define Geometry as specified in Section 5.2 of the benchmark study [1]."""
 
@@ -89,7 +90,7 @@ class GeometryNonMatching(pp.PorePyModel):
 
             geo_path, msh_path, csv_path, out_stem = _paths_for_level(ref_lvl)
 
-            print('Generating nonmatching grid...')
+            print("Generating nonmatching grid...")
             # We need to generate the non-matching grid once via factory:
             #  - start from the .geo corresponding to ref_lvl
             #  - globally refine once (nested)
@@ -126,8 +127,7 @@ class GeometryNonMatching(pp.PorePyModel):
             # Get hold of 2d subdomain mappings
             sd_map = {}
             for sd_co, sd_fi in zip(
-                    mdg_coarse.subdomains(dim=2),
-                    mdg_fine.subdomains(dim=2)
+                mdg_coarse.subdomains(dim=2), mdg_fine.subdomains(dim=2)
             ):
                 sd_map[sd_co] = sd_fi
 
@@ -142,8 +142,9 @@ class GeometryNonMatching(pp.PorePyModel):
                 _, fn_ref = benchmark_3d_case_2(refinement_level=ref_lvl)
                 # Safe-guard: fn_ref is a FractureNetwork3d
                 if not isinstance(fn_ref, FractureNetwork3d):
-                    raise TypeError("benchmark_3d_case_3 did not return"
-                                    " a 3D fracture network.")
+                    raise TypeError(
+                        "benchmark_3d_case_3 did not return" " a 3D fracture network."
+                    )
                 pp.fracture_importer.to_csv(fn_ref, str(csv_path))
 
             # adopt the in-memory mdg/net
@@ -152,7 +153,7 @@ class GeometryNonMatching(pp.PorePyModel):
                 str(csv_path), dim=3
             )
 
-            print('Done generating nonmatching grid.')
+            print("Done generating nonmatching grid.")
 
         else:
             # Matching path: create the standard benchmark grid+network

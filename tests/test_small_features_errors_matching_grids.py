@@ -1,6 +1,7 @@
 """
 This module contains functional tests on the solution and errors for the third example.
 """
+
 from __future__ import annotations
 
 import numpy as np

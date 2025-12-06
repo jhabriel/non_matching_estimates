@@ -9,6 +9,7 @@ from mdnme.utils.grid_rotation import build_canonical_frames, rotate_grid
 #  Manufactured pressure and helpers
 # --------------------------------------------------------------------------- #
 
+
 def global_parabolic_pressure(z: np.ndarray) -> np.ndarray:
     """Global manufactured pressure p(z) = a2 z^2 + b1 z + c0."""
     a2 = 0.7
@@ -48,8 +49,8 @@ def assign_reconstructed_pressure(mdg: pp.MixedDimensionalGrid) -> None:
                 nodes_k = cn.indices[i0:i1]
                 assert nodes_k.size == 3, "Simplex 2D grid expected."
 
-                xloc = x_loc[:, nodes_k]   # (2, 3)
-                z = x_phys[2, nodes_k]     # z-coordinates
+                xloc = x_loc[:, nodes_k]  # (2, 3)
+                z = x_phys[2, nodes_k]  # z-coordinates
                 vals = global_parabolic_pressure(z)
 
                 # Solve [x y 1] [a_x, a_y, c]^T = vals
@@ -107,8 +108,10 @@ def set_zero_flux_and_unit_perm(mdg: pp.MixedDimensionalGrid) -> None:
 #  Non-matching MDG builder
 # --------------------------------------------------------------------------- #
 
-def build_crossing_mdg_nonmatching(h_coarse: float,
-                                   h_fine_1d: float) -> pp.MixedDimensionalGrid:
+
+def build_crossing_mdg_nonmatching(
+    h_coarse: float, h_fine_1d: float
+) -> pp.MixedDimensionalGrid:
     """
     Build 3D mdg with two intersecting planes (Geiger-like) and
     non-matching 1D grids:
@@ -182,8 +185,9 @@ def build_crossing_mdg_nonmatching(h_coarse: float,
     return mdg_coarse
 
 
-def build_3fracs_mdg_nonmatching(h_coarse: float,
-                                h_fine_1d: float) -> pp.MixedDimensionalGrid:
+def build_3fracs_mdg_nonmatching(
+    h_coarse: float, h_fine_1d: float
+) -> pp.MixedDimensionalGrid:
     """
     Build 3D mdg with three intersecting planes (Geiger-like) and
     non-matching 1D grids and a 0-d intersection:
@@ -203,8 +207,8 @@ def build_3fracs_mdg_nonmatching(h_coarse: float,
     )
 
     def rotate_around_the_x_axis(
-            array: np.ndarray,
-            theta: float = 10.0,
+        array: np.ndarray,
+        theta: float = 10.0,
     ) -> np.ndarray:
 
         R_x = np.array(
@@ -218,8 +222,8 @@ def build_3fracs_mdg_nonmatching(h_coarse: float,
         return R_x @ array
 
     def rotate_around_the_z_axis(
-            array: np.ndarray,
-            theta: float = 10.0,
+        array: np.ndarray,
+        theta: float = 10.0,
     ) -> np.ndarray:
 
         R_z = np.array(
@@ -293,6 +297,7 @@ def build_3fracs_mdg_nonmatching(h_coarse: float,
 #  Norm computation for the 1D non-matching diffusive estimator
 # --------------------------------------------------------------------------- #
 
+
 def compute_interface_norms(mdg: pp.MixedDimensionalGrid):
     """
     Compute global L2-like and energy-like norms of the 1D non-matching
@@ -337,6 +342,7 @@ def compute_interface_norms(mdg: pp.MixedDimensionalGrid):
 # --------------------------------------------------------------------------- #
 #  Convergence test
 # --------------------------------------------------------------------------- #
+
 
 def test_nonmatching_diffusive_estimator_convergence_parabolic_without_0d():
     """
@@ -389,9 +395,10 @@ def test_nonmatching_diffusive_estimator_convergence_parabolic_without_0d():
 
     print(f"H1 error is: {p_E}")
 
-    assert 1.0 - tol <= p_E <= 1.0 + tol, (
-        f"Energy convergence rate too far from 1: p_E = {p_E:.2f}"
-    )
+    assert (
+        1.0 - tol <= p_E <= 1.0 + tol
+    ), f"Energy convergence rate too far from 1: p_E = {p_E:.2f}"
+
 
 def test_nonmatching_diffusive_estimator_convergence_parabolic_with_0d():
     """
@@ -445,7 +452,6 @@ def test_nonmatching_diffusive_estimator_convergence_parabolic_with_0d():
     # geometry. Tune tol if needed.
     tol = 0.5
 
-    assert 1.0 - tol <= p_E <= 1.0 + tol, (
-        f"Energy convergence rate too far from 1: p_E = {p_E:.2f}"
-    )
-
+    assert (
+        1.0 - tol <= p_E <= 1.0 + tol
+    ), f"Energy convergence rate too far from 1: p_E = {p_E:.2f}"

@@ -9,6 +9,7 @@ Reference:
       https://doi.org/10.1515/jnma-2022-0038
 
 """
+
 from __future__ import annotations
 
 from typing import Union
@@ -38,8 +39,8 @@ from mdnme.utils.transfer_grid import (
 
 
 def compute_diffusive_error(
-        mdg: pp.MixedDimensionalGrid,
-        is_non_matching: bool,
+    mdg: pp.MixedDimensionalGrid,
+    is_non_matching: bool,
 ) -> None:
     """Computes square of the diffusive flux error in all the mixed-dimensional grid.
 
@@ -278,8 +279,8 @@ def _get_high_pressure_trace(
     sd_high: pp.Grid,
     data_sd_high: dict,
     frac_faces: np.ndarray,
-    rotation_matrix : np.ndarray | None = None,
-    dim_bool : np.ndarray | None = None,
+    rotation_matrix: np.ndarray | None = None,
+    dim_bool: np.ndarray | None = None,
 ) -> np.ndarray:
     """Obtains the coefficients of the P1 (projected) traces of the pressure.
 
@@ -893,7 +894,7 @@ def _interface_diffusive_error_1d_nonmatching(
             # x is in the interface frame; evaluate P1 on mortar-side cells
             p_jump = mdnme.utils.evaluate_p1(deltap_side, coors)  # (n_msg_cells, n_pts)
             # Broadcasting over quadrature points:
-            return (k_side**(-0.5) * nv_side + k_side**0.5 * p_jump) ** 2
+            return (k_side ** (-0.5) * nv_side + k_side**0.5 * p_jump) ** 2
 
         diff_side = method.integrate(integrand, elements)  # (n_msg_cells,)
 
@@ -901,7 +902,6 @@ def _interface_diffusive_error_1d_nonmatching(
         out_global += (P_msg.T @ diff_side).ravel()
 
     return out_global
-
 
 
 def _interface_diffusive_error_2d_nonmatching(
@@ -914,8 +914,8 @@ def _interface_diffusive_error_2d_nonmatching(
     tol: float = 1e-5,
 ) -> np.ndarray:
     """Non-matching 2D interface diffusive error:
-       || k^{-1/2} λ + k^{1/2} (p_low − tr p_high) ||^2 per mortar cell.
-       Requires assign_canonical_rotations() so intf.rot_matrix is set."""
+    || k^{-1/2} λ + k^{1/2} (p_low − tr p_high) ||^2 per mortar cell.
+    Requires assign_canonical_rotations() so intf.rot_matrix is set."""
     # --- sanity ---
     if intf.dim != 2:
         raise ValueError("Expected two-dimensional interface grid.")
@@ -925,9 +925,11 @@ def _interface_diffusive_error_2d_nonmatching(
 
     # --- mortar-side scalars ---
     eff_perm = data_intf[pp.PARAMETERS]["flow"]["effective_permeability"]
-    k_mortar = (float(eff_perm) * np.ones((intf.num_cells, 1))
-                if np.isscalar(eff_perm)
-                else np.asarray(eff_perm, dtype=float).reshape(-1, 1))
+    k_mortar = (
+        float(eff_perm) * np.ones((intf.num_cells, 1))
+        if np.isscalar(eff_perm)
+        else np.asarray(eff_perm, dtype=float).reshape(-1, 1)
+    )
     normal_vel_mortar = _get_normal_velocity(intf, data_intf)  # (n_mortar, 1)
 
     # --- low-dim pressure (per-cell P1 on its own grid) ---
@@ -937,12 +939,7 @@ def _interface_diffusive_error_2d_nonmatching(
     # NOTE: p_trace_high[i] corresponds to sd_high face index frac_faces[i]
     frac_faces = sps.find(intf.primary_to_mortar_avg())[1]
     p_trace_high = _get_high_pressure_trace(
-        sd_low,
-        sd_high,
-        data_high,
-        frac_faces,
-        rot_matrix,
-        dim_bool
+        sd_low, sd_high, data_high, frac_faces, rot_matrix, dim_bool
     )  # (n_frac_faces, 3)
     # map: high face id -> local index into frac_faces
     face2pos = {int(f): i for i, f in enumerate(frac_faces)}
@@ -972,22 +969,17 @@ def _interface_diffusive_error_2d_nonmatching(
             idx = np.fromiter(
                 (face2pos[int(f)] for f in parent_faces),
                 dtype=int,
-                count=parent_faces.size
+                count=parent_faces.size,
             )
             tr_hi_on_ibg = p_trace_high[idx, :]  # (n_ibg_cells, 3)
 
         # (2) Transfer IBG→mortar-side and frac→mortar-side
         tg_ibg_msg = TransferGrid(
-            g_source=ibg_side,
-            g_target=mg_side,
-            rotation_matrix=rot_matrix,
-            tol=tol)
+            g_source=ibg_side, g_target=mg_side, rotation_matrix=rot_matrix, tol=tol
+        )
 
         tg_fg_msg = TransferGrid(
-            g_source=sd_low,
-            g_target=mg_side,
-            rotation_matrix=rot_matrix,
-            tol=tol
+            g_source=sd_low, g_target=mg_side, rotation_matrix=rot_matrix, tol=tol
         )
 
         # Internal boundary side grid to mortar side grid pressure projection
@@ -1010,13 +1002,13 @@ def _interface_diffusive_error_2d_nonmatching(
             rotate_grid=True,
             rotation_matrix=rot_matrix,
         )
+
         def integrand(x):
             # x is in the interface frame (as provided by elements)
             p_jump = mdnme.utils.evaluate_p1(
-                deltap_side,
-                x
+                deltap_side, x
             )  # shape broadcast over points
-            return (k_side**(-0.5) * nv_side + k_side**0.5 * p_jump)**2
+            return (k_side ** (-0.5) * nv_side + k_side**0.5 * p_jump) ** 2
 
         diff_side = method.integrate(integrand, elements)  # (n_msg_cells,)
 

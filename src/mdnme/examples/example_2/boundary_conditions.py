@@ -1,6 +1,5 @@
 """Module containing the modified boundary conditions of the benchmark."""
 
-
 import numpy as np
 import porepy as pp
 

@@ -8,6 +8,7 @@ References:
 [1] Varela, et. al. 2023.
 
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -25,12 +26,17 @@ from mdnme.models.varela_jnum_3d.true_errors import VarelaJNumTrueErrors3D
 def grid_sequence() -> list[pp.MixedDimensionalGrid]:
     """Create an mdg sequence of refined grids."""
     domain = pp.Domain(
-        {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1})
-    frac = pp.PlaneFracture(np.array([
-        [0.50, 0.50, 0.50, 0.50],
-        [0.25, 0.75, 0.75, 0.25],
-        [0.25, 0.25, 0.75, 0.75],
-    ]))
+        {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1}
+    )
+    frac = pp.PlaneFracture(
+        np.array(
+            [
+                [0.50, 0.50, 0.50, 0.50],
+                [0.25, 0.75, 0.75, 0.25],
+                [0.25, 0.25, 0.75, 0.75],
+            ]
+        )
+    )
     fn = pp.create_fracture_network([frac], domain)
 
     mesh_args = {  # coarsish base; factory will refine
@@ -58,24 +64,24 @@ def material_constants() -> dict:
 def desired_errors_matching_grids() -> list[dict]:
     """Hardcoded values of desired errors."""
     desired_errors_03000 = {
-        'majorant': 0.2686486032104262,
-        'true_error': 0.23414711882291925,
-        'eff_idx': 1.1473496003749666,
+        "majorant": 0.2686486032104262,
+        "true_error": 0.23414711882291925,
+        "eff_idx": 1.1473496003749666,
     }
     desired_errors_01500 = {
-        'majorant': 0.1760391376608033,
-        'true_error': 0.16001426884205322,
-        'eff_idx': 1.1001464990260832,
+        "majorant": 0.1760391376608033,
+        "true_error": 0.16001426884205322,
+        "eff_idx": 1.1001464990260832,
     }
     desired_errors_07500 = {
-        'majorant': 0.09283467471878434,
-        'true_error': 0.0847922158775042,
-        'eff_idx': 1.0948490230860195,
+        "majorant": 0.09283467471878434,
+        "true_error": 0.0847922158775042,
+        "eff_idx": 1.0948490230860195,
     }
     desired_errors_00375 = {
-        'majorant': 0.047542183820867674,
-        'true_error': 0.04590399163473414,
-        'eff_idx': 1.0356873580661332,
+        "majorant": 0.047542183820867674,
+        "true_error": 0.04590399163473414,
+        "eff_idx": 1.0356873580661332,
     }
     return [
         desired_errors_03000,
@@ -109,12 +115,12 @@ def test_model_post_simulation(material_constants: dict) -> None:
     pp.run_time_dependent_model(setup, {})
 
 
-@pytest.mark.parametrize('cell_size', [0.3000, 0.1500, 0.0750, 0.0375])
+@pytest.mark.parametrize("cell_size", [0.3000, 0.1500, 0.0750, 0.0375])
 def test_error_estimates_matching_grids(
-        material_constants: dict,
-        desired_errors_matching_grids: list[dict],
-        cell_size: float
-        ) -> None:
+    material_constants: dict,
+    desired_errors_matching_grids: list[dict],
+    cell_size: float,
+) -> None:
     """Test error estimates for a sequence of matching grids."""
 
     # Set up and run the model
@@ -175,12 +181,12 @@ def test_error_estimates_matching_grids(
     elif cell_size == 0.0375:
         check_idx = 3
     else:
-        raise ValueError('Cell-size not supported.')
+        raise ValueError("Cell-size not supported.")
 
     # Retrieved desired values
-    majorant_desired = desired_errors_matching_grids[check_idx]['majorant']
-    true_error_desired = desired_errors_matching_grids[check_idx]['true_error']
-    eff_idx_desired = desired_errors_matching_grids[check_idx]['eff_idx']
+    majorant_desired = desired_errors_matching_grids[check_idx]["majorant"]
+    true_error_desired = desired_errors_matching_grids[check_idx]["true_error"]
+    eff_idx_desired = desired_errors_matching_grids[check_idx]["eff_idx"]
 
     # Assert
     assert np.isclose(majorant, majorant_desired, 1e-5, 1e-4)
@@ -220,7 +226,3 @@ def test_error_estimates_non_matching_grids(material_constants) -> None:
     pp.run_time_dependent_model(setup, {})
     # We just check things do not crash
     # TODO: Convert to a functional test
-
-
-
-

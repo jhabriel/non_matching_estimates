@@ -28,17 +28,17 @@ class Geometry(pp.PorePyModel):
         """
 
         points_f1 = np.array(
-                [
-                    [0.25, 0.75],
-                    [0.25, 0.75],
-                ]
-            )
+            [
+                [0.25, 0.75],
+                [0.25, 0.75],
+            ]
+        )
         points_f2 = np.array(
-                [
-                    [0.25, 0.75],
-                    [0.75, 0.25],
-                ]
-            )
+            [
+                [0.25, 0.75],
+                [0.75, 0.25],
+            ]
+        )
 
         f1 = pp.LineFracture(points_f1)
         f2 = pp.LineFracture(points_f2)
@@ -72,45 +72,43 @@ class Geometry(pp.PorePyModel):
             self._domain,
         )
 
-
         # Produce mdg
         if self.params.get("non_matching", False):
 
-                # Create a matching mdg first
-                mdg_coarse = pp.create_mdg(
-                    grid_type=self.grid_type(),
-                    meshing_args=self.meshing_arguments(),
-                    fracture_network=self.fracture_network,
-                )
+            # Create a matching mdg first
+            mdg_coarse = pp.create_mdg(
+                grid_type=self.grid_type(),
+                meshing_args=self.meshing_arguments(),
+                fracture_network=self.fracture_network,
+            )
 
-                # Retrieve target mesh size
-                h = self.params["meshing_arguments"]["cell_size"]
+            # Retrieve target mesh size
+            h = self.params["meshing_arguments"]["cell_size"]
 
-                # Create a matching grid with half the refinement
-                mdg_fine = pp.create_mdg(
-                    grid_type=self.grid_type(),
-                    meshing_args={"cell_size": h/2},
-                    fracture_network=self.fracture_network,
-                )
+            # Create a matching grid with half the refinement
+            mdg_fine = pp.create_mdg(
+                grid_type=self.grid_type(),
+                meshing_args={"cell_size": h / 2},
+                fracture_network=self.fracture_network,
+            )
 
-                sd_map = {}
-                for sd_coarse, sd_fine in zip(
-                        mdg_coarse.subdomains(dim=1), mdg_fine.subdomains(dim=1)
-                ):
-                    sd_map[sd_coarse] = sd_fine
+            sd_map = {}
+            for sd_coarse, sd_fine in zip(
+                mdg_coarse.subdomains(dim=1), mdg_fine.subdomains(dim=1)
+            ):
+                sd_map[sd_coarse] = sd_fine
 
-                intf_map = {}
-                for intf_coarse, intf_fine in zip(
-                    mdg_coarse.interfaces(dim=1), mdg_fine.interfaces(dim=1)
-                ):
-                    intf_map[intf_coarse] = intf_fine
+            intf_map = {}
+            for intf_coarse, intf_fine in zip(
+                mdg_coarse.interfaces(dim=1), mdg_fine.interfaces(dim=1)
+            ):
+                intf_map[intf_coarse] = intf_fine
 
-                mdg_coarse.replace_subdomains_and_interfaces(
-                    sd_map=sd_map,
-                    interface_map=intf_map
-                )
-                mdg_final = mdg_coarse.copy()
-                pp.set_local_coordinate_projections(mdg_final)
+            mdg_coarse.replace_subdomains_and_interfaces(
+                sd_map=sd_map, interface_map=intf_map
+            )
+            mdg_final = mdg_coarse.copy()
+            pp.set_local_coordinate_projections(mdg_final)
 
         else:
             # The mdg is matching, and we create the mdg in the usual way
@@ -163,9 +161,7 @@ class BoundaryConditions(pp.PorePyModel):
         return values
 
 
-class SolutionStrategy(
-    pp.fluid_mass_balance.SolutionStrategySinglePhaseFlow
-):
+class SolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePhaseFlow):
     """Modified solution strategy for the verification setup."""
 
     mdg: pp.MixedDimensionalGrid
@@ -202,13 +198,15 @@ class SolutionStrategy(
 
         # Export error indicators
         if self.params.get("export_results", False):
-            self.exporter.write_vtu([
-                "pressure",
-                "interface_darcy_flux",
-                "diffusive_error",
-                "residual_error",
-                "error_indicator",
-            ])
+            self.exporter.write_vtu(
+                [
+                    "pressure",
+                    "interface_darcy_flux",
+                    "diffusive_error",
+                    "residual_error",
+                    "error_indicator",
+                ]
+            )
 
     def _is_nonlinear_problem(self) -> bool:
         """The problem is linear."""

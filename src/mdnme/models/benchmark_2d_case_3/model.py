@@ -1,6 +1,7 @@
 """
 This module contains the model for the Example 2 of the manuscript.
 """
+
 from typing import Callable
 
 import porepy as pp

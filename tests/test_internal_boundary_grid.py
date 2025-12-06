@@ -1,4 +1,5 @@
 """Module for testing the correct construction of the internal boundary grid."""
+
 import numpy as np
 import porepy as pp
 import pytest

@@ -8,6 +8,7 @@ The two main projection steps are:
         quasi‐interpolator.
 
 """
+
 import numpy as np
 import porepy as pp
 from shapely.geometry import Point, Polygon
@@ -24,9 +25,9 @@ def prolong_to_transfer(tg: TransferGrid, C_src: np.ndarray) -> np.ndarray:
     build transfer cell-wise P1 (C_tr shape = (n_tr_cells,3)) by
     sampling + local fitting.
     """
-    g_tr   = tg.transfer
-    t2s    = tg.transfer_to_source.tocsr()   # (n_tr_cells × n_src_cells)
-    cn_tr  = g_tr.cell_nodes().tocsc()
+    g_tr = tg.transfer
+    t2s = tg.transfer_to_source.tocsr()  # (n_tr_cells × n_src_cells)
+    cn_tr = g_tr.cell_nodes().tocsc()
     tr_cells = cn_tr.indices.reshape((3, g_tr.num_cells), order="F").T
 
     # Coordinates of transfer nodes (in the rotated plane)
@@ -35,18 +36,18 @@ def prolong_to_transfer(tg: TransferGrid, C_src: np.ndarray) -> np.ndarray:
     C_tr = np.empty((g_tr.num_cells, 3))
     for j, verts in enumerate(tr_cells):
         # 1) parent source cell
-        parents = t2s[j,:].nonzero()[1]
+        parents = t2s[j, :].nonzero()[1]
         if len(parents) != 1:
             raise RuntimeError(f"Transfer cell {j} has {len(parents)} parents")
         K = parents[0]
 
         # 2) sample at the 3 vertices
-        xy = Xn[:, verts]           # shape (2,3)
-        c0, c1, c2 = C_src[K]       # source coeffs
-        u = c0*xy[0, :] + c1*xy[1, :] + c2  # length-3
+        xy = Xn[:, verts]  # shape (2,3)
+        c0, c1, c2 = C_src[K]  # source coeffs
+        u = c0 * xy[0, :] + c1 * xy[1, :] + c2  # length-3
 
         # 3) solve small Vandermonde
-        V = np.vstack((xy, np.ones(3)))    # shape (3,3)
+        V = np.vstack((xy, np.ones(3)))  # shape (3,3)
         C_tr[j, :] = np.linalg.solve(V.T, u)  # gives [c0_tr,c1_tr,c2_tr]
 
     return C_tr
@@ -69,14 +70,14 @@ def scott_zhang_quasi_interpolant(tg: TransferGrid, u_tr: np.ndarray) -> np.ndar
     p1_tgt : (n_target_cells, 3) ndarray
         Cell-wise P1 coefficients on the target grid.
     """
-    g_tr  = tg.transfer
+    g_tr = tg.transfer
     g_tgt = tg.g_target
 
     # --- target (coarse) cell data ---
-    cn_tgt   = g_tgt.cell_nodes().tocsc()
-    tri_tgt  = cn_tgt.indices.reshape((3, g_tgt.num_cells), order="F").T
-    tgt_rot  = tg._get_rotated_grid(g_tgt)
-    X_tgt    = tgt_rot.nodes[:2, :]
+    cn_tgt = g_tgt.cell_nodes().tocsc()
+    tri_tgt = cn_tgt.indices.reshape((3, g_tgt.num_cells), order="F").T
+    tgt_rot = tg._get_rotated_grid(g_tgt)
+    X_tgt = tgt_rot.nodes[:2, :]
 
     coarse_data = []
     for verts in tri_tgt:
@@ -84,21 +85,21 @@ def scott_zhang_quasi_interpolant(tg: TransferGrid, u_tr: np.ndarray) -> np.ndar
         A = np.column_stack((p1 - p0, p2 - p0))
         area = abs(np.linalg.det(A)) * 0.5
         # Inverse of the P1 mass matrix on a triangle: (1/A) * [[9,-3,-3],...]
-        M_inv = (1.0 / area) * np.array([[ 9., -3., -3.],
-                                         [-3.,  9., -3.],
-                                         [-3., -3.,  9.]])
+        M_inv = (1.0 / area) * np.array(
+            [[9.0, -3.0, -3.0], [-3.0, 9.0, -3.0], [-3.0, -3.0, 9.0]]
+        )
         coarse_data.append((verts, p0, A, M_inv, area))
 
     # --- transfer mesh barycentric + STRtree ---
-    cn_tr   = g_tr.cell_nodes().tocsc()
-    tri_tr  = cn_tr.indices.reshape((3, g_tr.num_cells), order="F").T
-    tr_rot  = tg._get_rotated_grid(g_tr)
-    X_tr    = tr_rot.nodes[:2, :]
+    cn_tr = g_tr.cell_nodes().tocsc()
+    tri_tr = cn_tr.indices.reshape((3, g_tr.num_cells), order="F").T
+    tr_rot = tg._get_rotated_grid(g_tr)
+    X_tr = tr_rot.nodes[:2, :]
 
     tr_polys = [Polygon(X_tr[:, verts].T) for verts in tri_tr]
     # robust mapping: use id(geom) as key (shapely may return new objects)
     polyid_to_j = {id(geom): j for j, geom in enumerate(tr_polys)}
-    tree        = STRtree(tr_polys)
+    tree = STRtree(tr_polys)
 
     # prepared geoms, indexed by j
     prepared = [prep(p) for p in tr_polys]
@@ -114,7 +115,7 @@ def scott_zhang_quasi_interpolant(tg: TransferGrid, u_tr: np.ndarray) -> np.ndar
     u_tgt_nodes = np.empty(n_tgt_nodes)
     n2c = g_tgt.cell_nodes().tocsr()
     # 3-pt quadrature exact for linears
-    quadrature = [(1/6, 1/6), (2/3, 1/6), (1/6, 2/3)]
+    quadrature = [(1 / 6, 1 / 6), (2 / 3, 1 / 6), (1 / 6, 2 / 3)]
     eps = 1e-12
 
     for i in range(n_tgt_nodes):
@@ -129,7 +130,7 @@ def scott_zhang_quasi_interpolant(tg: TransferGrid, u_tr: np.ndarray) -> np.ndar
         # assemble RHS b = ∫_K u φ_i  (via exact 3-pt rule)
         b = np.zeros(3)
         for r, s in quadrature:
-            xq = p0 + A @ np.array([r, s])          # (2,)
+            xq = p0 + A @ np.array([r, s])  # (2,)
             pt = Point(float(xq[0]), float(xq[1]))
 
             # locate transfer cell j that contains/touches xq
@@ -177,9 +178,13 @@ def scott_zhang_quasi_interpolant(tg: TransferGrid, u_tr: np.ndarray) -> np.ndar
     # (Exact for constants and P1 on matching meshes)
     p1_tgt = np.empty((g_tgt.num_cells, 3))
     for K, verts in enumerate(tri_tgt):
-        V = np.array([[X_tgt[0, verts[0]], X_tgt[1, verts[0]], 1.0],
-                      [X_tgt[0, verts[1]], X_tgt[1, verts[1]], 1.0],
-                      [X_tgt[0, verts[2]], X_tgt[1, verts[2]], 1.0]])
+        V = np.array(
+            [
+                [X_tgt[0, verts[0]], X_tgt[1, verts[0]], 1.0],
+                [X_tgt[0, verts[1]], X_tgt[1, verts[1]], 1.0],
+                [X_tgt[0, verts[2]], X_tgt[1, verts[2]], 1.0],
+            ]
+        )
         rhs = u_tgt_nodes[np.array(verts)]
         a, b0, c0 = np.linalg.solve(V, rhs)
         p1_tgt[K, :] = [a, b0, c0]
@@ -203,7 +208,7 @@ def _reconstruct_cellwise_on_target(tg: TransferGrid, u_tgt: np.ndarray):
 
     # 1) get rotated 2D coords of target nodes
     tgt_rot = tg._get_rotated_grid(g_tgt)
-    Xn = tgt_rot.nodes[:2, :]   # shape (2, n_tgt_nodes)
+    Xn = tgt_rot.nodes[:2, :]  # shape (2, n_tgt_nodes)
 
     # 2) cell->node incidence for target grid
     cn = g_tgt.cell_nodes().tocsc()
@@ -213,9 +218,9 @@ def _reconstruct_cellwise_on_target(tg: TransferGrid, u_tgt: np.ndarray):
     C_tgt = np.empty((g_tgt.num_cells, 3))
     for k, verts in enumerate(cells):
         # collect the 3 node coordinates
-        xy = Xn[:, verts]          # shape (2,3)
+        xy = Xn[:, verts]  # shape (2,3)
         # collect the 3 nodal values
-        uvals = u_tgt[verts]       # length-3
+        uvals = u_tgt[verts]  # length-3
 
         # build 3×3 system: [x y 1]^T * c = uvals
         V = np.vstack((xy, np.ones(3)))  # (3,3)
@@ -226,10 +231,8 @@ def _reconstruct_cellwise_on_target(tg: TransferGrid, u_tgt: np.ndarray):
 
 
 def prolong_to_transfer_1d(
-        tl: TransferLine,
-        C_src: np.ndarray,
-        tol: float = 1e-12
-    ) -> np.ndarray:
+    tl: TransferLine, C_src: np.ndarray, tol: float = 1e-12
+) -> np.ndarray:
     """Prolong a broken 1D P1 field from source -> transfer grid.
 
     Parameters
@@ -251,9 +254,9 @@ def prolong_to_transfer_1d(
 
     """
     g_tr = tl.transfer
-    t2s = tl.transfer_to_source.tocsr()   # (n_tr_cells x n_src_cells)
+    t2s = tl.transfer_to_source.tocsr()  # (n_tr_cells x n_src_cells)
 
-    x_tr = g_tr.nodes[0, :]              # common 1D coordinate of transfer nodes
+    x_tr = g_tr.nodes[0, :]  # common 1D coordinate of transfer nodes
     n_tr = g_tr.num_cells
 
     C_tr = np.empty((n_tr, 2))
@@ -362,8 +365,7 @@ def scott_zhang_quasi_interpolant_1d(
     #   b_i = ∫_K u(s) φ_i(s) ds, i=0,1
     # via 2-pt Gauss (exact for linear).
 
-    quad = [(-1.0 / np.sqrt(3.0), 1.0),
-            ( 1.0 / np.sqrt(3.0), 1.0)]
+    quad = [(-1.0 / np.sqrt(3.0), 1.0), (1.0 / np.sqrt(3.0), 1.0)]
 
     local_dofs = np.zeros((n_tgt_cells, 2))
 
@@ -380,8 +382,7 @@ def scott_zhang_quasi_interpolant_1d(
             continue
 
         # exact M_inv for P1 on [aT, bT]
-        M_inv = (2.0 / h) * np.array([[2.0, -1.0],
-                                      [-1.0, 2.0]])
+        M_inv = (2.0 / h) * np.array([[2.0, -1.0], [-1.0, 2.0]])
 
         b = np.zeros(2)
         mid = 0.5 * (aT + bT)
@@ -416,9 +417,7 @@ def scott_zhang_quasi_interpolant_1d(
             loc = 1
         else:
             # shouldn't happen if connectivity is consistent
-            raise RuntimeError(
-                f"Node {i} is not a vertex of its patch cell {K_patch}."
-            )
+            raise RuntimeError(f"Node {i} is not a vertex of its patch cell {K_patch}.")
 
         u_nodes[i] = local_dofs[K_patch, loc]
 
@@ -471,4 +470,3 @@ def project_p1_1d_sz(
     C_tr = prolong_to_transfer_1d(tl, C_src, tol=tol)
     C_tgt = scott_zhang_quasi_interpolant_1d(tl, C_tr, tol=tol)
     return C_tgt
-

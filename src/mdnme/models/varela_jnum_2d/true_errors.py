@@ -4,6 +4,7 @@ which are needed to compute the efficiency indices for the first numerical examp
 the paper.
 
 """
+
 import numpy as np
 import porepy as pp
 import quadpy

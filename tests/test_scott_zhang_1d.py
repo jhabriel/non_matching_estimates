@@ -14,19 +14,25 @@ def make_1d(level: int) -> pp.TensorGrid:
     return g
 
 
-@pytest.mark.parametrize("coeffs", [
-    # u(s) = s^2
-    (1.0, 0.0, 0.0),
-    # u(s) = s^2 + s
-    (1.0, 1.0, 0.0),
-    # u(s) = s^2 - 3 s + 2
-    (1.0, -3.0, 2.0),
-])
+@pytest.mark.parametrize(
+    "coeffs",
+    [
+        # u(s) = s^2
+        (1.0, 0.0, 0.0),
+        # u(s) = s^2 + s
+        (1.0, 1.0, 0.0),
+        # u(s) = s^2 - 3 s + 2
+        (1.0, -3.0, 2.0),
+    ],
+)
 def test_sz_1d_quadratic_rates(coeffs):
     a2, a1, a0 = coeffs
 
-    def u(s): return a2 * s * s + a1 * s + a0
-    def du(s): return 2 * a2 * s + a1
+    def u(s):
+        return a2 * s * s + a1 * s + a0
+
+    def du(s):
+        return 2 * a2 * s + a1
 
     hs, eL2, eH1 = [], [], []
 

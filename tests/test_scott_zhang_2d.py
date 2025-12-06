@@ -24,15 +24,17 @@ def tri_edges_max_length(coords):  # coords shape (2,3)
 
 def dunavant_deg5():  # exact up to degree 5 (good for L2 of quadratic^2, deg 4)
     # barycentric (r,s) with weights on reference triangle
-    pts = np.array([
-        [1 / 3, 1 / 3, 9 / 40],
-        [0.0597158717, 0.4701420641, 0.0661970764],
-        [0.4701420641, 0.0597158717, 0.0661970764],
-        [0.4701420641, 0.4701420641, 0.0661970764],
-        [0.1012865073, 0.7974269853, 0.0629695903],
-        [0.7974269853, 0.1012865073, 0.0629695903],
-        [0.1012865073, 0.1012865073, 0.0629695903],
-    ])
+    pts = np.array(
+        [
+            [1 / 3, 1 / 3, 9 / 40],
+            [0.0597158717, 0.4701420641, 0.0661970764],
+            [0.4701420641, 0.0597158717, 0.0661970764],
+            [0.4701420641, 0.4701420641, 0.0661970764],
+            [0.1012865073, 0.7974269853, 0.0629695903],
+            [0.7974269853, 0.1012865073, 0.0629695903],
+            [0.1012865073, 0.1012865073, 0.0629695903],
+        ]
+    )
     return pts[:, :2], pts[:, 2]
 
 
@@ -43,27 +45,36 @@ def tri_3pt():  # degree-2 exact (perfect for H1 error of quadratics)
 
 
 def quad_u_and_grad(a, b, c, d, e, f):
-    def u(x, y): return a * x * x + b * x * y + c * y * y + d * x + e * y + f
+    def u(x, y):
+        return a * x * x + b * x * y + c * y * y + d * x + e * y + f
 
-    def gx(x, y): return 2 * a * x + b * y + d
+    def gx(x, y):
+        return 2 * a * x + b * y + d
 
-    def gy(x, y): return b * x + 2 * c * y + e
+    def gy(x, y):
+        return b * x + 2 * c * y + e
 
     return u, gx, gy
 
 
 # ---------- fixtures ----------
 
+
 @pytest.fixture(scope="module")
 def grid_sequence():
     # fracture-in-a-unit-cube, same as before
     domain = pp.Domain(
-        {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1})
-    frac = pp.PlaneFracture(np.array([
-        [0.50, 0.50, 0.50, 0.50],
-        [0.25, 0.75, 0.75, 0.25],
-        [0.25, 0.25, 0.75, 0.75],
-    ]))
+        {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1}
+    )
+    frac = pp.PlaneFracture(
+        np.array(
+            [
+                [0.50, 0.50, 0.50, 0.50],
+                [0.25, 0.75, 0.75, 0.25],
+                [0.25, 0.25, 0.75, 0.75],
+            ]
+        )
+    )
     fn = pp.create_fracture_network([frac], domain)
 
     mesh_args = {  # coarsish base; factory will refine
@@ -81,7 +92,7 @@ def grid_sequence():
 
 def sz_on_same_grid(grid: pp.Grid, p1_broken: np.ndarray) -> np.ndarray:
     """Make a broken P1 field H¹-conforming on the *same* grid via SZ."""
-    tg = TransferGrid(grid, grid)                  # same mesh -> same frame
+    tg = TransferGrid(grid, grid)  # same mesh -> same frame
     p_on_tg = prolong_to_transfer(tg, p1_broken)  # evaluate on transfer
     return scott_zhang_quasi_interpolant(tg, p_on_tg)
 
@@ -89,7 +100,9 @@ def sz_on_same_grid(grid: pp.Grid, p1_broken: np.ndarray) -> np.ndarray:
 def test_matching_equals_nonmatching_after_h1_conformity():
     # 1) pick a representative 2D grid (e.g., a fracture or a mortar side)
     domain = pp.Domain({"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1})
-    mdg = pp.create_mdg("simplex", {"cell_size": 0.15}, pp.create_fracture_network([], domain))
+    mdg = pp.create_mdg(
+        "simplex", {"cell_size": 0.15}, pp.create_fracture_network([], domain)
+    )
     g = mdg.subdomains(dim=2)[0]
 
     # 2) fabricate a *broken* P1 (random per-cell coefficients)
@@ -111,16 +124,19 @@ def test_matching_equals_nonmatching_after_h1_conformity():
     np.testing.assert_allclose(p_nonmatch, p_match, rtol=5e-12, atol=5e-14)
 
 
-@pytest.mark.parametrize("coeffs", [
-    # u(x,y) = x^2
-    (1.0, 0.0, 0.0, 0.0, 0.0, 0.0),
-    # u(x,y) = y^2
-    (0.0, 0.0, 1.0, 0.0, 0.0, 0.0),
-    # u(x,y) = x y
-    (0.0, 1.0, 0.0, 0.0, 0.0, 0.0),
-    # u(x,y) = x^2 + y^2 + x
-    (1.0, 0.0, 1.0, 1.0, 0.0, 0.0),
-])
+@pytest.mark.parametrize(
+    "coeffs",
+    [
+        # u(x,y) = x^2
+        (1.0, 0.0, 0.0, 0.0, 0.0, 0.0),
+        # u(x,y) = y^2
+        (0.0, 0.0, 1.0, 0.0, 0.0, 0.0),
+        # u(x,y) = x y
+        (0.0, 1.0, 0.0, 0.0, 0.0, 0.0),
+        # u(x,y) = x^2 + y^2 + x
+        (1.0, 0.0, 1.0, 1.0, 0.0, 0.0),
+    ],
+)
 def test_sz_quadratic_convergence(grid_sequence, coeffs):
     """
     Expect ||u - I_h u||_{L2} ~ O(h^2), |u - I_h u|_{H1} ~ O(h) for quadratics.
@@ -205,18 +221,17 @@ def test_sz_quadratic_convergence(grid_sequence, coeffs):
 def fit_p1_on_grid(grid: pp.Grid, u_fn) -> np.ndarray:
     """Return cell-wise P1 (a,b,c) fitting u at the three vertices of each triangle."""
     rot = mdnme.RotatedGrid(grid)
-    X   = rot.nodes[:2, :]
-    cn  = grid.cell_nodes().tocsc()
+    X = rot.nodes[:2, :]
+    cn = grid.cell_nodes().tocsc()
     tri = cn.indices.reshape((3, grid.num_cells), order="F").T
 
     C = np.empty((grid.num_cells, 3))
     for k, verts in enumerate(tri):
-        xy    = X[:, verts]                      # 2×3
-        uvals = u_fn(xy[0, :], xy[1, :])         # length-3
-        V     = np.vstack((xy, np.ones(3)))      # 3×3, rows [x;y;1]
+        xy = X[:, verts]  # 2×3
+        uvals = u_fn(xy[0, :], xy[1, :])  # length-3
+        V = np.vstack((xy, np.ones(3)))  # 3×3, rows [x;y;1]
         C[k, :] = np.linalg.solve(V.T, uvals)
     return C
-
 
 
 def test_nested_vs_geometric_SZ_projection():

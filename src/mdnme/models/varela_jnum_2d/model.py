@@ -13,6 +13,7 @@ References:
       https://doi.org/10.1515/jnma-2022-0038
 
 """
+
 from __future__ import annotations
 
 from typing import Callable

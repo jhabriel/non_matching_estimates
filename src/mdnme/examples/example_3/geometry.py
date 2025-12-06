@@ -13,6 +13,7 @@ from mdnme.utils.nested_refinement import GeoNestedRefinementFactory
 
 # ---------- small helpers ----------
 
+
 def _stem_for_refinement_level(refinement_level: Literal[0, 1, 2, 3]) -> str:
     """Map refinement_level -> base stem used in both .geo and .msh names."""
     if refinement_level == 0:
@@ -27,9 +28,8 @@ def _stem_for_refinement_level(refinement_level: Literal[0, 1, 2, 3]) -> str:
 
 
 def _paths_for_level(
-        refinement_level: Literal[0, 1, 2, 3],
-        folder: str = "grids"
-    ) -> Tuple[Path, Path, Path, str]:
+    refinement_level: Literal[0, 1, 2, 3], folder: str = "grids"
+) -> Tuple[Path, Path, Path, str]:
     """
     Returns (geo_path, msh_path, csv_path, out_stem)
     geo_path: <stem>.geo (expected at project root or folder root; see below)
@@ -77,6 +77,7 @@ def create_mdg_from_msh_file(refinement_level: Literal[0, 1, 2, 3]):
 
 # ---------- main geometry mixin ----------
 
+
 class GeometryNonMatching(pp.PorePyModel):
     """Define Geometry as specified in Section 5.3 of the benchmark study [1]."""
 
@@ -91,12 +92,12 @@ class GeometryNonMatching(pp.PorePyModel):
 
         # Get grid type and meshing arguments
         grid_type = self.params.get("grid_type", "simplex")
-        meshing_args = self.params.get('meshing_arguments', {"cell_size": 0.25})
+        meshing_args = self.params.get("meshing_arguments", {"cell_size": 0.25})
 
         # If it is matching, produce the mdg in the usual way
         if not non_matching:
 
-            print('Running model using matching grids.')
+            print("Running model using matching grids.")
 
             # Decide whether to mesh from geo or from fracture network
             from_geo = self.params.get("matching_from_geo", True)
@@ -116,14 +117,14 @@ class GeometryNonMatching(pp.PorePyModel):
 
         else:
 
-            print('Running model using non-matching grids')
+            print("Running model using non-matching grids")
 
             # Get refinement strategy
-            ref_stgy = self.params.get('refinement', 'unstructured')
+            ref_stgy = self.params.get("refinement", "unstructured")
 
             if ref_stgy == "unstructured":  # do unstructured refinement
 
-                print('Refinement strategy: unstructured')
+                print("Refinement strategy: unstructured")
 
                 # Retrieve the target mesh size and create a DFN mdg
                 h = meshing_args["cell_size"]
@@ -139,22 +140,22 @@ class GeometryNonMatching(pp.PorePyModel):
                 mdg_fine = pp.create_mdg(
                     grid_type=grid_type,
                     fracture_network=fn,
-                    meshing_args={"cell_size": h/2},
+                    meshing_args={"cell_size": h / 2},
                     # dfn=True,
                 )
 
             elif ref_stgy == "nested":  # do nested refinement
 
-                print('Refinement strategy: nested')
+                print("Refinement strategy: nested")
 
                 # Create a nested refinement (one-level) of the whole mdg
                 dim = 3
                 num_refinements = 1
                 factory = GeoNestedRefinementFactory(
-                    src_path=str('grids/mesh30k.geo'),
+                    src_path=str("grids/mesh30k.geo"),
                     dim=dim,
                     num_refinements=num_refinements,
-                    out_stem='non_match',
+                    out_stem="non_match",
                 )
 
                 # Retrieve the coarse and the fine mdg. First item of the list
@@ -172,7 +173,7 @@ class GeometryNonMatching(pp.PorePyModel):
                     msg = "Nested refinement factory did not yield two levels."
                     raise RuntimeError(msg)
             else:
-                raise ValueError('Unsupported refinement strategy.')
+                raise ValueError("Unsupported refinement strategy.")
 
             # Prepare mapping dictionary to replace grids
             sd_map = {}
@@ -181,8 +182,7 @@ class GeometryNonMatching(pp.PorePyModel):
             # Get mapping of subdomains
             for dim in [2]:
                 for sd_coarse, sd_fine in zip(
-                    mdg_coarse.subdomains(dim=dim),
-                    mdg_fine.subdomains(dim=dim)
+                    mdg_coarse.subdomains(dim=dim), mdg_fine.subdomains(dim=dim)
                 ):
                     assert sd_coarse.dim == sd_fine.dim
                     sd_map[sd_coarse] = sd_fine
@@ -222,4 +222,3 @@ class GeometryNonMatching(pp.PorePyModel):
                 self.well_network, self.fracture_network
             )
             self.well_network.mesh(self.mdg)
-

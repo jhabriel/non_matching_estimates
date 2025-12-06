@@ -99,17 +99,13 @@ def test_build_canonical_rotations(
     all_grids = subs + ints
 
     before = {
-        id(g): canonical_frame(g)[:2]  # (rot_matrix, dim_bool)
-        for g in all_grids
+        id(g): canonical_frame(g)[:2] for g in all_grids  # (rot_matrix, dim_bool)
     }
 
     # Rebuild canonical frames
     build_canonical_frames(mdg)
 
-    after = {
-        id(g): canonical_frame(g)[:2]
-        for g in all_grids
-    }
+    after = {id(g): canonical_frame(g)[:2] for g in all_grids}
 
     for gid in before:
         R0, b0 = before[gid]

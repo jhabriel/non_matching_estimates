@@ -1,6 +1,7 @@
 """
 This module contains the model for the Example 3 of the manuscript.
 """
+
 import sys
 from typing import Callable
 
@@ -116,7 +117,6 @@ class SmallFeaturesSolutionStrategy(
 
         return sources
 
-
     def after_simulation(self) -> None:
         """Method to be called after the simulation has finished."""
 
@@ -128,10 +128,7 @@ class SmallFeaturesSolutionStrategy(
 
         # Estimate errors
         is_non_matching = self.params.get("non_matching", False)
-        estimate_errors(
-            self.mdg,
-            sources=source_list,
-            is_non_matching=is_non_matching)
+        estimate_errors(self.mdg, sources=source_list, is_non_matching=is_non_matching)
 
         # Compute local errors and error indicators
         compute_error_indicators(self.mdg)
@@ -141,9 +138,9 @@ class SmallFeaturesSolutionStrategy(
 
         # Print aggregated local errors
         if not is_non_matching:
-            print('----- Matching Error Estimates ------')
+            print("----- Matching Error Estimates ------")
         else:
-            print('----- Non-matching Error Estimates ------')
+            print("----- Non-matching Error Estimates ------")
         print(f"Majorant : {mdnme.estimates.error_estimation.get_majorant(self.mdg)}")
         local_errors = aggregate_local_errors(self.mdg)
         print(f"3D subdomain error: {local_errors['subdomain_error'][3]}")
@@ -158,15 +155,17 @@ class SmallFeaturesSolutionStrategy(
 
         # Export error indicators
         if self.params.get("export_to_vtu", False):
-            self.exporter.write_vtu([
-                "pressure",
-                "ID",
-                "well",
-                "diffusive_error",
-                "residual_error",
-                "error_indicator",
-                "interface_darcy_flux",
-            ])
+            self.exporter.write_vtu(
+                [
+                    "pressure",
+                    "ID",
+                    "well",
+                    "diffusive_error",
+                    "residual_error",
+                    "error_indicator",
+                    "interface_darcy_flux",
+                ]
+            )
 
     def _is_nonlinear_problem(self) -> bool:
         """The problem is linear."""

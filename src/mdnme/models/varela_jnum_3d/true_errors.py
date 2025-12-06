@@ -4,6 +4,7 @@ which are needed to compute the efficiency indices for the first numerical examp
 the paper.
 
 """
+
 import numpy as np
 import porepy as pp
 import quadpy
@@ -31,7 +32,7 @@ class VarelaJNumTrueErrors3D(VarelaJNumExactSolution3D):
         self.is_nonmatch = model.params.get("non_matching", False)
 
     def true_error_primal(self) -> float:
-        """ Compute global true error (mixed-dimensional majorant) for the primal var.
+        """Compute global true error (mixed-dimensional majorant) for the primal var.
 
         Returns:
             Value of the true error for the whole mixed-dimensional grid.
@@ -70,8 +71,7 @@ class VarelaJNumTrueErrors3D(VarelaJNumExactSolution3D):
 
         # Pressure gradient as a list of symbolic variables
         grad_p_matrix_sym = [
-            [sym.diff(p, x), sym.diff(p, y), sym.diff(p, z)]
-            for p in self.p_matrix
+            [sym.diff(p, x), sym.diff(p, y), sym.diff(p, z)] for p in self.p_matrix
         ]
 
         # Lambdified list of pressure gradients
@@ -137,10 +137,7 @@ class VarelaJNumTrueErrors3D(VarelaJNumExactSolution3D):
         y, z = sym.symbols("y z")
 
         # Compute symbolic and lambdified pressure gradient
-        grad_p_frac_sym = [
-            sym.diff(self.p_frac, y),
-            sym.diff(self.p_frac, z)
-        ]
+        grad_p_frac_sym = [sym.diff(self.p_frac, y), sym.diff(self.p_frac, z)]
         grad_p_frac_fun = [
             sym.lambdify((y, z), gradp, "numpy") for gradp in grad_p_frac_sym
         ]
@@ -173,7 +170,7 @@ class VarelaJNumTrueErrors3D(VarelaJNumExactSolution3D):
             gradp_recon_z = pr[1] * np.ones_like(x[0])
 
             # Exact pressure gradient
-            yz = np.einsum('ab,bnm->anm', T_yz, x) + b_yz[:, :, None]
+            yz = np.einsum("ab,bnm->anm", T_yz, x) + b_yz[:, :, None]
             gradp_exact_y = grad_p_frac_fun[0](yz[0], yz[1])
             gradp_exact_z = grad_p_frac_fun[1](yz[0], yz[1])
             # Now project to rotated basis
@@ -198,7 +195,7 @@ class VarelaJNumTrueErrors3D(VarelaJNumExactSolution3D):
 
     def _true_error_interface_nonmatching_primal(self) -> np.ndarray:
         """Compute true error contribution of the interface for nonmatching grids"""
-        tol = 1e-8 # geometric tolerance
+        tol = 1e-8  # geometric tolerance
 
         # Retrieve grids and dictionaries
         mdg: pp.MixedDimensionalGrid = self.model.mdg
@@ -212,8 +209,9 @@ class VarelaJNumTrueErrors3D(VarelaJNumExactSolution3D):
         # --- face-trace of high-dim pressure, in interface frame ---
         # NOTE: p_trace_high[i] corresponds to sd_high face index frac_faces[i]
         frac_faces = sps.find(intf.primary_to_mortar_avg())[1]
-        p_trace_high = _get_high_pressure_trace(sd_low, sd_high, data_high,
-                                                frac_faces)  # (n_frac_faces, 3)
+        p_trace_high = _get_high_pressure_trace(
+            sd_low, sd_high, data_high, frac_faces
+        )  # (n_frac_faces, 3)
         # map: high face id -> local index into frac_faces
         face2pos = {int(f): i for i, f in enumerate(frac_faces)}
 
@@ -241,7 +239,7 @@ class VarelaJNumTrueErrors3D(VarelaJNumExactSolution3D):
                 idx = np.fromiter(
                     (face2pos[int(f)] for f in parent_faces),
                     dtype=int,
-                    count=parent_faces.size
+                    count=parent_faces.size,
                 )
                 tr_hi_on_ibg = p_trace_high[idx, :]  # (n_ibg_cells, 3)
 
@@ -263,8 +261,7 @@ class VarelaJNumTrueErrors3D(VarelaJNumExactSolution3D):
             R = sidegrid_rot.rotation_matrix  # x_rot = R @ x_phys
             active = np.where(sidegrid_rot.dim_bool)[0]  # two in-plane indices
             inactive = np.where(~sidegrid_rot.dim_bool)[0][0]  # one normal index
-            P_yz = np.array([[0.0, 1.0, 0.0],
-                             [0.0, 0.0, 1.0]])
+            P_yz = np.array([[0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])
             T_yz = P_yz @ R.T[:, active]  # (2,2)
 
             sidegrid = mg_side
@@ -288,7 +285,7 @@ class VarelaJNumTrueErrors3D(VarelaJNumExactSolution3D):
                 c = mdnme.utils.poly2col(deltap_side)
                 recon_p_jump = c[0] * x[0] + c[1] * x[1] + c[2]
                 # Evaluate exact pressure jump at quadrature points
-                yz = np.einsum('ab,bnm->anm', T_yz, x) + b_yz[:, :, None]  # (2, N, M)
+                yz = np.einsum("ab,bnm->anm", T_yz, x) + b_yz[:, :, None]  # (2, N, M)
                 exact_jump = exact_deltap_side(yz[0], yz[1])  # (N, M)
                 return (exact_jump - recon_p_jump) ** 2
 
@@ -346,8 +343,7 @@ class VarelaJNumTrueErrors3D(VarelaJNumExactSolution3D):
             R = sidegrid_rot.rotation_matrix  # x_rot = R @ x_phys
             active = np.where(sidegrid_rot.dim_bool)[0]  # two in-plane indices
             inactive = np.where(~sidegrid_rot.dim_bool)[0][0]  # one normal index
-            P_yz = np.array([[0.0, 1.0, 0.0],
-                             [0.0, 0.0, 1.0]])
+            P_yz = np.array([[0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])
             T_yz = P_yz @ R.T[:, active]  # (2,2)
 
             rot_cc_full = R @ sidegrid.cell_centers  # (3, N)
@@ -369,7 +365,7 @@ class VarelaJNumTrueErrors3D(VarelaJNumExactSolution3D):
                 c = mdnme.utils.poly2col(recon_deltap_side)
                 recon_p_jump = c[0] * x[0] + c[1] * x[1] + c[2]
                 # Evaluate exact pressure jump at quadrature points
-                yz = np.einsum('ab,bnm->anm', T_yz, x) + b_yz[:, :, None]  # (2, N, M)
+                yz = np.einsum("ab,bnm->anm", T_yz, x) + b_yz[:, :, None]  # (2, N, M)
                 exact_jump = exact_deltap_side(yz[0], yz[1])  # (N, M)
                 return (exact_jump - recon_p_jump) ** 2
 
@@ -381,7 +377,7 @@ class VarelaJNumTrueErrors3D(VarelaJNumExactSolution3D):
 
         return np.hstack(values)
 
-# --- Add these methods inside VarelaJNumTrueErrors3D ---
+    # --- Add these methods inside VarelaJNumTrueErrors3D ---
 
     # ===== Global aggregator (dual variable) ===================================
     def true_error_dual(self) -> float:
@@ -419,6 +415,7 @@ class VarelaJNumTrueErrors3D(VarelaJNumExactSolution3D):
 
         out = np.zeros(sd_matrix.num_cells)
         for qf, idx in zip(q_fun, cell_idx):
+
             def integrand(X: np.ndarray) -> np.ndarray:
                 ux_e = qf[0](X[0], X[1], X[2])
                 uy_e = qf[1](X[0], X[1], X[2])
@@ -455,10 +452,9 @@ class VarelaJNumTrueErrors3D(VarelaJNumExactSolution3D):
 
         active = np.where(sd_rot.dim_bool)[0]
         inactive = np.where(~sd_rot.dim_bool)[0][0]
-        P_yz = np.array([[0.0, 1.0, 0.0],
-                         [0.0, 0.0, 1.0]])
+        P_yz = np.array([[0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])
         R = sd_rot.rotation_matrix
-        T_yz = P_yz @ R.T[:, active]     # map local (ξ,η) -> physical (y,z)
+        T_yz = P_yz @ R.T[:, active]  # map local (ξ,η) -> physical (y,z)
         rot_cc_full = R @ sd_frac.cell_centers
         c_vec = rot_cc_full[inactive, :]
         n_yz = (P_yz @ R.T[:, inactive]).reshape(2, 1)
@@ -470,7 +466,7 @@ class VarelaJNumTrueErrors3D(VarelaJNumExactSolution3D):
             uy = u[0] * xi[0] + u[1]
             uz = u[0] * xi[1] + u[2]
             # exact in physical yz
-            yz = np.einsum('ab,bnm->anm', T_yz, xi) + b_yz[:, :, None]
+            yz = np.einsum("ab,bnm->anm", T_yz, xi) + b_yz[:, :, None]
             qy = qy_fun(yz[0], yz[1])
             qz = qz_fun(yz[0], yz[1])
             # rotate physical components to local (rotated) yz frame
@@ -516,8 +512,7 @@ class VarelaJNumTrueErrors3D(VarelaJNumExactSolution3D):
             active = np.where(side_rot.dim_bool)[0]
             inactive = np.where(~side_rot.dim_bool)[0][0]
 
-            P_yz = np.array([[0.0, 1.0, 0.0],
-                             [0.0, 0.0, 1.0]])
+            P_yz = np.array([[0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])
             T_yz = P_yz @ R.T[:, active]  # (2,2)
 
             rot_cc_full = R @ sidegrid.cell_centers
@@ -527,11 +522,11 @@ class VarelaJNumTrueErrors3D(VarelaJNumExactSolution3D):
 
             # Elements and per-side constant λ_h density
             elements = mdnme.utils.get_quadpy_elements(sidegrid, side_rot)
-            lam_h_dens_side = (P_msg * lam_h_dens_all)  # shape (Nsides,)
+            lam_h_dens_side = P_msg * lam_h_dens_all  # shape (Nsides,)
 
             def integrand(xi: np.ndarray) -> np.ndarray:
                 # exact λ at quadrature points
-                yz = np.einsum('ab,bnm->anm', T_yz, xi) + b_yz[:, :, None]
+                yz = np.einsum("ab,bnm->anm", T_yz, xi) + b_yz[:, :, None]
                 lam_e = lam_fun(yz[0], yz[1])  # (Nsides, Nq)
                 # reconstructed constant density per side cell, broadcast over points
                 lam_h = lam_h_dens_side[:, None] * np.ones_like(xi[0])
@@ -540,4 +535,3 @@ class VarelaJNumTrueErrors3D(VarelaJNumExactSolution3D):
             values.append(method.integrate(integrand, elements))
 
         return np.hstack(values)
-

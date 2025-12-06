@@ -32,7 +32,7 @@ for is_nonmatching in [False, True]:
         "file_name": file_name,  # name of the file used to store the results
         "folder_name": "example_3",  # name of the folder used to store the results
         "times_to_export": [],  # avoid exporting in regular way
-        "refinement": 'nested',  # used for non-matching grid generation
+        "refinement": "nested",  # used for non-matching grid generation
         "matching_from_geo": True,  # used for matching grid generation
         "source_rate": 0.1,  # defines the magnitude of injection/production
     }
@@ -46,11 +46,11 @@ for is_nonmatching in [False, True]:
 
     # Compute errors of same dimensionality and the global majorant
     local_errors = aggregate_local_errors(model.mdg)
-    sd_error_1d.append(local_errors['subdomain_error'][1])
-    sd_error_2d.append(local_errors['subdomain_error'][2])
-    sd_error_3d.append(local_errors['subdomain_error'][3])
-    intf_error_1d.append(local_errors['interface_error'][1])
-    intf_error_2d.append(local_errors['interface_error'][2])
+    sd_error_1d.append(local_errors["subdomain_error"][1])
+    sd_error_2d.append(local_errors["subdomain_error"][2])
+    sd_error_3d.append(local_errors["subdomain_error"][3])
+    intf_error_1d.append(local_errors["interface_error"][1])
+    intf_error_2d.append(local_errors["interface_error"][2])
     majorant.append(get_majorant(model.mdg))
 
     # Export results

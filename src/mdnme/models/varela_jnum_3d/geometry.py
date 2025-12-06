@@ -357,14 +357,14 @@ class VarelaJNumGeometry3D:
                 )
 
                 # Sanity check on translation vector
-                if self.params.get('translation_vector') is None:
-                    raise ValueError('Expected a translation vector')
-                tvec = self.params.get('translation_vector')
+                if self.params.get("translation_vector") is None:
+                    raise ValueError("Expected a translation vector")
+                tvec = self.params.get("translation_vector")
                 x_move, y_move, z_move = tvec[0], tvec[1], tvec[2]
                 if not np.isclose(x_move, 0):
-                    raise ValueError('Points cannot be moved in the x-direction')
+                    raise ValueError("Points cannot be moved in the x-direction")
                 if np.isclose(y_move, 0) and np.isclose(z_move, 0):
-                    raise ValueError('Expected translation in the y or z direction')
+                    raise ValueError("Expected translation in the y or z direction")
 
                 # We only perturb the fracture grid
                 if perturb_frac and not perturb_mortar:
@@ -376,7 +376,7 @@ class VarelaJNumGeometry3D:
                     # Get amplitude of translation. If not given, we use half of the
                     # mean cell diameter of the grid
                     default_amp = frac_grid.cell_diameters().mean() / 2
-                    amp: float = self.params.get('amplitude', default_amp)
+                    amp: float = self.params.get("amplitude", default_amp)
 
                     # Retrieve "boundary" nodes
                     y_nodes = pert_frac_grid.nodes[1]
@@ -421,16 +421,16 @@ class VarelaJNumGeometry3D:
                         # Get amplitude of translation. If not given, we use half of the
                         # mean cell diameter of the grid
                         default_amp = mg_side.cell_diameters().mean() / 2
-                        amp: float = self.params.get('amplitude', default_amp)
+                        amp: float = self.params.get("amplitude", default_amp)
 
                         # Retrieve "boundary" nodes
                         y_nodes = pert_mg_side.nodes[1]
                         z_nodes = pert_mg_side.nodes[2]
                         bound_nodes_mask = (
-                                np.isclose(y_nodes, 0.25)
-                                + np.isclose(y_nodes, 0.75)
-                                + np.isclose(z_nodes, 0.25)
-                                + np.isclose(z_nodes, 0.75)
+                            np.isclose(y_nodes, 0.25)
+                            + np.isclose(y_nodes, 0.75)
+                            + np.isclose(z_nodes, 0.25)
+                            + np.isclose(z_nodes, 0.75)
                         )
                         int_nodes_mask = np.logical_not(bound_nodes_mask)
 
@@ -460,16 +460,16 @@ class VarelaJNumGeometry3D:
                     # Get amplitude of translation. If not given, we use half of the
                     # mean cell diameter of the grid
                     default_amp_frac = frac_grid.cell_diameters().mean() / 2
-                    amp_frac: float = self.params.get('amplitude', default_amp_frac)
+                    amp_frac: float = self.params.get("amplitude", default_amp_frac)
 
                     # Retrieve "boundary" nodes
                     y_nodes_frac = pert_frac_grid.nodes[1]
                     z_nodes_frac = pert_frac_grid.nodes[2]
                     bound_nodes_mask_frac = (
-                            np.isclose(y_nodes_frac, 0.25)
-                            + np.isclose(y_nodes_frac, 0.75)
-                            + np.isclose(z_nodes_frac, 0.25)
-                            + np.isclose(z_nodes_frac, 0.75)
+                        np.isclose(y_nodes_frac, 0.25)
+                        + np.isclose(y_nodes_frac, 0.75)
+                        + np.isclose(z_nodes_frac, 0.25)
+                        + np.isclose(z_nodes_frac, 0.75)
                     )
                     int_nodes_mask_frac = np.logical_not(bound_nodes_mask_frac)
 
@@ -500,17 +500,17 @@ class VarelaJNumGeometry3D:
                         # mean cell diameter of the grid
                         default_amp_mortar = mg_side.cell_diameters().mean() / 2
                         amp_mortar: float = self.params.get(
-                            'amplitude', default_amp_mortar
+                            "amplitude", default_amp_mortar
                         )
 
                         # Retrieve "boundary" nodes
                         y_nodes_mortar = pert_mg_side.nodes[1]
                         z_nodes_mortar = pert_mg_side.nodes[2]
                         bound_nodes_mask_mortar = (
-                                np.isclose(y_nodes_mortar, 0.25)
-                                + np.isclose(y_nodes_mortar, 0.75)
-                                + np.isclose(z_nodes_mortar, 0.25)
-                                + np.isclose(z_nodes_mortar, 0.75)
+                            np.isclose(y_nodes_mortar, 0.25)
+                            + np.isclose(y_nodes_mortar, 0.75)
+                            + np.isclose(z_nodes_mortar, 0.25)
+                            + np.isclose(z_nodes_mortar, 0.75)
                         )
                         int_nodes_mask_mortar = np.logical_not(bound_nodes_mask_mortar)
 
@@ -519,10 +519,12 @@ class VarelaJNumGeometry3D:
                         # Note: We translate the nodes in the opposite side of the
                         # translation vector when both fracture and mortar grid
                         # internal nodes are perturbed
-                        pert_mg_side.nodes[1][int_nodes_mask_mortar] += (-y_move *
-                                                                         amp_mortar)
-                        pert_mg_side.nodes[2][int_nodes_mask_mortar] += (-z_move *
-                                                                         amp_mortar)
+                        pert_mg_side.nodes[1][int_nodes_mask_mortar] += (
+                            -y_move * amp_mortar
+                        )
+                        pert_mg_side.nodes[2][int_nodes_mask_mortar] += (
+                            -z_move * amp_mortar
+                        )
                         pert_mg_side.compute_geometry()
 
                         # Store in map
@@ -530,8 +532,7 @@ class VarelaJNumGeometry3D:
 
                     # 3: Replace fracture grid and mortar grid
                     mdg_final.replace_subdomains_and_interfaces(
-                        sd_map={frac_grid: pert_frac_grid},
-                        interface_map={intf: sg_map}
+                        sd_map={frac_grid: pert_frac_grid}, interface_map={intf: sg_map}
                     )
 
             # >>> Refinement-based non-matchingness <<<
@@ -543,21 +544,21 @@ class VarelaJNumGeometry3D:
                 # Obtain GridSequenceFactory parameters from standard API
                 mesh_size_bound = self.params["meshing_arguments"]["cell_size"]
                 mesh_size_frac = self.params["meshing_arguments"].get(
-                    'cell_size_fracture', mesh_size_bound
+                    "cell_size_fracture", mesh_size_bound
                 )
                 mesh_size_min = self.params["meshing_arguments"].get(
-                    'cell_size_min', 0.05*mesh_size_bound
+                    "cell_size_min", 0.05 * mesh_size_bound
                 )
 
                 grid_sequence_params = {
-                    'mode': 'nested',
-                    'num_refinements': 2,
-                    'mesh_param': {
+                    "mode": "nested",
+                    "num_refinements": 2,
+                    "mesh_param": {
                         "mesh_size_bound": mesh_size_bound,
                         "mesh_size_frac": mesh_size_frac,
                         "mesh_size_min": mesh_size_min,
                     },
-                    'grid_param': self.meshing_kwargs(),
+                    "grid_param": self.meshing_kwargs(),
                 }
 
                 factory = GridSequenceFactory(
@@ -572,23 +573,31 @@ class VarelaJNumGeometry3D:
                 if refine_fracture and not refine_mortar:
                     mdg_final.replace_subdomains_and_interfaces(
                         sd_map={
-                            mdg_final.subdomains(dim=2)[0]: mdg_fine.subdomains(dim=2)[0]
+                            mdg_final.subdomains(dim=2)[0]: mdg_fine.subdomains(dim=2)[
+                                0
+                            ]
                         }
                     )
                 elif refine_mortar and not refine_fracture:
                     mdg_final.replace_subdomains_and_interfaces(
                         interface_map={
-                            mdg_final.interfaces(dim=2)[0]: mdg_fine.interfaces(dim=2)[0]
+                            mdg_final.interfaces(dim=2)[0]: mdg_fine.interfaces(dim=2)[
+                                0
+                            ]
                         }
                     )
                 else:
                     mdg_final.replace_subdomains_and_interfaces(
                         sd_map={
-                            mdg_final.subdomains(dim=2)[0]: mdg_fine.subdomains(dim=2)[0]
+                            mdg_final.subdomains(dim=2)[0]: mdg_fine.subdomains(dim=2)[
+                                0
+                            ]
                         },
                         interface_map={
-                            mdg_final.interfaces(dim=2)[0]: mdg_fine.interfaces(dim=2)[0]
-                        }
+                            mdg_final.interfaces(dim=2)[0]: mdg_fine.interfaces(dim=2)[
+                                0
+                            ]
+                        },
                     )
 
                 # Make sure to recompute the geometry of boundary grids

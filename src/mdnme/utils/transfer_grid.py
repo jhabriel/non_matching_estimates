@@ -29,13 +29,15 @@ class TransferGrid:
     2D parameterization (via mdnme.RotatedGrid), which is cached internally.
 
     """
-    def __init__(self,
-                 g_source: pp.GridLike,
-                 g_target: pp.GridLike,
-                 rotation_matrix: np.ndarray = None,
-                 tol: float = 1e-5,
-                 name: str = "transfer"
-                 ):
+
+    def __init__(
+        self,
+        g_source: pp.GridLike,
+        g_target: pp.GridLike,
+        rotation_matrix: np.ndarray = None,
+        tol: float = 1e-5,
+        name: str = "transfer",
+    ):
 
         self.tol = tol
         """Geometric tolerance. Default is 1e-8."""
@@ -69,9 +71,11 @@ class TransferGrid:
     def _get_rotated_grid(self, grid: pp.Grid):
         if grid is self.g_source:
             if self._src_rot is None:
-                self._src_rot = mdnme.RotatedGrid(
-                    grid, self._rot_matrix
-                ) if self._rot_matrix is not None else mdnme.RotatedGrid(grid)
+                self._src_rot = (
+                    mdnme.RotatedGrid(grid, self._rot_matrix)
+                    if self._rot_matrix is not None
+                    else mdnme.RotatedGrid(grid)
+                )
                 # If not provided, adopt the source’s matrix so target uses the same
                 if self._rot_matrix is None:
                     self._rot_matrix = self._src_rot.rotation_matrix
@@ -167,7 +171,6 @@ class TransferGrid:
         self.transfer = pp.TriangleGrid(coords_arr, cells_arr, name=self.name)
         self.transfer.compute_geometry()
 
-
     # ---- connectivity queries ----
     def _build_connectivity_matrices(self):
         """
@@ -259,13 +262,13 @@ class TransferGrid:
 
     @classmethod
     def from_nested(
-            cls,
-            g_source: pp.Grid,
-            g_target: pp.Grid,
-            coarse_fine: sps.csc_matrix | None = None,  # shape (n_fine, n_coarse)
-            rotation_matrix: np.ndarray | None = None,  # kept for API symmetry; unused
-            tol: float = 1e-8,
-            name: str = "transfer",
+        cls,
+        g_source: pp.Grid,
+        g_target: pp.Grid,
+        coarse_fine: sps.csc_matrix | None = None,  # shape (n_fine, n_coarse)
+        rotation_matrix: np.ndarray | None = None,  # kept for API symmetry; unused
+        tol: float = 1e-8,
+        name: str = "transfer",
     ) -> "TransferGrid":
         """
         Fast path for (assumed) nested refinement: use the *fine* grid as the transfer
@@ -321,7 +324,9 @@ class TransferGrid:
                 d = getattr(g_coarse, "data", {})
                 M0 = d.get("coarse_fine_cell_mapping", None)
                 if isinstance(M0, sps.spmatrix) and M0.shape == (
-                g_fine.num_cells, g_coarse.num_cells):
+                    g_fine.num_cells,
+                    g_coarse.num_cells,
+                ):
                     M = M0.tocsc()
                 else:
                     raise ValueError(
@@ -408,10 +413,12 @@ class TransferGrid:
         # 2) get the 2D nodes and cells
         nodes2d = self.transfer.nodes[:2, :]
         cn = self.transfer.cell_nodes().tocsc()
-        cells = cn.indices.reshape((3, self.transfer.num_cells), order="F").T  # (n_tri, 3)
+        cells = cn.indices.reshape(
+            (3, self.transfer.num_cells), order="F"
+        ).T  # (n_tri, 3)
 
         # 3) build edge→triangles lookup
-        edge_to_tris: dict[tuple[int,int], list[int]] = {}
+        edge_to_tris: dict[tuple[int, int], list[int]] = {}
         for t_idx, tri in enumerate(cells):
             for edge in combinations(tri, 2):
                 e = tuple(sorted(edge))
@@ -463,7 +470,7 @@ class TransferGrid:
 
         # 10) save figure
         fig = ax.get_figure()
-        fig.savefig(f'{self.name}.pdf')
+        fig.savefig(f"{self.name}.pdf")
 
 
 class TransferLine:
@@ -580,7 +587,9 @@ class TransferLine:
         self.transfer = pp.TensorGrid(self.transfer_nodes)
         self.transfer.compute_geometry()
 
-    def _locate_owner_cells(self, midpoints: np.ndarray, breaks: np.ndarray) -> np.ndarray:
+    def _locate_owner_cells(
+        self, midpoints: np.ndarray, breaks: np.ndarray
+    ) -> np.ndarray:
         ids = np.searchsorted(breaks, midpoints, side="right") - 1
         return np.clip(ids, 0, len(breaks) - 2)
 
@@ -612,7 +621,7 @@ class TransferLine:
         xtf = self._breaks(self.transfer, use_rotation=False)
 
         n_src = self.g_source.num_cells
-        n_tr  = self.transfer.num_cells
+        n_tr = self.transfer.num_cells
         n_tgt = self.g_target.num_cells
 
         s2t = sps.lil_matrix((n_src, n_tr), dtype=int)
@@ -631,7 +640,6 @@ class TransferLine:
         self.transfer_to_target = t2tg.tocsr()
         self.target_to_transfer = self.transfer_to_target.T.tocsr()
 
-
     def summary(self):
         return {
             "n_source_cells": self.g_source.num_cells,
@@ -643,19 +651,14 @@ class TransferLine:
 
 # ---- Utility functions ---
 def build_transfer_grid_nested(
-    gA: pp.Grid,
-    gB: pp.Grid,
-    mapping: sps.csc_matrix | None = None
+    gA: pp.Grid, gB: pp.Grid, mapping: sps.csc_matrix | None = None
 ) -> TransferGrid:
     """Return a TransferGrid using the fast nested path."""
     return TransferGrid.from_nested(gA, gB, coarse_fine=mapping, name="transfer_fast")
 
 
 def coarse_fine_or_build(
-    gA: pp.Grid,
-    gB: pp.Grid,
-    *,
-    tol: float = 1e-9
+    gA: pp.Grid, gB: pp.Grid, *, tol: float = 1e-9
 ) -> sps.csc_matrix:
     """
     Return coarse_fine mapping with shape (n_fine x n_coarse).
@@ -688,32 +691,26 @@ def coarse_fine_or_build(
     return M
 
 
-def permute_transfer_columns(
-        A: sps.spmatrix,
-        perm: np.ndarray
-    ) -> sps.spmatrix:
+def permute_transfer_columns(A: sps.spmatrix, perm: np.ndarray) -> sps.spmatrix:
     """Return A with its columns permuted so that new[:, j] = A[:, perm[j]]."""
-    P = sps.coo_matrix((np.ones(len(perm)), (perm, np.arange(len(perm)))),
-                       shape=(len(perm), len(perm))).tocsr()
+    P = sps.coo_matrix(
+        (np.ones(len(perm)), (perm, np.arange(len(perm)))), shape=(len(perm), len(perm))
+    ).tocsr()
     return A @ P
 
 
 def transfer_permutation_by_centroids(
-        tg_ref,
-        tg_to_perm,
-        *,
-        rtol=0,
-        atol=1e-12
-    ) -> np.ndarray:
+    tg_ref, tg_to_perm, *, rtol=0, atol=1e-12
+) -> np.ndarray:
     """
     Compute permutation that reorders tg_to_perm.transfer cells to match tg_ref.transfer
     by nearest neighbor matching of 2D centroids.
     """
-    C_ref  = tg_ref.transfer.cell_centers[:2, :].T
+    C_ref = tg_ref.transfer.cell_centers[:2, :].T
     C_perm = tg_to_perm.transfer.cell_centers[:2, :].T
     tree = cKDTree(C_perm)
     d, idx = tree.query(C_ref, k=1)
-    if not np.all(d <= atol + rtol*np.abs(C_ref).max()):
+    if not np.all(d <= atol + rtol * np.abs(C_ref).max()):
         raise AssertionError(f"Transfer centroids mismatch; max diff {d.max():.3e}")
     return idx
 

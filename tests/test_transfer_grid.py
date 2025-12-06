@@ -25,9 +25,15 @@ def coarse_fracture() -> pp.Grid:
     domain = pp.Domain(
         {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1}
     )
-    frac = pp.PlaneFracture(np.array([[0.50, 0.50, 0.50, 0.50],
-                                      [0.25, 0.75, 0.75, 0.25],
-                                      [0.25, 0.25, 0.75, 0.75]]))
+    frac = pp.PlaneFracture(
+        np.array(
+            [
+                [0.50, 0.50, 0.50, 0.50],
+                [0.25, 0.75, 0.75, 0.25],
+                [0.25, 0.25, 0.75, 0.75],
+            ]
+        )
+    )
     fn = pp.create_fracture_network([frac], domain)
     mesh_args = {
         "cell_size_boundary": 1.0,
@@ -43,9 +49,15 @@ def fine_fracture() -> pp.Grid:
     domain = pp.Domain(
         {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1}
     )
-    frac = pp.PlaneFracture(np.array([[0.50, 0.50, 0.50, 0.50],
-                                      [0.25, 0.75, 0.75, 0.25],
-                                      [0.25, 0.25, 0.75, 0.75]]))
+    frac = pp.PlaneFracture(
+        np.array(
+            [
+                [0.50, 0.50, 0.50, 0.50],
+                [0.25, 0.75, 0.75, 0.25],
+                [0.25, 0.25, 0.75, 0.75],
+            ]
+        )
+    )
     fn = pp.create_fracture_network([frac], domain)
     mesh_args = {
         "cell_size_boundary": 1.0,
@@ -56,7 +68,7 @@ def fine_fracture() -> pp.Grid:
     return mdg.subdomains()[1]
 
 
-domain = pp.Domain({'xmin': 0, 'xmax': 1, 'ymin': 0, 'ymax': 1})
+domain = pp.Domain({"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1})
 fn = pp.create_fracture_network([], domain)
 mdg = pp.create_mdg("simplex", {"cell_size": 0.1}, fn)
 sd0 = mdg.subdomains()[0]
@@ -95,9 +107,7 @@ def test_target_refined_wrt_source():
 
     # Also test the volume
     np.testing.assert_approx_equal(
-        target_grid.cell_volumes.sum(),
-        transfer_grid.cell_volumes.sum(),
-        7
+        target_grid.cell_volumes.sum(), transfer_grid.cell_volumes.sum(), 7
     )
 
     # Check connectivity and area overlap
@@ -142,9 +152,7 @@ def test_source_refined_wrt_target():
 
     # Also test the volume
     np.testing.assert_approx_equal(
-        source_grid.cell_volumes.sum(),
-        transfer_grid.cell_volumes.sum(),
-        7
+        source_grid.cell_volumes.sum(), transfer_grid.cell_volumes.sum(), 7
     )
 
     # Check connectivity and area overlap
@@ -240,7 +248,7 @@ def test_perturbed_target_wrt_source():
     assert np.all(tgt_counts == 1)
 
 
-@pytest.mark.parametrize("fracture", ['coarse_fracture', 'fine_fracture'])
+@pytest.mark.parametrize("fracture", ["coarse_fracture", "fine_fracture"])
 def test_embedded_identical_source_and_target_grids(fracture, request):
     """
     Checks transfer grid generation for a single identical fracture grid.
@@ -299,7 +307,7 @@ def test_embedded_perturbed_source_and_target(fracture, request):
 
 def test_nested_fastpath_equals_geometric_when_target_refined():
     # base grid
-    domain = pp.Domain({"xmin":0,"xmax":1,"ymin":0,"ymax":1})
+    domain = pp.Domain({"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1})
     fn = pp.create_fracture_network([], domain)
     mdg = pp.create_mdg("simplex", {"cell_size": 0.15}, fn)
     G0 = mdg.subdomains()[0]
@@ -330,7 +338,7 @@ def test_nested_fastpath_equals_geometric_when_target_refined():
 
     # incidence matrices should agree
     np.testing.assert_array_equal(
-      s2t_geo_aligned.todense(), tg_fast.source_to_transfer.todense()
+        s2t_geo_aligned.todense(), tg_fast.source_to_transfer.todense()
     )
     np.testing.assert_array_equal(
         t2s_geo_aligned.todense(), tg_fast.transfer_to_source.todense()
@@ -338,7 +346,7 @@ def test_nested_fastpath_equals_geometric_when_target_refined():
 
 
 def test_nested_fastpath_equals_geometric_when_source_refined():
-    domain = pp.Domain({"xmin":0,"xmax":1,"ymin":0,"ymax":1})
+    domain = pp.Domain({"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1})
     fn = pp.create_fracture_network([], domain)
     mdg = pp.create_mdg("simplex", {"cell_size": 0.15}, fn)
     G0 = mdg.subdomains()[0]
@@ -357,10 +365,7 @@ def test_nested_fastpath_equals_geometric_when_source_refined():
     assert tg_fast.transfer.num_cells == G1.num_cells
     assert tg_fast.transfer.num_nodes == G1.num_nodes
     np.testing.assert_allclose(
-        tg_fast.transfer.cell_volumes.sum(),
-        G1.cell_volumes.sum(),
-        rtol=0,
-        atol=1e-12
+        tg_fast.transfer.cell_volumes.sum(), G1.cell_volumes.sum(), rtol=0, atol=1e-12
     )
 
     # align geometric matrices to fast by transfer-cell permutation
@@ -369,7 +374,7 @@ def test_nested_fastpath_equals_geometric_when_source_refined():
     t2s_geo_aligned = tg_geo.transfer_to_source[perm, :]
 
     np.testing.assert_array_equal(
-       s2t_geo_aligned.todense(), tg_fast.source_to_transfer.todense()
+        s2t_geo_aligned.todense(), tg_fast.source_to_transfer.todense()
     )
     np.testing.assert_array_equal(
         t2s_geo_aligned.todense(), tg_fast.transfer_to_source.todense()
@@ -377,7 +382,7 @@ def test_nested_fastpath_equals_geometric_when_source_refined():
 
 
 def test_nested_fastpath_equals_geometric_when_source_equal_target():
-    domain = pp.Domain({"xmin":0,"xmax":1,"ymin":0,"ymax":1})
+    domain = pp.Domain({"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1})
     fn = pp.create_fracture_network([], domain)
     mdg = pp.create_mdg("simplex", {"cell_size": 0.15}, fn)
     G0 = mdg.subdomains()[0]
@@ -394,10 +399,7 @@ def test_nested_fastpath_equals_geometric_when_source_equal_target():
     assert tg_fast.transfer.num_cells == G1.num_cells
     assert tg_fast.transfer.num_nodes == G1.num_nodes
     np.testing.assert_allclose(
-        tg_fast.transfer.cell_volumes.sum(),
-        G1.cell_volumes.sum(),
-        rtol=0,
-        atol=1e-12
+        tg_fast.transfer.cell_volumes.sum(), G1.cell_volumes.sum(), rtol=0, atol=1e-12
     )
 
     # align geometric matrices to fast by transfer-cell permutation
@@ -406,9 +408,8 @@ def test_nested_fastpath_equals_geometric_when_source_equal_target():
     t2s_geo_aligned = tg_geo.transfer_to_source[perm, :]
 
     np.testing.assert_array_equal(
-       s2t_geo_aligned.todense(), tg_fast.source_to_transfer.todense()
+        s2t_geo_aligned.todense(), tg_fast.source_to_transfer.todense()
     )
     np.testing.assert_array_equal(
         t2s_geo_aligned.todense(), tg_fast.transfer_to_source.todense()
     )
-

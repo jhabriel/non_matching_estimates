@@ -19,9 +19,7 @@ from mdnme.examples.example_2.flow_benchmark_3d_case_2 import FlowBenchmark3dCas
 from mdnme.examples.example_2.geometry import GeometryNonMatching
 
 
-class Geiger3dSolutionStrategy(
-    pp.fluid_mass_balance.SolutionStrategySinglePhaseFlow
-):
+class Geiger3dSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePhaseFlow):
     """Modified solution strategy for the verification setup."""
 
     mdg: pp.MixedDimensionalGrid
@@ -48,18 +46,16 @@ class Geiger3dSolutionStrategy(
         outflow = np.logical_and.reduce(
             tuple(cc[i, :] > 0.875 + 1e-8 for i in range(3))
         )
-        inflow = np.logical_and.reduce(
-            tuple(cc[i, :] < 0.25 + 1e-8 for i in range(3))
-        )
+        inflow = np.logical_and.reduce(tuple(cc[i, :] < 0.25 + 1e-8 for i in range(3)))
 
         bc_cells = np.zeros(sd.num_cells)
         bc_cells[outflow] = -1
         bc_cells[inflow] = 1
 
-        data[pp.ITERATE_SOLUTIONS]['bc_cells'] = {}
-        data[pp.ITERATE_SOLUTIONS]['bc_cells'][0] = bc_cells
-        data[pp.TIME_STEP_SOLUTIONS]['bc_cells'] = {}
-        data[pp.TIME_STEP_SOLUTIONS]['bc_cells'][0] = bc_cells
+        data[pp.ITERATE_SOLUTIONS]["bc_cells"] = {}
+        data[pp.ITERATE_SOLUTIONS]["bc_cells"][0] = bc_cells
+        data[pp.TIME_STEP_SOLUTIONS]["bc_cells"] = {}
+        data[pp.TIME_STEP_SOLUTIONS]["bc_cells"][0] = bc_cells
 
     def save_matrix_permeability_cells(self):
         sd, data = self.mdg.subdomains(dim=3, return_data=True)[0]
@@ -68,11 +64,11 @@ class Geiger3dSolutionStrategy(
         low_perm_cells = np.zeros(sd.num_cells)
         low_perm_cells[low_perm] = 1
 
-        data[pp.ITERATE_SOLUTIONS]['low_perm_cells'] = {}
-        data[pp.ITERATE_SOLUTIONS]['low_perm_cells'][0] = low_perm_cells
+        data[pp.ITERATE_SOLUTIONS]["low_perm_cells"] = {}
+        data[pp.ITERATE_SOLUTIONS]["low_perm_cells"][0] = low_perm_cells
 
-        data[pp.TIME_STEP_SOLUTIONS]['low_perm_cells'] = {}
-        data[pp.TIME_STEP_SOLUTIONS]['low_perm_cells'][0] = low_perm_cells
+        data[pp.TIME_STEP_SOLUTIONS]["low_perm_cells"] = {}
+        data[pp.TIME_STEP_SOLUTIONS]["low_perm_cells"][0] = low_perm_cells
 
     def after_simulation(self) -> None:
         """Method to be called after the simulation has finished."""
@@ -95,16 +91,18 @@ class Geiger3dSolutionStrategy(
 
         # Export error indicators
         if self.params.get("export_results", False):
-            self.exporter.write_vtu([
-                "pressure",
-                "interface_darcy_flux",
-                "diffusive_error",
-                "residual_error",
-                "error_indicator",
-                "bc_cells",
-                "low_perm_cells",
-            ])
-            
+            self.exporter.write_vtu(
+                [
+                    "pressure",
+                    "interface_darcy_flux",
+                    "diffusive_error",
+                    "residual_error",
+                    "error_indicator",
+                    "bc_cells",
+                    "low_perm_cells",
+                ]
+            )
+
     def _is_nonlinear_problem(self) -> bool:
         """The problem is linear."""
         return False

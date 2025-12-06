@@ -41,12 +41,12 @@ for lvl in REFINEMENT_LEVELS:
 
     # Compute errors of same dimensionality and the global majorant
     local_errors = aggregate_local_errors(model.mdg)
-    sd_error_1d.append(local_errors['subdomain_error'][1])
-    sd_error_2d.append(local_errors['subdomain_error'][2])
-    sd_error_3d.append(local_errors['subdomain_error'][3])
-    intf_error_0d.append(local_errors['interface_error'][0])
-    intf_error_1d.append(local_errors['interface_error'][1])
-    intf_error_2d.append(local_errors['interface_error'][2])
+    sd_error_1d.append(local_errors["subdomain_error"][1])
+    sd_error_2d.append(local_errors["subdomain_error"][2])
+    sd_error_3d.append(local_errors["subdomain_error"][3])
+    intf_error_0d.append(local_errors["interface_error"][0])
+    intf_error_1d.append(local_errors["interface_error"][1])
+    intf_error_2d.append(local_errors["interface_error"][2])
     majorant.append(get_majorant(model.mdg))
 
 # Export results

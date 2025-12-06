@@ -8,6 +8,7 @@ Run this script to generate the `txt` files for both, uniform and adaptive mesh
 refinement.
 
 """
+
 from __future__ import annotations
 
 import pickle

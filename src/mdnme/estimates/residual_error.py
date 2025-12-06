@@ -10,6 +10,7 @@ Reference:
       https://doi.org/10.1515/jnma-2022-0038
 
 """
+
 from __future__ import annotations
 
 from typing import Callable
@@ -98,10 +99,8 @@ def _residual_error(
 
     # Declare integrand
     def integrand(x: np.ndarray) -> np.ndarray:
-        if not isinstance(
-                external_sources, float
-        ) and not isinstance(
-                external_sources, np.ndarray
+        if not isinstance(external_sources, float) and not isinstance(
+            external_sources, np.ndarray
         ):  # we are in a situation where a Sympy spatially-defined function is given
             if sd.dim == 3:
                 out = (external_sources(x[0], x[1], x[2]) - div_u + intf_jump) ** 2

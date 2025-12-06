@@ -27,11 +27,12 @@ def _key(g: GridLike) -> Key:
 class RotatedGrid:
     """Parent class for rotated grid object."""
 
-    def __init__(self,
-                 sd: pp.Grid,
-                 rotation_matrix: np.ndarray | None = None,
-                 tol=1e-5,  # same as `map_geometry.map_grid()` by default
-                 ):
+    def __init__(
+        self,
+        sd: pp.Grid,
+        rotation_matrix: np.ndarray | None = None,
+        tol=1e-5,  # same as `map_geometry.map_grid()` by default
+    ):
         """
         This class is a wrapper of the outputs of pp.map_geometry.map_grid(sd).
 
@@ -185,9 +186,10 @@ def rotate_grid(g: GridLike) -> mdnme.RotatedGrid:
 
     if rot_matrix is None:
         # For 0D grids we don't need a RotatedGrid
-        raise ValueError("Zero-dimensional grids/interfaces have no canonical rotation.")
+        raise ValueError(
+            "Zero-dimensional grids/interfaces have no canonical rotation."
+        )
 
     g_rot = mdnme.RotatedGrid(g, rotation_matrix=rot_matrix)
     _ROTATED_CACHE[k] = g_rot
     return g_rot
-
