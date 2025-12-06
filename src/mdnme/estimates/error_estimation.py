@@ -1,4 +1,4 @@
-from typing import Callable
+from typing import Callable, Literal
 
 import numpy as np
 import porepy as pp
@@ -8,8 +8,6 @@ from mdnme.estimates.flux_extension import extend_fv_fluxes
 from mdnme.estimates.pressure_reconstruction import reconstruct_pressure
 from mdnme.estimates.residual_error import compute_residual_error
 from mdnme.utils.grid_rotation import build_canonical_frames
-
-from typing import Literal
 
 SpatialFunction = Callable[..., np.ndarray]
 
@@ -39,6 +37,7 @@ def estimate_errors(
             residual error. To avoid introducing quadrature errors, the degree must
             be sufficiently high so that the sources can be integrated exactly. If not
             given, we employ 4.
+        is_non_matching: Should be set to True if non-matching approximations are used.
 
     Note:
         On subdomains and interfaces, diffusive errors are stored in
@@ -128,33 +127,31 @@ def compute_sd_and_intf_errors_of_equal_dim(mdg: pp.MixedDimensionalGrid) -> dic
         in data["estimates"]["error_indicators"].
 
     """
-    d = {}
-    d['subdomain_error'] = {}
-    d['interface_error'] = {}
+    d: dict = {"subdomain_error": {}, "interface_error": {}}
 
     # Obtain max and min subdomain dim
     sd_dims = np.asarray([sd.dim for sd in mdg.subdomains()])
     min_sd_dims = np.min(sd_dims)
     max_sd_dims = np.max(sd_dims)
-    dims_sd = np.arange(min_sd_dims, max_sd_dims+1)
+    dims_sd = np.arange(min_sd_dims, max_sd_dims + 1)
 
     intf_dims = np.asarray([intf.dim for intf in mdg.interfaces()])
     min_intf_dims = np.min(intf_dims)
     max_intf_dims = np.max(intf_dims)
-    dims_intf = np.arange(min_intf_dims, max_intf_dims+1)
+    dims_intf = np.arange(min_intf_dims, max_intf_dims + 1)
 
     # Loop over the mixed-dimensional grid and calculate errors
     for dim in dims_sd:
-        cum_error = 0
+        cum_error = 0.0
         for sd, data in mdg.subdomains(dim=dim, return_data=True):
             cum_error += data["estimates"]["error_indicator"].sum()
-        d['subdomain_error'][dim] = np.sqrt(cum_error)
+        d["subdomain_error"][dim] = np.sqrt(cum_error)
 
     for dim in dims_intf:
-        cum_error = 0
+        cum_error = 0.0
         for intf, data in mdg.interfaces(dim=dim, return_data=True):
             cum_error += data["estimates"]["error_indicator"].sum()
-        d['interface_error'][dim] = np.sqrt(cum_error)
+        d["interface_error"][dim] = np.sqrt(cum_error)
 
     return d
 
@@ -179,7 +176,7 @@ def aggregate_local_errors(mdg: pp.MixedDimensionalGrid) -> dict:
     """
 
     # Create dictionary
-    d = {'subdomain_error': {}, 'interface_error': {}}
+    d: dict = {"subdomain_error": {}, "interface_error": {}}
 
     # Obtain max and min subdomain dim
     sd_dims = np.asarray([sd.dim for sd in mdg.subdomains()])
@@ -197,24 +194,24 @@ def aggregate_local_errors(mdg: pp.MixedDimensionalGrid) -> dict:
         # Handle the 0d case
         if dim == 0:
             continue
-        cum_error = 0
+        cum_error = 0.0
         for sd, data in mdg.subdomains(dim=dim, return_data=True):
             cum_error += compute_local_errors(sd, data)
-        d['subdomain_error'][dim] = cum_error
+        d["subdomain_error"][dim] = cum_error
 
     for dim in dims_intf:
-        cum_error = 0
+        cum_error = 0.0
         for intf, data in mdg.interfaces(dim=dim, return_data=True):
             cum_error += compute_local_errors(intf, data)
-        d['interface_error'][dim] = cum_error
+        d["interface_error"][dim] = cum_error
 
     return d
 
 
 def compute_local_errors(
-        g: pp.Grid | pp.MortarGrid,
-        d: dict,
-        error_type: Literal["diffusive", "residual", "all"] = "all",
+    g: pp.Grid | pp.MortarGrid,
+    d: dict,
+    error_type: Literal["diffusive", "residual", "all"] = "all",
 ) -> float:
     """Computes the sum of local errors of a subdomain or interface.
 
@@ -283,8 +280,10 @@ def compute_local_errors(
         elif error_type == "residual_error":
             error = d["estimates"]["residual_error"].sum() ** 0.5
         else:
-            error = (d["estimates"]["diffusive_error"].sum() +
-                     d["estimates"]["residual_error"].sum()) ** 0.5
+            error = (
+                d["estimates"]["diffusive_error"].sum()
+                + d["estimates"]["residual_error"].sum()
+            ) ** 0.5
 
     return error
 

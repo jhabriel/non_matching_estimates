@@ -1,0 +1,74 @@
+"""This module contains the convergence analysis for numerical example 2."""
+
+import numpy as np
+import porepy as pp
+from porepy.utils.txt_io import TxtData, export_data_to_txt
+
+from mdnme.estimates.error_estimation import aggregate_local_errors, get_majorant
+from mdnme.examples.example_2.flow_benchmark_3d_case_2 import solid_constants_conductive
+from mdnme.examples.example_2.model import Geiger3dModel
+
+# Initialize lists for exporting results
+sd_error_1d_list: list[np.ndarray] = []
+sd_error_2d_list: list[np.ndarray] = []
+sd_error_3d_list: list[np.ndarray] = []
+intf_error_0d_list: list[np.ndarray] = []
+intf_error_1d_list: list[np.ndarray] = []
+intf_error_2d_list: list[np.ndarray] = []
+majorant_list: list[float] = []
+
+# Define refinement levels
+REFINEMENT_LEVELS = [0, 1, 2]
+
+# Loop over the three refinement levels
+for lvl in REFINEMENT_LEVELS:
+
+    # Setup the model and solve using MPFA
+    params = {
+        "material_constants": {"solid": solid_constants_conductive},
+        "refinement_level": lvl,
+        "non_matching": True,
+        "times_to_export": [],
+        "export_results": True,
+        "folder_name": "geiger3d",
+    }
+    print(f"Setting up the model for refinement level {lvl}.")
+    model = Geiger3dModel(params)  # type:ignore
+    print(f"Done setting up the model for refinement ")
+
+    print(f"Running model for refinement level {lvl}.")
+    pp.run_time_dependent_model(model, params)
+    print(f"Done running model.")
+
+    # Compute errors of same dimensionality and the global majorant
+    local_errors = aggregate_local_errors(model.mdg)
+    sd_error_1d_list.append(local_errors["subdomain_error"][1])
+    sd_error_2d_list.append(local_errors["subdomain_error"][2])
+    sd_error_3d_list.append(local_errors["subdomain_error"][3])
+    intf_error_0d_list.append(local_errors["interface_error"][0])
+    intf_error_1d_list.append(local_errors["interface_error"][1])
+    intf_error_2d_list.append(local_errors["interface_error"][2])
+    majorant_list.append(get_majorant(model.mdg))
+
+# Export results
+sd_error_1d: TxtData = TxtData(header="sd_1d", array=np.asarray(sd_error_1d_list))
+sd_error_2d: TxtData = TxtData(header="sd_2d", array=np.asarray(sd_error_2d_list))
+sd_error_3d: TxtData = TxtData(header="sd_3d", array=np.asarray(sd_error_3d_list))
+intf_error_0d: TxtData = TxtData(header="intf_0d", array=np.asarray(intf_error_0d_list))
+intf_error_1d: TxtData = TxtData(header="intf_1d", array=np.asarray(intf_error_1d_list))
+intf_error_2d: TxtData = TxtData(header="intf_2d", array=np.asarray(intf_error_2d_list))
+majorant: TxtData = TxtData(header="majorant", array=np.asarray(majorant_list))
+txt_data: list[TxtData] = [
+    majorant,
+    sd_error_1d,
+    sd_error_2d,
+    sd_error_3d,
+    intf_error_0d,
+    intf_error_1d,
+    intf_error_2d,
+]
+
+# Finally, export the results in a `txt` file
+print("{Exporting results to TXT file.}")
+export_data_to_txt(txt_data, "geiger_3d_errors.txt")
+print("{Done exporting results to TXT file.}")

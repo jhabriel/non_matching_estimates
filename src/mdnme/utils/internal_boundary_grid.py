@@ -1,12 +1,11 @@
 from dataclasses import dataclass
 from typing import Dict, List, Tuple
+
 import numpy as np
+import porepy as pp
 import scipy.sparse as sps
 
 import mdnme
-import porepy as pp
-
-
 from mdnme.utils.grid_utils import (
     ear_clip_triangulate,
     ensure_ccw,
@@ -35,10 +34,17 @@ class _SideData1D:
 class InternalBoundaryGrid:
     """Per-interface Internal Boundary Grid built in the interface frame."""
 
-    def __init__(self, intf: pp.MortarGrid, sd_high: pp.Grid,
-                 tol: float = 1e-5, name: str = "ibg"):
+    def __init__(
+        self,
+        intf: pp.MortarGrid,
+        sd_high: pp.Grid,
+        tol: float = 1e-5,
+        name: str = "ibg",
+    ):
         if intf.dim != 2:
-            raise NotImplementedError("IBG currently implemented for 2D mortar interfaces.")
+            raise NotImplementedError(
+                "IBG currently implemented for 2D mortar interfaces."
+            )
 
         self.intf = intf
         self.sd_high = sd_high
@@ -49,15 +55,21 @@ class InternalBoundaryGrid:
         self.rot_matrix, self.dim_bool, _ = mdnme.canonical_frame(intf)
 
         # Cache mortar←primary (avg) to figure out which high faces feed each side
-        self._Pprim_to_mortar = self.intf.primary_to_mortar_avg()  # (n_mortar, n_primary_faces)
+        self._Pprim_to_mortar = (
+            self.intf.primary_to_mortar_avg()
+        )  # (n_mortar, n_primary_faces)
 
         # Build side data
         self._sides: Dict[object, _SideData] = {}
         self._side_order = []
         for P_side, g_side in self.intf.project_to_side_grids():
             side_enum = self._enum_of_side_grid(g_side)
-            faces_side = self._faces_for_side(P_side)  # high faces contributing to this side
-            ibg_grid, parent_map = self._build_ibg_for_faces(faces_side, f"{name}_{side_enum.name.lower()}")
+            faces_side = self._faces_for_side(
+                P_side
+            )  # high faces contributing to this side
+            ibg_grid, parent_map = self._build_ibg_for_faces(
+                faces_side, f"{name}_{side_enum.name.lower()}"
+            )
             self._sides[side_enum] = _SideData(
                 mortar_to_side=P_side.tocsc(),
                 mortar_side_grid=g_side,
@@ -91,7 +103,7 @@ class InternalBoundaryGrid:
         return self._sides[side].parent_face_of_cell
 
     @property
-    def rotation_matrix(self) -> np.ndarray:
+    def rotation_matrix(self) -> np.ndarray | None:
         """Expose the interface’s canonical frame (used by TransferGrid, etc.)."""
         return self.rot_matrix
 
@@ -114,14 +126,18 @@ class InternalBoundaryGrid:
         faces = np.nonzero(mask)[0]
         return faces.astype(int)
 
-    def _build_ibg_for_faces(self, faces: np.ndarray, name: str) -> Tuple[pp.TriangleGrid, np.ndarray]:
+    def _build_ibg_for_faces(
+        self, faces: np.ndarray, name: str
+    ) -> Tuple[pp.TriangleGrid, np.ndarray]:
         if faces.size == 0:
-            g = pp.TriangleGrid(np.zeros((3, 0)), np.zeros((3, 0), dtype=int), name=name)
+            g = pp.TriangleGrid(
+                np.zeros((3, 0)), np.zeros((3, 0), dtype=int), name=name
+            )
             g.compute_geometry()
             return g, np.zeros((0,), dtype=int)
 
         # project high nodes into interface 2D plane for polygon ops
-        nodes3d_all = self.sd_high.nodes                      # (3, N)
+        nodes3d_all = self.sd_high.nodes  # (3, N)
         nodes2d_all = (self.rot_matrix @ nodes3d_all)[self.dim_bool, :]  # (2, N)
 
         fn = self.sd_high.face_nodes.tocsc()
@@ -141,24 +157,37 @@ class InternalBoundaryGrid:
             pts3d = nodes3d_all[:, f_nodes].T  # (k,3)
 
             # dedupe consecutive in 2D
-            poly2d, poly3d = [], []
+            poly2d, poly3d = [], []  # type:ignore
             for p2, p3 in zip(map(tuple, pts2d), map(tuple, pts3d)):
-                if not poly2d or (abs(p2[0]-poly2d[-1][0]) > self.tol or abs(p2[1]-poly2d[-1][1]) > self.tol):
-                    poly2d.append(p2); poly3d.append(p3)
+                if not poly2d or (
+                    abs(p2[0] - poly2d[-1][0]) > self.tol
+                    or abs(p2[1] - poly2d[-1][1]) > self.tol
+                ):
+                    poly2d.append(p2)
+                    poly3d.append(p3)
             if len(poly2d) < 3:
                 continue
 
             # triangulate in 2D
             if len(poly2d) == 3:
                 # ensure CCW by 2D cross
-                x0,y0 = poly2d[0]; x1,y1 = poly2d[1]; x2,y2 = poly2d[2]
-                tri_idx = [[0,1,2]] if (x1-x0)*(y2-y0) - (y1-y0)*(x2-x0) >= 0 else [[0,2,1]]
+                x0, y0 = poly2d[0]
+                x1, y1 = poly2d[1]
+                x2, y2 = poly2d[2]
+                tri_idx = (
+                    [[0, 1, 2]]
+                    if (x1 - x0) * (y2 - y0) - (y1 - y0) * (x2 - x0) >= 0
+                    else [[0, 2, 1]]
+                )
             else:
                 # ear_clip_triangulate returns list of triangles as coordinate triplets
                 tris_coords = ear_clip_triangulate(poly2d, tol=self.tol)
                 # map coords back to local indices
                 idx_map = {tuple(poly2d[i]): i for i in range(len(poly2d))}
-                tri_idx = [[idx_map[tuple(a)], idx_map[tuple(b)], idx_map[tuple(c)]] for (a,b,c) in tris_coords]
+                tri_idx = [
+                    [idx_map[tuple(a)], idx_map[tuple(b)], idx_map[tuple(c)]]
+                    for (a, b, c) in tris_coords
+                ]
 
             # register triangles and global 3D vertices
             for tri in tri_idx:
@@ -173,12 +202,16 @@ class InternalBoundaryGrid:
                 parent.append(int(f))
 
         if not tris_local:
-            g = pp.TriangleGrid(np.zeros((3, 0)), np.zeros((3, 0), dtype=int), name=name)
+            g = pp.TriangleGrid(
+                np.zeros((3, 0)), np.zeros((3, 0), dtype=int), name=name
+            )
             g.compute_geometry()
             return g, np.zeros((0,), dtype=int)
 
         # merge close 3D vertices across faces (to glue triangles)
-        coords3d, cells = merge_close_vertices_3d(verts3d, tris_local, tol=self.tol)  # coords3d: (3, N)
+        coords3d, cells = merge_close_vertices_3d(
+            verts3d, tris_local, tol=self.tol
+        )  # coords3d: (3, N)
 
         # orient consistently using the 2D shadow in the interface frame
         coords2d = (self.rot_matrix @ coords3d)[self.dim_bool, :]  # (2, N)
@@ -193,14 +226,14 @@ class InternalBoundaryGrid:
             raise RuntimeError("Parent-face map size mismatch after IBG assembly.")
         return g2d, parent_arr
 
-# --- add to your InternalBoundaryGrid class ---
+    # --- add to your InternalBoundaryGrid class ---
 
     def _finalize_global_ibg_ordering(self) -> None:
         """Build global IBG cell ordering and per-side offsets."""
 
         # compute offsets
         offset = 0
-        self._offsets: dict[object, tuple[int,int]] = {}
+        self._offsets: dict[object, tuple[int, int]] = {}
         for side in self._side_order:
             n_side = self._sides[side].ibg_grid.num_cells
             self._offsets[side] = (offset, offset + n_side)
@@ -224,7 +257,9 @@ class InternalBoundaryGrid:
         rows = np.arange(n_side)
         cols = rows + start
         data = np.ones(n_side, dtype=float)
-        return sps.coo_matrix((data, (rows, cols)), shape=(n_side, self._n_total)).tocsc()
+        return sps.coo_matrix(
+            (data, (rows, cols)), shape=(n_side, self._n_total)
+        ).tocsc()
 
     def side_to_ibg(self, side) -> sps.csc_matrix:
         """Scatter from this side’s IBG cells → global IBG ordering.
@@ -339,7 +374,7 @@ class InternalBoundaryLineGrid:
         return self._sides[side].parent_edge_of_cell
 
     @property
-    def rotation_matrix(self) -> np.ndarray:
+    def rotation_matrix(self) -> np.ndarray | None:
         return self.rot_matrix
 
     # ---------- global ordering (like 2D IBG) ----------

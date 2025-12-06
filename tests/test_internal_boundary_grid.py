@@ -1,17 +1,14 @@
 """Module for testing the correct construction of the internal boundary grid."""
-import mdnme
-import porepy as pp
+
 import numpy as np
+import porepy as pp
 import pytest
 
-
+from mdnme.models.varela_jnum_2d.model import manu_incomp_fluid, manu_incomp_solid
+from mdnme.models.varela_jnum_3d.model import VarelaJNumSetup3D
 from mdnme.utils.internal_boundary_grid import InternalBoundaryGrid
 from mdnme.utils.transfer_grid import TransferGrid
-from mdnme.examples.varela_jnum_3d.model import VarelaJNumSetup3D
-from mdnme.examples.varela_jnum_2d.model import (
-    manu_incomp_fluid,
-    manu_incomp_solid,
-    )
+
 
 @pytest.fixture(scope="module")
 def material_constants() -> dict:
@@ -23,19 +20,24 @@ def material_constants() -> dict:
 
 @pytest.mark.parametrize("refine_mortar", [False, True])
 def tests_ibg_construction_single_frac(
-        material_constants,
-        refine_mortar,
+    material_constants,
+    refine_mortar,
 ) -> None:
-
+    # matching if refine_mortar == False, non-matching (via mortar refinement)
+    # if refine_mortar == True
     params = {
         "grid_type": "simplex",
         "material_constants": material_constants,
         "meshing_arguments": {"cell_size": 0.25},
-        "non_matching": True,
+        # consistent with new Geometry logic:
+        # - refine_mortar=False  -> non_matching=False (purely matching mdg)
+        # - refine_mortar=True   -> non_matching=True  (refined mortar -> nonmatching)
+        "non_matching": refine_mortar,
         "refine_fracture": False,
         "refine_mortar": refine_mortar,
-        "times_to_export": [],  # Supress outputs for tests
+        "times_to_export": [],  # Suppress outputs for tests
     }
+
     setup = VarelaJNumSetup3D(params)
     pp.run_time_dependent_model(setup, {})
 
@@ -57,19 +59,17 @@ def tests_ibg_construction_single_frac(
         assert parent.shape[0] == ibg_sidegrid.num_cells
         assert faces.ndim == 1 and faces.dtype.kind in "iu"
 
-        # if this side has any mortar cells covered by high faces, IBG shouldn't be
-        # empty
+        # if this side has any mortar cells covered by high faces, IBG shouldn't be empty
         if faces.size > 0:
             assert ibg_sidegrid.num_cells > 0
 
-        # Sanity check on partitions
+        # Sanity check on partitions (sum of block projectors is identity on mortar)
         P_blocks = [ibg.mortar_to_side(s) for s in ibg.sides()]
         P_terms = [Pi.T @ Pi for Pi in P_blocks]  # each is (n_mortar, n_mortar)
-        # diagonal on its block
-        Ipart = sum(P_terms)  # should be identity on mortar cells
+        Ipart = sum(P_terms)
         np.testing.assert_allclose(Ipart.diagonal(), np.ones(intf.num_cells))
 
-        # build the Transfer grid use for projections
+        # build the Transfer grid used for projections
         TG_hi2side = TransferGrid(
             g_source=ibg_sidegrid,
             g_target=mg_sidegrid,
@@ -78,7 +78,11 @@ def tests_ibg_construction_single_frac(
         )
 
         assert TG_hi2side.transfer.num_cells >= 0
-        assert TG_hi2side.source_to_transfer.shape == (ibg_sidegrid.num_cells,
-                                                       TG_hi2side.transfer.num_cells)
-        assert TG_hi2side.transfer_to_target.shape == (TG_hi2side.transfer.num_cells,
-                                                       mg_sidegrid.num_cells)
+        assert TG_hi2side.source_to_transfer.shape == (
+            ibg_sidegrid.num_cells,
+            TG_hi2side.transfer.num_cells,
+        )
+        assert TG_hi2side.transfer_to_target.shape == (
+            TG_hi2side.transfer.num_cells,
+            mg_sidegrid.num_cells,
+        )

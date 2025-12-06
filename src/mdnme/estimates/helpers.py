@@ -4,6 +4,7 @@ import numpy as np
 import porepy as pp
 import scipy.sparse as sps
 
+
 def _nnz_per_axis(A: sps.spmatrix, axis: int, tol: float) -> np.ndarray:
     """Count 'significant' nonzeros (>tol) per row (axis=0) or column (axis=1)."""
     if not sps.isspmatrix(A):
@@ -23,7 +24,9 @@ def _nnz_per_axis(A: sps.spmatrix, axis: int, tol: float) -> np.ndarray:
         raise ValueError("axis must be 0 (rows) or 1 (cols)")
 
 
-def is_nonmatching(intf: pp.MortarGrid, tol: float = 1e-12, mode: str = "strict") -> bool:
+def is_nonmatching(
+    intf: pp.MortarGrid, tol: float = 1e-12, mode: str = "strict"
+) -> bool:
     """
     Heuristic detector for (non-)matching mortar interfaces.
 
@@ -52,25 +55,21 @@ def is_nonmatching(intf: pp.MortarGrid, tol: float = 1e-12, mode: str = "strict"
     if intf.dim == 0:
         return False
 
-    Pm = intf.primary_to_mortar_avg()     # shape: (n_mortar, n_primary_faces)
-    Sm = intf.secondary_to_mortar_avg()   # shape: (n_mortar, n_secondary_cells)
+    Pm = intf.primary_to_mortar_avg()  # shape: (n_mortar, n_primary_faces)
+    Sm = intf.secondary_to_mortar_avg()  # shape: (n_mortar, n_secondary_cells)
 
     # Essential row-wise checks
     rnnz_P = _nnz_per_axis(Pm, axis=0, tol=tol)  # per mortar cell
     rnnz_S = _nnz_per_axis(Sm, axis=0, tol=tol)
 
-    nonmatching = (np.any(rnnz_P != 1) or np.any(rnnz_S != 1))
+    nonmatching = np.any(rnnz_P != 1) or np.any(rnnz_S != 1)
 
     if mode.lower() == "strict":
         # Column-wise uniqueness (see docstring)
         cnnz_P = _nnz_per_axis(Pm, axis=1, tol=tol)  # per primary face
         cnnz_S = _nnz_per_axis(Sm, axis=1, tol=tol)  # per secondary cell
         expected_S = intf.num_sides()  # 1 or 2
-        nonmatching = (
-            nonmatching or
-            np.any(cnnz_P != 1) or
-            np.any(cnnz_S != expected_S)
-        )
+        nonmatching = nonmatching or np.any(cnnz_P != 1) or np.any(cnnz_S != expected_S)
 
     return bool(nonmatching)
 
@@ -122,9 +121,9 @@ class ErrorEstimatesSaveData:
             )
 
             # Save effective normal permeability
-            d[pp.PARAMETERS]["flow"][
-                "effective_permeability"
-            ] = self.effective_normal_permeability([intf]).value(eqsys)
+            d[pp.PARAMETERS]["flow"]["effective_permeability"] = (
+                self.effective_normal_permeability([intf]).value(eqsys)
+            )
 
         # Save sources from interface fluid fluxes
         for sd, d in self.mdg.subdomains(return_data=True):

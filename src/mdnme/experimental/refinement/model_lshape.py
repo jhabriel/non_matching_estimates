@@ -1,1 +1,0 @@
-"""Model to generate a left-to-right flow in an L-shaped domain"""

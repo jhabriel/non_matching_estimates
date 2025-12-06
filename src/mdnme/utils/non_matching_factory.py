@@ -2,20 +2,21 @@
 Module containing utility functions to generate non-matching grids.
 """
 
-import porepy as pp
-import numpy as np
 from dataclasses import dataclass
+
+import numpy as np
+import porepy as pp
 
 
 @dataclass
 class NMFParams:
-    eps: float = 0.08          # max displacement as fraction of local h
-    n_blobs: int = 4           # number of smooth “RBF” blobs
-    blob_sigma: float = 3.0    # blob width in units of domain diameter / blob_sigma
-    seed: int = 0              # RNG seed
+    eps: float = 0.08  # max displacement as fraction of local h
+    n_blobs: int = 4  # number of smooth “RBF” blobs
+    blob_sigma: float = 3.0  # blob width in units of domain diameter / blob_sigma
+    seed: int = 0  # RNG seed
     min_angle_deg: float = 20  # soft quality guard (diag only, no flips)
-    backtrack: float = 0.5     # scaling for step-back if inversion detected
-    max_bt_iter: int = 6       # max backtracking steps
+    backtrack: float = 0.5  # scaling for step-back if inversion detected
+    max_bt_iter: int = 6  # max backtracking steps
 
 
 def _face_edges_from_grid(g):
@@ -106,11 +107,11 @@ def _rbf_displacement(nodes2d, mask_interior, params: NMFParams):
     # Smooth widths
     sigma = (diam / params.blob_sigma) * np.ones(params.n_blobs)
     # Evaluate field
-    X = nodes2d[:, :, None]            # (2, n, 1)
-    C3 = C[:, None, :]                  # (2, 1, k)
+    X = nodes2d[:, :, None]  # (2, n, 1)
+    C3 = C[:, None, :]  # (2, 1, k)
     r2 = np.sum((X - C3) ** 2, axis=0)  # (n, k)
     w = np.exp(-r2 / (2 * sigma[None, :] ** 2))  # (n, k)
-    disp = (w @ V.T).T                  # (2, n)
+    disp = (w @ V.T).T  # (2, n)
     # Normalize to unit max magnitude
     m = np.max(np.linalg.norm(disp, axis=0))
     if m > 0:
@@ -123,13 +124,19 @@ def _min_triangle_angles_deg(nodes2d, cells):
     A = nodes2d[:, cells[0]]
     B = nodes2d[:, cells[1]]
     C = nodes2d[:, cells[2]]
-    AB = B - A; BC = C - B; CA = A - C
-    BA = A - B; CB = B - C; AC = C - A
+    AB = B - A
+    BC = C - B
+    CA = A - C
+    BA = A - B
+    CB = B - C
+    AC = C - A
+
     def angles(U, V):
         num = np.sum(U * V, axis=0)
         den = np.linalg.norm(U, axis=0) * np.linalg.norm(V, axis=0) + 1e-15
         cosang = np.clip(num / den, -1.0, 1.0)
         return np.degrees(np.arccos(cosang))
+
     aA = angles(AB, AC)  # at A
     aB = angles(BA, BC)  # at B
     aC = angles(CA, CB)  # at C
@@ -142,7 +149,7 @@ def _any_inverted(nodes2d, cells):
     B = nodes2d[:, cells[1]]
     C = nodes2d[:, cells[2]]
     # signed area 0.5 * cross( (B-A), (C-A) )
-    cross = (B[0]-A[0])*(C[1]-A[1]) - (B[1]-A[1])*(C[0]-A[0])
+    cross = (B[0] - A[0]) * (C[1] - A[1]) - (B[1] - A[1]) * (C[0] - A[0])
     return np.any(cross <= 0)
 
 
@@ -154,7 +161,9 @@ def build_nonmatching_target(source_grid, params: NMFParams = NMFParams()):
     g = source_grid
     if g.dim != 2:
         raise ValueError("This factory currently supports 2D grids.")
-    P = g.nodes.copy()  # shape (nd, n_nodes). PorePy often stores (3, n) even for 2D (z=0)
+    P = (
+        g.nodes.copy()
+    )  # shape (nd, n_nodes). PorePy often stores (3, n) even for 2D (z=0)
     nd, n = P.shape
     if nd < 2:
         raise ValueError("Grid nodes must have at least 2 coordinates.")
@@ -162,7 +171,8 @@ def build_nonmatching_target(source_grid, params: NMFParams = NMFParams()):
 
     # Identify boundary vs interior nodes
     bnodes = _boundary_nodes(g)
-    mask_boundary = np.zeros(n, dtype=bool); mask_boundary[bnodes] = True
+    mask_boundary = np.zeros(n, dtype=bool)
+    mask_boundary[bnodes] = True
     mask_interior = ~mask_boundary
 
     # Local length scale per node
@@ -180,24 +190,31 @@ def build_nonmatching_target(source_grid, params: NMFParams = NMFParams()):
     cells = g.cells.copy()  # (nodes_per_cell x n_cells) usually (3, m)
     new_nodes2d = nodes2d + disp
     bt_iter = 0
-    while (_any_inverted(new_nodes2d, cells) and bt_iter < params.max_bt_iter):
+    while _any_inverted(new_nodes2d, cells) and bt_iter < params.max_bt_iter:
         disp *= params.backtrack
         new_nodes2d = nodes2d + disp
         bt_iter += 1
 
     if _any_inverted(new_nodes2d, cells):
-        raise RuntimeError("Could not find a non-inverting displacement; try smaller eps.")
+        raise RuntimeError(
+            "Could not find a non-inverting displacement; try smaller eps."
+        )
 
     # Soft angle guard (diagnostic)
     amin = _min_triangle_angles_deg(new_nodes2d, cells)
     if np.min(amin) < params.min_angle_deg:
         # Not fatal; warn the caller so they can reduce eps if desired.
-        print(f"[NMF] Warning: min target angle {np.min(amin):.2f}° < {params.min_angle_deg}°")
+        print(
+            f"[NMF] Warning: min target angle {np.min(amin):.2f}°"
+            f" < {params.min_angle_deg}°"
+        )
 
     # Assemble target grid with same topology
     P_new = P.copy()
     P_new[:2, :] = new_nodes2d
-    target_grid = pp.TriangleGrid(P_new[:2, :], cells) if nd == 2 else pp.TriangleGrid(P_new[:2, :], cells)
-    # (PorePy will ignore z; if you prefer, keep original g as a Geometry and swap coordinates.)
+    target_grid = (
+        pp.TriangleGrid(P_new[:2, :], cells)
+        if nd == 2
+        else pp.TriangleGrid(P_new[:2, :], cells)
+    )
     return target_grid
-

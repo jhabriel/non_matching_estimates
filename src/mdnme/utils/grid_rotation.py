@@ -1,8 +1,10 @@
 from __future__ import annotations
+
 from typing import Dict, Tuple, Union
 
 import numpy as np
 import porepy as pp
+
 import mdnme  # where RotatedGrid lives
 
 GridLike = Union[pp.Grid, pp.MortarGrid]
@@ -25,11 +27,12 @@ def _key(g: GridLike) -> Key:
 class RotatedGrid:
     """Parent class for rotated grid object."""
 
-    def __init__(self,
-                 sd: pp.Grid,
-                 rotation_matrix: np.ndarray | None = None,
-                 tol=1e-5,  # same as `map_geometry.map_grid()` by default
-                 ):
+    def __init__(
+        self,
+        sd: pp.Grid,
+        rotation_matrix: np.ndarray | None = None,
+        tol=1e-5,  # same as `map_geometry.map_grid()` by default
+    ):
         """
         This class is a wrapper of the outputs of pp.map_geometry.map_grid(sd).
 
@@ -138,7 +141,7 @@ def build_canonical_frames(mdg: pp.MixedDimensionalGrid) -> None:
         for intf in mdg.interfaces(dim=dim):
             sd_high, sd_low = mdg.interface_to_subdomain_pair(intf)
             assert intf.dim == sd_low.dim
-            rot_matrix, dim_bool = _CANONICAL_FRAMES[_key(sd_low)]
+            rot_matrix, dim_bool = _CANONICAL_FRAMES[_key(sd_low)]  # type:ignore
             _CANONICAL_FRAMES[_key(intf)] = (rot_matrix, dim_bool)
 
 
@@ -183,9 +186,10 @@ def rotate_grid(g: GridLike) -> mdnme.RotatedGrid:
 
     if rot_matrix is None:
         # For 0D grids we don't need a RotatedGrid
-        raise ValueError("Zero-dimensional grids/interfaces have no canonical rotation.")
+        raise ValueError(
+            "Zero-dimensional grids/interfaces have no canonical rotation."
+        )
 
-    g_rot = mdnme.RotatedGrid(g, rotation_matrix=rot_matrix)
+    g_rot = mdnme.RotatedGrid(g, rotation_matrix=rot_matrix)  # type:ignore
     _ROTATED_CACHE[k] = g_rot
     return g_rot
-
