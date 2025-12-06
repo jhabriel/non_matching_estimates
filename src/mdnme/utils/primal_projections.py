@@ -74,6 +74,8 @@ def scott_zhang_quasi_interpolant(tg: TransferGrid, u_tr: np.ndarray) -> np.ndar
     g_tgt = tg.g_target
 
     # --- target (coarse) cell data ---
+    assert isinstance(g_tr, pp.Grid)
+    assert isinstance(g_tgt, pp.Grid)
     cn_tgt = g_tgt.cell_nodes().tocsc()
     tri_tgt = cn_tgt.indices.reshape((3, g_tgt.num_cells), order="F").T
     tgt_rot = tg._get_rotated_grid(g_tgt)
@@ -111,6 +113,7 @@ def scott_zhang_quasi_interpolant(tg: TransferGrid, u_tr: np.ndarray) -> np.ndar
         V_inv_tr.append(np.linalg.inv(V))
 
     # --- SZ nodal values on target ---
+    assert isinstance(g_tgt, pp.Grid)
     n_tgt_nodes = g_tgt.num_nodes
     u_tgt_nodes = np.empty(n_tgt_nodes)
     n2c = g_tgt.cell_nodes().tocsr()
@@ -140,7 +143,7 @@ def scott_zhang_quasi_interpolant(tg: TransferGrid, u_tr: np.ndarray) -> np.ndar
                 if isinstance(cand, (int, np.integer)):
                     j0 = int(cand)
                 else:
-                    j0 = polyid_to_j.get(id(cand), None)
+                    j0 = polyid_to_j.get(id(cand), None)  # type:ignore
                     if j0 is None:
                         continue
                 if prepared[j0].contains(pt) or prepared[j0].touches(pt):
@@ -207,10 +210,12 @@ def _reconstruct_cellwise_on_target(tg: TransferGrid, u_tgt: np.ndarray):
     g_tgt = tg.g_target
 
     # 1) get rotated 2D coords of target nodes
-    tgt_rot = tg._get_rotated_grid(g_tgt)
+    assert isinstance(g_tgt, pp.Grid)
+    tgt_rot = tg._get_rotated_grid(g_tgt)  # please mypy
     Xn = tgt_rot.nodes[:2, :]  # shape (2, n_tgt_nodes)
 
     # 2) cell->node incidence for target grid
+    assert isinstance(g_tgt, pp.Grid)  # please mypy
     cn = g_tgt.cell_nodes().tocsc()
     cells = cn.indices.reshape((3, g_tgt.num_cells), order="F").T  # (n_tgt_cells, 3)
 
@@ -340,7 +345,7 @@ def scott_zhang_quasi_interpolant_1d(
     def eval_u_transfer(s: float) -> float:
         # locate transfer cell j containing s (right-closed convention)
         j = np.searchsorted(x_tr, s, side="right") - 1
-        j = max(0, min(j, n_tr_cells - 1))
+        j = max(0, min(j, n_tr_cells - 1))  # type:ignore[arg-type]
         a, b = C_tr[j, :]
         return a * s + b
 

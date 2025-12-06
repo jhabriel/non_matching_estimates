@@ -12,9 +12,6 @@ from mdnme.estimates.error_estimation import (
 )
 from mdnme.estimates.helpers import ErrorEstimatesSaveData
 from mdnme.examples.example_2.boundary_conditions import BoundaryConditionsModified
-from mdnme.examples.example_2.flow_benchmark_3d_case_2 import (
-    solid_constants_conductive,  # to be imported by "example_2.model"
-)
 from mdnme.examples.example_2.flow_benchmark_3d_case_2 import FlowBenchmark3dCase2Model
 from mdnme.examples.example_2.geometry import GeometryNonMatching
 
@@ -81,7 +78,7 @@ class Geiger3dSolutionStrategy(pp.fluid_mass_balance.SolutionStrategySinglePhase
 
         # Estimate errors
         is_non_matching = self.params.get("non_matching", False)
-        estimate_errors(self.mdg, is_non_matching=is_non_matching)
+        estimate_errors(self.mdg, is_non_matching=is_non_matching)  # type:ignore
 
         # Compute error indicators
         compute_error_indicators(self.mdg)

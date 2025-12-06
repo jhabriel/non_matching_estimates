@@ -2,7 +2,6 @@
 This module contains the model for the Example 3 of the manuscript.
 """
 
-import sys
 from typing import Callable
 
 import numpy as np
@@ -16,7 +15,6 @@ import mdnme
 from mdnme.estimates.error_estimation import (
     aggregate_local_errors,
     compute_error_indicators,
-    compute_local_errors,
     estimate_errors,
     transfer_errors_iterate_solutions,
 )
@@ -51,6 +49,12 @@ class SmallFeaturesSolutionStrategy(
     error_estimates_data_saving: Callable
     """Method to save solution data to be used in a posteriori error estimation."""
 
+    _injector_idx: Callable
+    """Index of injectors."""
+
+    _productor_idx: Callable
+    """Index of productors."""
+
     def __init__(self, params: dict):
         """Constructor for the class."""
 
@@ -70,6 +74,7 @@ class SmallFeaturesSolutionStrategy(
             count += 1
 
     def visualize_fluid_sources(self) -> None:
+
         """Visualization of fluid sources."""
         for sd, data in self.mdg.subdomains(dim=2, return_data=True):
 
@@ -108,7 +113,7 @@ class SmallFeaturesSolutionStrategy(
                 rate = self.params.get("source_rate", 1)
                 source_loc = np.zeros(sd.num_cells)
                 if sd.id == sd_id_inj:
-                    source_loc[cell_idx_inj] = -rate / sd.cell_volumes[cell_idx_inj]
+                    source_loc[cell_idx_inj] = -1 * rate / sd.cell_volumes[cell_idx_inj]
 
                 if sd.id == sd_id_prd:
                     source_loc[cell_idx_prd] = rate / sd.cell_volumes[cell_idx_prd]
@@ -128,7 +133,11 @@ class SmallFeaturesSolutionStrategy(
 
         # Estimate errors
         is_non_matching = self.params.get("non_matching", False)
-        estimate_errors(self.mdg, sources=source_list, is_non_matching=is_non_matching)
+        estimate_errors(
+            self.mdg,
+            sources=source_list,  # type: ignore
+            is_non_matching=is_non_matching  # type: ignore
+        )
 
         # Compute local errors and error indicators
         compute_error_indicators(self.mdg)

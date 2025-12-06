@@ -37,6 +37,7 @@ def estimate_errors(
             residual error. To avoid introducing quadrature errors, the degree must
             be sufficiently high so that the sources can be integrated exactly. If not
             given, we employ 4.
+        is_non_matching: Should be set to True if non-matching approximations are used.
 
     Note:
         On subdomains and interfaces, diffusive errors are stored in
@@ -126,9 +127,7 @@ def compute_sd_and_intf_errors_of_equal_dim(mdg: pp.MixedDimensionalGrid) -> dic
         in data["estimates"]["error_indicators"].
 
     """
-    d = {}
-    d["subdomain_error"] = {}
-    d["interface_error"] = {}
+    d: dict = {"subdomain_error": {}, "interface_error": {}}
 
     # Obtain max and min subdomain dim
     sd_dims = np.asarray([sd.dim for sd in mdg.subdomains()])
@@ -143,13 +142,13 @@ def compute_sd_and_intf_errors_of_equal_dim(mdg: pp.MixedDimensionalGrid) -> dic
 
     # Loop over the mixed-dimensional grid and calculate errors
     for dim in dims_sd:
-        cum_error = 0
+        cum_error = 0.0
         for sd, data in mdg.subdomains(dim=dim, return_data=True):
             cum_error += data["estimates"]["error_indicator"].sum()
         d["subdomain_error"][dim] = np.sqrt(cum_error)
 
     for dim in dims_intf:
-        cum_error = 0
+        cum_error = 0.0
         for intf, data in mdg.interfaces(dim=dim, return_data=True):
             cum_error += data["estimates"]["error_indicator"].sum()
         d["interface_error"][dim] = np.sqrt(cum_error)
@@ -177,7 +176,7 @@ def aggregate_local_errors(mdg: pp.MixedDimensionalGrid) -> dict:
     """
 
     # Create dictionary
-    d = {"subdomain_error": {}, "interface_error": {}}
+    d: dict = {"subdomain_error": {}, "interface_error": {}}
 
     # Obtain max and min subdomain dim
     sd_dims = np.asarray([sd.dim for sd in mdg.subdomains()])
@@ -195,13 +194,13 @@ def aggregate_local_errors(mdg: pp.MixedDimensionalGrid) -> dict:
         # Handle the 0d case
         if dim == 0:
             continue
-        cum_error = 0
+        cum_error = 0.0
         for sd, data in mdg.subdomains(dim=dim, return_data=True):
             cum_error += compute_local_errors(sd, data)
         d["subdomain_error"][dim] = cum_error
 
     for dim in dims_intf:
-        cum_error = 0
+        cum_error = 0.0
         for intf, data in mdg.interfaces(dim=dim, return_data=True):
             cum_error += compute_local_errors(intf, data)
         d["interface_error"][dim] = cum_error

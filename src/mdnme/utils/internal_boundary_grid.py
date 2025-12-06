@@ -103,7 +103,7 @@ class InternalBoundaryGrid:
         return self._sides[side].parent_face_of_cell
 
     @property
-    def rotation_matrix(self) -> np.ndarray:
+    def rotation_matrix(self) -> np.ndarray | None:
         """Expose the interface’s canonical frame (used by TransferGrid, etc.)."""
         return self.rot_matrix
 
@@ -157,7 +157,7 @@ class InternalBoundaryGrid:
             pts3d = nodes3d_all[:, f_nodes].T  # (k,3)
 
             # dedupe consecutive in 2D
-            poly2d, poly3d = [], []
+            poly2d, poly3d = [], []  # type:ignore
             for p2, p3 in zip(map(tuple, pts2d), map(tuple, pts3d)):
                 if not poly2d or (
                     abs(p2[0] - poly2d[-1][0]) > self.tol
@@ -374,7 +374,7 @@ class InternalBoundaryLineGrid:
         return self._sides[side].parent_edge_of_cell
 
     @property
-    def rotation_matrix(self) -> np.ndarray:
+    def rotation_matrix(self) -> np.ndarray | None:
         return self.rot_matrix
 
     # ---------- global ordering (like 2D IBG) ----------

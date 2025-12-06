@@ -68,7 +68,9 @@ class VarelaJNumGeometry2D:
         self.set_fractures()
 
         # Create a fracture network.
-        self.fracture_network = pp.create_fracture_network(self.fractures, self.domain)
+        self.fracture_network = pp.create_fracture_network(
+            self._fractures, self._domain
+        )
 
         # Generate the mixed-dimensional grid
 
@@ -124,7 +126,7 @@ class VarelaJNumGeometry2D:
             # TODO: This has to be taken care by PorePy.
             for sd in mdg_final.subdomains():
                 bg = mdg_final.subdomain_to_boundary_grid(sd)
-                bg.compute_geometry()
+                bg.compute_geometry()  # type:ignore
 
         else:
 
@@ -132,9 +134,11 @@ class VarelaJNumGeometry2D:
             # first element is the target cell size for the matrix, the second
             # element is the target cell size for the interface grid, and the third
             # element is the target cell size for the fracture grid
-            cell_sizes: tuple[float, float, float, float, float] = self.params[
+            cell_sizes: tuple[
+                float, float, float, float, float
+            ] = self.params[  # type:ignore
                 "full_non_matching_cell_sizes"
-            ]
+            ] 
             assert len(cell_sizes) == 5
 
             # Make sure the matrix size is of the same size at both sides of the
@@ -145,7 +149,7 @@ class VarelaJNumGeometry2D:
             # retrieve the fracture and interface side grids from these mdgs and replace
             # into the mdg containing the "correct" higher-dimensional subdomain
             # This is quite a lazy solution, but it works.
-            mdgs: list[pp.MixedDimensionalGrid] = []
+            mdgs: list[pp.MixedDimensionalGrid] = []  # type:ignore[no-redef]
             for cell_size in cell_sizes:
                 mdg = pp.create_mdg(
                     self.grid_type(),

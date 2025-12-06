@@ -27,12 +27,11 @@ from mdnme.models.varela_jnum_2d.true_errors import VarelaJNumTrueErrors2d
 
 pickle_mdg = False
 print_to_console = True
-solid_constants = pp.SolidConstants(manu_incomp_solid)
-fluid_constants = pp.FluidConstants(manu_incomp_fluid)
+solid_constants = pp.SolidConstants(manu_incomp_solid)  # type:ignore
+fluid_constants = pp.FluidConstants(manu_incomp_fluid)  # type:ignore
 material_constants = {"solid": solid_constants, "fluid": fluid_constants}
 
 mesh_sizes = [0.125, 0.125 / 2, 0.125 / 4, 0.125 / 16, 0.125 / 32]
-mesh_sizes = [0.05]
 
 # Export lists
 out_dofs = []
@@ -49,7 +48,7 @@ for mesh_size in mesh_sizes:
     }
 
     # Run the model
-    setup = VarelaJNumSetup2D(params)
+    setup = VarelaJNumSetup2D(params)  # type:ignore
     pp.run_time_dependent_model(setup, {})
     mdg = setup.mdg
     dofs = setup.equation_system.num_dofs()

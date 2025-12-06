@@ -781,7 +781,7 @@ def _interface_diffusive_error_1d_nonmatching(
     # --- mortar-side scalars ---
     eff_perm = data_intf[pp.PARAMETERS]["flow"]["effective_permeability"]
     k_mortar = (
-        float(eff_perm) * np.ones((intf.num_cells, 1))
+        float(eff_perm) * np.ones((intf.num_cells, 1))  # type:ignore
         if np.isscalar(eff_perm)
         else np.asarray(eff_perm, dtype=float).reshape(-1, 1)
     )
@@ -920,7 +920,7 @@ def _interface_diffusive_error_2d_nonmatching(
     # --- mortar-side scalars ---
     eff_perm = data_intf[pp.PARAMETERS]["flow"]["effective_permeability"]
     k_mortar = (
-        float(eff_perm) * np.ones((intf.num_cells, 1))
+        float(eff_perm) * np.ones((intf.num_cells, 1))  # type: ignore
         if np.isscalar(eff_perm)
         else np.asarray(eff_perm, dtype=float).reshape(-1, 1)
     )

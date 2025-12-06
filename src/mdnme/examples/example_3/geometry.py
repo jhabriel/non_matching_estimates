@@ -11,8 +11,6 @@ from porepy.fracs.fracture_network_3d import FractureNetwork3d
 
 from mdnme.utils.nested_refinement import GeoNestedRefinementFactory
 
-# ---------- small helpers ----------
-
 
 def _stem_for_refinement_level(refinement_level: Literal[0, 1, 2, 3]) -> str:
     """Map refinement_level -> base stem used in both .geo and .msh names."""
@@ -106,7 +104,7 @@ class GeometryNonMatching(pp.PorePyModel):
 
                 print("Meshing using mesh parameters.")
                 mdg_coarse = pp.create_mdg(
-                    grid_type=grid_type,  # type[ignore]
+                    grid_type=grid_type,  # type:ignore
                     fracture_network=fn,
                     meshing_args=meshing_args,
                 )
@@ -138,7 +136,7 @@ class GeometryNonMatching(pp.PorePyModel):
 
                 # Create a fine mdg
                 mdg_fine = pp.create_mdg(
-                    grid_type=grid_type,
+                    grid_type=grid_type,  # type:ignore
                     fracture_network=fn,
                     meshing_args={"cell_size": h / 2},
                     # dfn=True,
@@ -153,7 +151,7 @@ class GeometryNonMatching(pp.PorePyModel):
                 num_refinements = 1
                 factory = GeoNestedRefinementFactory(
                     src_path=str("grids/mesh30k.geo"),
-                    dim=dim,
+                    dim=dim,  # type:ignore
                     num_refinements=num_refinements,
                     out_stem="non_match",
                 )
@@ -177,24 +175,15 @@ class GeometryNonMatching(pp.PorePyModel):
 
             # Prepare mapping dictionary to replace grids
             sd_map = {}
-            intf_map = {}
 
             # Get mapping of subdomains
             for dim in [2]:
                 for sd_coarse, sd_fine in zip(
-                    mdg_coarse.subdomains(dim=dim), mdg_fine.subdomains(dim=dim)
+                    mdg_coarse.subdomains(dim=dim),  # type:ignore
+                    mdg_fine.subdomains(dim=dim)  # type:ignore
                 ):
                     assert sd_coarse.dim == sd_fine.dim
                     sd_map[sd_coarse] = sd_fine
-
-            # # Get mapping of interfaces
-            # for dim in [2]:
-            #     for intf, intf_fine in zip(
-            #         mdg.interfaces(dim=dim),
-            #         mdg_fine.interfaces(dim=dim)
-            #     ):
-            #         assert intf.dim == intf_fine.dim
-            #         intf_map[intf] = intf_fine
 
             # Perform replacement
             mdg_coarse.replace_subdomains_and_interfaces(
@@ -204,7 +193,7 @@ class GeometryNonMatching(pp.PorePyModel):
 
         # Finally, set mdg and fracture network as a public attribute
         self.fracture_network = fn
-        self.mdg = mdg_coarse
+        self.mdg: pp.MixedDimensionalGrid = mdg_coarse  # type:ignore
 
         # Bookkeeping: dim, domain, fractures
         self.nd: int = self.mdg.dim_max()

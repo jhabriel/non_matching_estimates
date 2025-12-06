@@ -11,12 +11,12 @@ from mdnme.examples.example_3.model import SmallFeaturesModel, solid_constants
 for is_nonmatching in [False, True]:
 
     # Initialize lists for exporting results
-    sd_error_1d = []
-    sd_error_2d = []
-    sd_error_3d = []
-    intf_error_1d = []
-    intf_error_2d = []
-    majorant = []
+    sd_error_1d_list: list[np.ndarray] = []
+    sd_error_2d_list: list[np.ndarray] = []
+    sd_error_3d_list: list[np.ndarray] = []
+    intf_error_1d_list: list[np.ndarray] = []
+    intf_error_2d_list: list[np.ndarray] = []
+    majorant_list: list[float] = []
 
     # Setup the model and solve using MPFA
     if not is_nonmatching:
@@ -37,7 +37,7 @@ for is_nonmatching in [False, True]:
         "source_rate": 0.1,  # defines the magnitude of injection/production
     }
     print(f"Setting up the model for refinement level {0}.")
-    model = SmallFeaturesModel(params)
+    model = SmallFeaturesModel(params)  # type:ignore
     print("Done setting up the model for refinement ")
 
     print(f"Running model for refinement level {0}.")
@@ -45,22 +45,23 @@ for is_nonmatching in [False, True]:
     print("Done running model.")
 
     # Compute errors of same dimensionality and the global majorant
-    local_errors = aggregate_local_errors(model.mdg)
-    sd_error_1d.append(local_errors["subdomain_error"][1])
-    sd_error_2d.append(local_errors["subdomain_error"][2])
-    sd_error_3d.append(local_errors["subdomain_error"][3])
-    intf_error_1d.append(local_errors["interface_error"][1])
-    intf_error_2d.append(local_errors["interface_error"][2])
-    majorant.append(get_majorant(model.mdg))
+    mdg: pp.MixedDimensionalGrid = model.mdg  # type:ignore
+    local_errors = aggregate_local_errors(mdg)
+    sd_error_1d_list.append(local_errors["subdomain_error"][1])
+    sd_error_2d_list.append(local_errors["subdomain_error"][2])
+    sd_error_3d_list.append(local_errors["subdomain_error"][3])
+    intf_error_1d_list.append(local_errors["interface_error"][1])
+    intf_error_2d_list.append(local_errors["interface_error"][2])
+    majorant_list.append(get_majorant(mdg))
 
     # Export results
-    sd_error_1d = TxtData(header="sd_1d", array=np.asarray(sd_error_1d))
-    sd_error_2d = TxtData(header="sd_2d", array=np.asarray(sd_error_2d))
-    sd_error_3d = TxtData(header="sd_3d", array=np.asarray(sd_error_3d))
-    intf_error_1d = TxtData(header="intf_1d", array=np.asarray(intf_error_1d))
-    intf_error_2d = TxtData(header="intf_2d", array=np.asarray(intf_error_2d))
-    majorant = TxtData(header="majorant", array=np.asarray(majorant))
-    txt_data = [
+    sd_error_1d = TxtData(header="sd_1d", array=np.asarray(sd_error_1d_list))
+    sd_error_2d = TxtData(header="sd_2d", array=np.asarray(sd_error_2d_list))
+    sd_error_3d = TxtData(header="sd_3d", array=np.asarray(sd_error_3d_list))
+    intf_error_1d = TxtData(header="intf_1d", array=np.asarray(intf_error_1d_list))
+    intf_error_2d = TxtData(header="intf_2d", array=np.asarray(intf_error_2d_list))
+    majorant = TxtData(header="majorant", array=np.asarray(majorant_list))
+    txt_data: list[TxtData] = [
         majorant,
         sd_error_1d,
         sd_error_2d,

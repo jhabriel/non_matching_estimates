@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 import pathlib
 from dataclasses import dataclass
-from typing import Dict, List, Sequence, Tuple
+from typing import Dict, List, Mapping, Sequence, Tuple
 
 import numpy as np
 import porepy as pp
@@ -72,9 +72,9 @@ class Metrics:
 # -----------------------------
 
 
-def _material_constants() -> Dict[str, pp.PhysicalConstants]:
-    solid_constants = pp.SolidConstants(**manu_incomp_solid)
-    fluid_constants = pp.FluidComponent(**manu_incomp_fluid)
+def _material_constants() -> Dict[str, pp.PhysicalConstants]:  #type:ignore
+    solid_constants = pp.SolidConstants(**manu_incomp_solid)  # type:ignore[arg-type]
+    fluid_constants = pp.FluidComponent(**manu_incomp_fluid)  # type:ignore[arg-type]
     return {"solid": solid_constants, "fluid": fluid_constants}
 
 
@@ -115,7 +115,7 @@ def _run_single(
         assert (
             translation is not None
         ), "translation must be provided in non-matching runs"
-        params = dict(
+        params: Mapping = dict(
             common_params,
             non_matching=True,
             perturb_fracture=True,
@@ -127,7 +127,7 @@ def _run_single(
     else:
         params = common_params
 
-    setup = VarelaJNumSetup3D(params)
+    setup = VarelaJNumSetup3D(params)  # type:ignore
 
     # Run the time-dependent model and estimate errors
     pp.run_time_dependent_model(setup, {})

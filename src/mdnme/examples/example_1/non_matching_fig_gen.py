@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Non-matching coupling figure for the 3D/2D VarelaJNum example *with* transfer grids.
 
@@ -28,6 +26,8 @@ from mdnme.models.varela_jnum_2d.model import manu_incomp_fluid, manu_incomp_sol
 from mdnme.models.varela_jnum_3d.model import VarelaJNumSetup3D
 from mdnme.utils.internal_boundary_grid import InternalBoundaryGrid
 from mdnme.utils.transfer_grid import TransferGrid
+
+from typing import Mapping
 
 matplotlib.use("Agg")
 
@@ -135,7 +135,7 @@ def _build_setup(h: float, *, non_matching: bool, translation=None):
     }
     if non_matching:
         assert translation is not None
-        params = dict(
+        params = dict(  # type:ignore
             common_params,
             non_matching=True,
             perturb_fracture=True,
@@ -146,7 +146,7 @@ def _build_setup(h: float, *, non_matching: bool, translation=None):
         )
     else:
         params = common_params
-    return VarelaJNumSetup3D(params)
+    return VarelaJNumSetup3D(params)  # type:ignore
 
 
 def _pick_side_enum(intf: pp.MortarGrid, which: str) -> int:
@@ -163,10 +163,10 @@ def _pick_side_enum(intf: pp.MortarGrid, which: str) -> int:
             right_enum = enum
     if which == "left":
         assert left_enum is not None
-        return left_enum
+        return left_enum  # type:ignore
     elif which == "right":
         assert right_enum is not None
-        return right_enum
+        return right_enum  # type:ignore
     raise ValueError("SIDE must be 'left' or 'right'")
 
 
@@ -323,7 +323,7 @@ def make_figure_with_transfers(mdg: pp.MixedDimensionalGrid, side: str, outfile:
 
     # Choose side grid and IBG on that side
     side_enum = _pick_side_enum(intf, side)
-    sidegrid = intf.side_grids[side_enum]
+    sidegrid = intf.side_grids[side_enum]  # type:ignore
     ibg = InternalBoundaryGrid(intf, sd_mat, tol=1e-8)
     ibg_side = ibg.ibg_side_grid(side_enum)
     if ibg_side.num_cells == 0:
@@ -343,36 +343,36 @@ def make_figure_with_transfers(mdg: pp.MixedDimensionalGrid, side: str, outfile:
         plt.rcParams.update({"pdf.fonttype": 42, "ps.fonttype": 42})
         fig = plt.figure(figsize=FIGSIZE)
         ax = fig.add_subplot(111, projection="3d")
-        ax.set_proj_type("ortho" if PROJ_ORTHO else "persp")
-        ax.view_init(elev=ELEV, azim=AZIM)
-        ax.set_box_aspect((1, 1, 1))
+        ax.set_proj_type("ortho" if PROJ_ORTHO else "persp")  # type:ignore
+        ax.view_init(elev=ELEV, azim=AZIM)  # type:ignore
+        ax.set_box_aspect((1, 1, 1))  # type:ignore
         ax.set_xlim(0, 1)
         ax.set_ylim(0, 1)
-        ax.set_zlim(0, 1)
+        # ax.set_zlim(0, 1)
         if AXES_OFF:
             ax.set_axis_off()
         else:
             ax.set_xlabel("x")
             ax.set_ylabel("y")
-            ax.set_zlabel("z")
+            # ax.set_zlabel("z")
 
         # Draw 3 layers
         _add_wire_surface3d(
-            ax,
+            ax,  # type:ignore[attr-defined]
             ibg_side,
             edge=EDGE_COLORS["trace"],
             lw=EDGE_WIDTHS["trace"],
             face_alpha=FACE_ALPHA["trace"],
         )
         _add_wire_surface3d(
-            ax,
+            ax,  # type:ignore[attr-defined]
             sidegrid,
             edge=EDGE_COLORS["intf"],
             lw=EDGE_WIDTHS["intf"],
             face_alpha=FACE_ALPHA["intf"],
         )
         _add_wire_surface3d(
-            ax,
+            ax,  # type:ignore[attr-defined]
             sd_frac,
             edge=EDGE_COLORS["frac"],
             lw=EDGE_WIDTHS["frac"],
@@ -385,7 +385,7 @@ def make_figure_with_transfers(mdg: pp.MixedDimensionalGrid, side: str, outfile:
         x_tg_frac = x_msg + 0.5 * EXPLODE
 
         _add_transfer_wire(
-            ax,
+            ax,  # type:ignore[attr-defined]
             tg_ibg2msg,
             sidegrid,
             x_plane=x_tg_ibg,
@@ -394,7 +394,7 @@ def make_figure_with_transfers(mdg: pp.MixedDimensionalGrid, side: str, outfile:
             face_alpha=TG_FACE_ALPHA,
         )
         _add_transfer_wire(
-            ax,
+            ax,  # type:ignore[attr-defined]
             tg_frac2msg,
             sidegrid,
             x_plane=x_tg_frac,

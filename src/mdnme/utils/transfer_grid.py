@@ -34,7 +34,7 @@ class TransferGrid:
         self,
         g_source: pp.GridLike,
         g_target: pp.GridLike,
-        rotation_matrix: np.ndarray = None,
+        rotation_matrix: np.ndarray | None= None,
         tol: float = 1e-5,
         name: str = "transfer",
     ):
@@ -72,13 +72,13 @@ class TransferGrid:
         if grid is self.g_source:
             if self._src_rot is None:
                 self._src_rot = (
-                    mdnme.RotatedGrid(grid, self._rot_matrix)
+                    mdnme.RotatedGrid(grid, self._rot_matrix)  # type:ignore
                     if self._rot_matrix is not None
                     else mdnme.RotatedGrid(grid)
                 )
                 # If not provided, adopt the source’s matrix so target uses the same
                 if self._rot_matrix is None:
-                    self._rot_matrix = self._src_rot.rotation_matrix
+                    self._rot_matrix = self._src_rot.rotation_matrix  # type:ignore
             return self._src_rot
         if grid is self.g_target:
             if self._tgt_rot is None:
@@ -87,7 +87,7 @@ class TransferGrid:
                         "TransferGrid needs a rotation_matrix or"
                         " a rotated source first."
                     )
-                self._tgt_rot = mdnme.RotatedGrid(grid, self._rot_matrix)
+                self._tgt_rot = mdnme.RotatedGrid(grid, self._rot_matrix)  # type:ignore
             return self._tgt_rot
         return mdnme.RotatedGrid(grid)
 
@@ -102,6 +102,7 @@ class TransferGrid:
             is indeed the case.
 
         """
+        assert isinstance(grid, pp.Grid)
         grid_rot = self._get_rotated_grid(grid)  # rotate grid
         nodes = grid_rot.nodes  # retrieve nodes (from rotated grid)
         cn = grid.cell_nodes().tocsc()  # cell-nodes connectivity
@@ -145,8 +146,10 @@ class TransferGrid:
         if not self._all_triangles:
             total_area = sum(p.area for p in self._intersection_polys)
             raise RuntimeError(
-                f"No intersection triangles (total intersection area={total_area:.3e}). "
-                "Likely the source and target are not coplanar or overlap is degenerate."
+                f"No intersection triangles"
+                f" (total intersection area={total_area:.3e}). "
+                "Likely the source and target are not coplanar"
+                " or overlap is degenerate."
             )
         raw_verts = []
         for tri in self._all_triangles:

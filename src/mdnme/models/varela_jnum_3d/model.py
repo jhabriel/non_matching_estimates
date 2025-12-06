@@ -33,7 +33,7 @@ grid = pp.GridLike
 class VarelaJNumSolutionStrategy3D(VarelaJNumSolutionStrategy2D):
     """Modified solution strategy for the verification model."""
 
-    exact_sol: VarelaJNumExactSolution3D
+    exact_sol: VarelaJNumExactSolution3D  # type:ignore
     """Exact solution object."""
 
     def __init__(self, params: dict):

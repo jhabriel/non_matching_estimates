@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import Literal, Tuple, cast
 
@@ -83,8 +82,8 @@ class GeometryNonMatching(pp.PorePyModel):
     def set_geometry(self) -> None:
         """Create mixed-dimensional grid and fracture network."""
 
-        ref_lvl: Literal[0, 1, 2] = self.params.get("refinement_level", 0)
-        non_matching: bool = self.params.get("non_matching", False)
+        ref_lvl = self.params.get("refinement_level", 0)
+        non_matching = self.params.get("non_matching", False)
 
         if non_matching:
 
@@ -107,7 +106,7 @@ class GeometryNonMatching(pp.PorePyModel):
             num_refinements = 1
             factory = GeoNestedRefinementFactory(
                 src_path=str(geo_path),
-                dim=dim,
+                dim=dim,  #type: ignore
                 num_refinements=num_refinements,
                 out_stem=out_stem,  # will emit <out_stem>_0.msh, <out_stem>_1.msh, ...
             )
@@ -145,7 +144,7 @@ class GeometryNonMatching(pp.PorePyModel):
                     raise TypeError(
                         "benchmark_3d_case_3 did not return" " a 3D fracture network."
                     )
-                pp.fracture_importer.to_csv(fn_ref, str(csv_path))
+                pp.fracture_importer.to_csv(fn_ref, str(csv_path))  # type: ignore
 
             # adopt the in-memory mdg/net
             self.mdg = mdg_coarse.copy()
@@ -158,7 +157,7 @@ class GeometryNonMatching(pp.PorePyModel):
         else:
             # Matching path: create the standard benchmark grid+network
             self.mdg, self.fracture_network = benchmark_3d_case_2(
-                refinement_level=ref_lvl
+                refinement_level=ref_lvl  # type: ignore
             )
 
         # Bookkeeping: dim, domain, fractures

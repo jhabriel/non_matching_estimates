@@ -20,7 +20,7 @@ References:
 """
 
 from pathlib import Path
-from typing import Literal, Optional, Union, cast
+from typing import Literal, cast
 
 import numpy as np
 import porepy as pp

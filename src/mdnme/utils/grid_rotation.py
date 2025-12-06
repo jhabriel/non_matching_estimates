@@ -141,7 +141,7 @@ def build_canonical_frames(mdg: pp.MixedDimensionalGrid) -> None:
         for intf in mdg.interfaces(dim=dim):
             sd_high, sd_low = mdg.interface_to_subdomain_pair(intf)
             assert intf.dim == sd_low.dim
-            rot_matrix, dim_bool = _CANONICAL_FRAMES[_key(sd_low)]
+            rot_matrix, dim_bool = _CANONICAL_FRAMES[_key(sd_low)]  # type:ignore
             _CANONICAL_FRAMES[_key(intf)] = (rot_matrix, dim_bool)
 
 
@@ -190,6 +190,6 @@ def rotate_grid(g: GridLike) -> mdnme.RotatedGrid:
             "Zero-dimensional grids/interfaces have no canonical rotation."
         )
 
-    g_rot = mdnme.RotatedGrid(g, rotation_matrix=rot_matrix)
+    g_rot = mdnme.RotatedGrid(g, rotation_matrix=rot_matrix)  # type:ignore
     _ROTATED_CACHE[k] = g_rot
     return g_rot

@@ -2,3 +2,4 @@ orthopy == 0.9.5
 ndim == 0.1.6
 quadpy == 0.16.10
 porepy == 1.10.0
+pandas

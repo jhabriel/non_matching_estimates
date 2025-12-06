@@ -322,8 +322,8 @@ class VarelaJNumGeometry3D:
 
         # Create a fracture network.
         self.fracture_network = pp.create_fracture_network(
-            self.fractures,
-            self.domain,
+            self._fractures,
+            self._domain,
         )
         # Check if we should build a matching or a non-matching mdg
         is_nonmatching = bool(self.params.get("non_matching", False))
@@ -360,7 +360,7 @@ class VarelaJNumGeometry3D:
                 if self.params.get("translation_vector") is None:
                     raise ValueError("Expected a translation vector")
                 tvec = self.params.get("translation_vector")
-                x_move, y_move, z_move = tvec[0], tvec[1], tvec[2]
+                x_move, y_move, z_move = tvec[0], tvec[1], tvec[2]  # type: ignore
                 if not np.isclose(x_move, 0):
                     raise ValueError("Points cannot be moved in the x-direction")
                 if np.isclose(y_move, 0) and np.isclose(z_move, 0):
@@ -376,7 +376,7 @@ class VarelaJNumGeometry3D:
                     # Get amplitude of translation. If not given, we use half of the
                     # mean cell diameter of the grid
                     default_amp = frac_grid.cell_diameters().mean() / 2
-                    amp: float = self.params.get("amplitude", default_amp)
+                    amp = self.params.get("amplitude", default_amp)
 
                     # Retrieve "boundary" nodes
                     y_nodes = pert_frac_grid.nodes[1]
@@ -421,7 +421,7 @@ class VarelaJNumGeometry3D:
                         # Get amplitude of translation. If not given, we use half of the
                         # mean cell diameter of the grid
                         default_amp = mg_side.cell_diameters().mean() / 2
-                        amp: float = self.params.get("amplitude", default_amp)
+                        amp = self.params.get("amplitude", default_amp)  # type: ignore
 
                         # Retrieve "boundary" nodes
                         y_nodes = pert_mg_side.nodes[1]
@@ -484,7 +484,7 @@ class VarelaJNumGeometry3D:
                     # Retrieve interface grid
                     intf = mdg_final.interfaces(dim=2)[0]
 
-                    sg_map: dict = {}
+                    sg_map: dict = {}  # type:ignore
                     # Loop over the two sides of the mortar grid
                     for proj_msg, mg_side in intf.project_to_side_grids():
 
@@ -565,7 +565,7 @@ class VarelaJNumGeometry3D:
                     self.fracture_network,
                     grid_sequence_params,
                 )
-                mdgs = list(factory)
+                mdgs = list(factory)  # type: ignore
                 mdg_final = mdgs[0]
                 mdg_fine = mdgs[1]
 
@@ -603,7 +603,7 @@ class VarelaJNumGeometry3D:
                 # Make sure to recompute the geometry of boundary grids
                 for sd in mdg_final.subdomains():
                     bg = mdg_final.subdomain_to_boundary_grid(sd)
-                    bg.compute_geometry()
+                    bg.compute_geometry()  # type: ignore
 
         else:
             # The mdg is matching, and we create the mdg in the usual way

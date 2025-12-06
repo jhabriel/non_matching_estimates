@@ -48,7 +48,7 @@ def compute_residual_error(
         d["estimates"]["residual_error"] = _residual_error(
             sd,
             d,
-            source,
+            source,  # type:ignore[arg-type]
             quad_deg,
         )
 
