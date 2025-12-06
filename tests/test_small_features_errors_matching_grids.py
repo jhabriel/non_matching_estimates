@@ -8,7 +8,8 @@ import numpy as np
 import porepy as pp
 
 import mdnme
-from mdnme.models.benchmark_3d_case_3.model import SmallFeaturesModel, solid_constants
+from mdnme.models.benchmark_3d_case_3.model import SmallFeaturesModel
+from porepy.examples.flow_benchmark_3d_case_3 import solid_constants
 
 
 def test_example_3_with_refinement_level_0() -> None:
