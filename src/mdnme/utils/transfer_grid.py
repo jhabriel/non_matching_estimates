@@ -52,10 +52,10 @@ class TransferGrid:
         """Target grid."""
 
         self.rot_matrix = rotation_matrix
-        """Rotation matrix used to rotate `g_source` and `g_target`. 
-        
+        """Rotation matrix used to rotate `g_source` and `g_target`.
+
         If not given, the rotation matrix used will be the rotation matrix of
-        `g_source`.        
+        `g_source`.
         """
 
         # Holders for rotated grids
@@ -194,13 +194,6 @@ class TransferGrid:
         # Map geometry -> index (works if query returns geometry)
         src_poly_to_idx = {id(p): i for i, p in enumerate(src_polys)}
 
-        # Transfer polygons
-        tr_tris = self._extract_triangles(self.transfer)
-        tr_polys = [poly for _, poly in tr_tris]
-        prepared_tr = [prep(p) for p in tr_polys]
-        tree_tr = STRtree(tr_polys)
-        tr_poly_to_idx = {id(p): i for i, p in enumerate(tr_polys)}
-
         # Target polygons
         tgt_tris = self._extract_triangles(self.g_target)
         tgt_polys = [poly for _, poly in tgt_tris]
@@ -263,6 +256,7 @@ class TransferGrid:
         self.transfer_to_target = t2tgt.tocsr()
         self.target_to_transfer = tgt2t
 
+    # NOTE: This is an experimental method, use it with caution
     @classmethod
     def from_nested(
         cls,
@@ -297,17 +291,20 @@ class TransferGrid:
             if coarse_fine is None:
                 raise ValueError(
                     "from_nested: source and target have the same number of cells. "
-                    "Please provide an explicit (n×n) coarse_fine mapping (e.g., identity "
-                    "or permutation). Otherwise, build a geometric TransferGrid instead."
+                    "Please provide an explicit (n×n) coarse_fine mapping"
+                    " (e.g., identity or permutation). Otherwise, build a geometric"
+                    " TransferGrid instead."
                 )
             M = coarse_fine.tocsc()
             if M.shape != (n_src, n_tgt):
                 raise ValueError(
-                    f"from_nested: provided mapping has shape {M.shape}, expected {(n_src, n_tgt)}."
+                    f"from_nested: provided mapping has shape {M.shape},"
+                    f" expected {(n_src, n_tgt)}."
                 )
             if not _is_valid_row_stochastic(M):
                 raise ValueError(
-                    "from_nested: mapping for equal-cell case must have exactly one 1 per row."
+                    "from_nested: mapping for equal-cell case must have exactly one"
+                    " 1 per row."
                 )
             # Convention: treat source as fine, target as coarse
             g_fine, g_coarse = g_source, g_target
@@ -333,8 +330,8 @@ class TransferGrid:
                     M = M0.tocsc()
                 else:
                     raise ValueError(
-                        "from_nested: coarse_fine (fine×coarse) not provided and not found in "
-                        "g_coarse.data['coarse_fine_cell_mapping']."
+                        "from_nested: coarse_fine (fine×coarse) not provided and"
+                        " not found in g_coarse.data['coarse_fine_cell_mapping']."
                     )
             else:
                 M = coarse_fine.tocsc()
@@ -392,7 +389,7 @@ class TransferGrid:
 
     def plot(self, ax=None, base_cmap="rainbow", alpha=1.0):
         """
-        Plot the transfer mesh with a proper 4-coloring (no two neighbors share a color).
+        Plot the transfer mesh with a proper 4-coloring (no 2 neighbors share a color).
 
         Parameters
         ----------
@@ -716,19 +713,3 @@ def transfer_permutation_by_centroids(
     if not np.all(d <= atol + rtol * np.abs(C_ref).max()):
         raise AssertionError(f"Transfer centroids mismatch; max diff {d.max():.3e}")
     return idx
-
-
-# def mapping_fine_x_coarse(
-#         coarse: pp.Grid,
-#         fine: pp.Grid,
-#         tol=1e-8
-# ) -> sps.csc_matrix:
-#     # reuse cached mapping if present
-#     M = getattr(coarse, "data", {}).get("coarse_fine_cell_mapping", None)
-#     if isinstance(M, sps.spmatrix) and M.shape == (fine.num_cells, coarse.num_cells):
-#         return M.tocsc()
-#     M = structured_refinement(coarse, fine, point_in_poly_tol=tol)
-#     if not hasattr(coarse, "data") or not isinstance(coarse.data, dict):
-#         coarse.data = {}
-#     coarse.data["coarse_fine_cell_mapping"] = M
-#     return M

@@ -205,7 +205,8 @@ def build_nonmatching_target(source_grid, params: NMFParams = NMFParams()):
     if np.min(amin) < params.min_angle_deg:
         # Not fatal; warn the caller so they can reduce eps if desired.
         print(
-            f"[NMF] Warning: min target angle {np.min(amin):.2f}° < {params.min_angle_deg}°"
+            f"[NMF] Warning: min target angle {np.min(amin):.2f}°"
+            f" < {params.min_angle_deg}°"
         )
 
     # Assemble target grid with same topology
@@ -216,5 +217,4 @@ def build_nonmatching_target(source_grid, params: NMFParams = NMFParams()):
         if nd == 2
         else pp.TriangleGrid(P_new[:2, :], cells)
     )
-    # (PorePy will ignore z; if you prefer, keep original g as a Geometry and swap coordinates.)
     return target_grid

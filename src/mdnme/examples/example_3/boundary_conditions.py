@@ -92,7 +92,6 @@ class ModifiedBalanceEquation(pp.fluid_mass_balance.FluidMassBalanceEquations):
         )
 
         if self._matches_surface(sd, productor_vertices, tol=1e-6):
-            cc_centroid = productor_vertices.mean(axis=0)  # [0.5, 1.125, 0.5]
             target_location = np.array([0.50, 0.625, 0.50])
             cell_idx, distances = sd.closest_cell(target_location.reshape(3, 1), True)
             cell_idx_unique = cell_idx[np.argmin(cell_idx)]

@@ -15,7 +15,6 @@ from shapely.geometry import Point, Polygon
 from shapely.prepared import prep
 from shapely.strtree import STRtree
 
-import mdnme
 from mdnme.utils.transfer_grid import TransferGrid, TransferLine
 
 
@@ -326,8 +325,6 @@ def scott_zhang_quasi_interpolant_1d(
     # Transfer line already knows if we need to rotate node coordinates or not
     # We use that information here
     rot_matrix = tl.rot_matrix
-    rotate_source = tl._rotate_source
-    rotate_target = tl._rotate_target
 
     # Retrieve transfer line grid
     g_tr = tl.transfer

@@ -27,8 +27,6 @@ from mdnme.models.varela_jnum_3d.model import VarelaJNumSetup3D
 from mdnme.utils.internal_boundary_grid import InternalBoundaryGrid
 from mdnme.utils.transfer_grid import TransferGrid
 
-from typing import Mapping
-
 matplotlib.use("Agg")
 
 # ------------- CONFIG -------------
