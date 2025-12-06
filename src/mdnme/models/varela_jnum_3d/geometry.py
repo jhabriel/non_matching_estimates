@@ -14,7 +14,6 @@ from typing import Callable, Literal
 
 import numpy as np
 import porepy as pp
-
 from porepy.applications.md_grids.domains import nd_cube_domain
 from porepy.grids.refinement import GridSequenceFactory
 

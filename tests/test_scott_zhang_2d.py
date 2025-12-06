@@ -3,13 +3,15 @@
 import numpy as np
 import porepy as pp
 import pytest
-import mdnme
-
 from porepy.grids.refinement import GridSequenceFactory
-from mdnme.utils.transfer_grid import TransferGrid, coarse_fine_or_build
-from mdnme.utils.primal_projections import scott_zhang_quasi_interpolant
-from mdnme.utils.primal_projections import prolong_to_transfer
+
+import mdnme
 from mdnme.utils.grid_utils import refine_grid
+from mdnme.utils.primal_projections import (
+    prolong_to_transfer,
+    scott_zhang_quasi_interpolant,
+)
+from mdnme.utils.transfer_grid import TransferGrid, coarse_fine_or_build
 
 
 # ---------- helpers ----------

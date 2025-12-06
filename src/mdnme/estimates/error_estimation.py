@@ -1,4 +1,4 @@
-from typing import Callable
+from typing import Callable, Literal
 
 import numpy as np
 import porepy as pp
@@ -8,8 +8,6 @@ from mdnme.estimates.flux_extension import extend_fv_fluxes
 from mdnme.estimates.pressure_reconstruction import reconstruct_pressure
 from mdnme.estimates.residual_error import compute_residual_error
 from mdnme.utils.grid_rotation import build_canonical_frames
-
-from typing import Literal
 
 SpatialFunction = Callable[..., np.ndarray]
 

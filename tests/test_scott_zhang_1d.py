@@ -2,8 +2,8 @@ import numpy as np
 import porepy as pp
 import pytest
 
-from mdnme.utils.transfer_grid import TransferLine
 from mdnme.utils.primal_projections import scott_zhang_quasi_interpolant_1d
+from mdnme.utils.transfer_grid import TransferLine
 
 
 def make_1d(level: int) -> pp.TensorGrid:

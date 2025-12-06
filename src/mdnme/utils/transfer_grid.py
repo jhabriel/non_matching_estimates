@@ -1,25 +1,23 @@
+from itertools import combinations
+
+import matplotlib.pyplot as plt
 import numpy as np
+import porepy as pp
+import scipy.sparse as sps
+from matplotlib.collections import PolyCollection
+from porepy.grids.refinement import structured_refinement
+from scipy.sparse import lil_matrix
 from scipy.spatial import cKDTree
+from shapely.geometry import Point, Polygon
+from shapely.prepared import prep
+from shapely.strtree import STRtree
 
 import mdnme
-import porepy as pp
-import matplotlib.pyplot as plt
-import scipy.sparse as sps
-
-
 from mdnme.utils.grid_utils import (
-    ensure_ccw,
     ear_clip_triangulate,
+    ensure_ccw,
     merge_close_vertices,
 )
-
-from matplotlib.collections import PolyCollection
-from shapely.geometry import Polygon, Point
-from shapely.prepared import prep
-from scipy.sparse import lil_matrix
-from shapely.strtree import STRtree
-from itertools import combinations
-from porepy.grids.refinement import structured_refinement
 
 
 class TransferGrid:

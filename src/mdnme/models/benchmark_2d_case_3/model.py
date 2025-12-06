@@ -4,12 +4,12 @@ This module contains the model for the Example 2 of the manuscript.
 from typing import Callable
 
 import porepy as pp
-import mdnme
-
 from porepy.examples.flow_benchmark_2d_case_3 import (
     FlowBenchmark2dCase3bModel,
     solid_constants,
 )
+
+import mdnme
 from mdnme.estimates.helpers import ErrorEstimatesSaveData
 
 

@@ -2,9 +2,10 @@
 Module containing utility functions to generate non-matching grids.
 """
 
-import porepy as pp
-import numpy as np
 from dataclasses import dataclass
+
+import numpy as np
+import porepy as pp
 
 
 @dataclass

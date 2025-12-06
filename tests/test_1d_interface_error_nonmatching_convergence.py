@@ -2,11 +2,8 @@ import numpy as np
 import porepy as pp
 import pytest
 
-from mdnme.estimates.diffusive_error import (
-    _interface_diffusive_error_1d_nonmatching,
-)
+from mdnme.estimates.diffusive_error import _interface_diffusive_error_1d_nonmatching
 from mdnme.utils.grid_rotation import build_canonical_frames, rotate_grid
-
 
 # --------------------------------------------------------------------------- #
 #  Manufactured pressure and helpers

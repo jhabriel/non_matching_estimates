@@ -8,14 +8,13 @@ The two main projection steps are:
         quasi‐interpolator.
 
 """
-import mdnme
 import numpy as np
 import porepy as pp
-
 from shapely.geometry import Point, Polygon
 from shapely.prepared import prep
 from shapely.strtree import STRtree
 
+import mdnme
 from mdnme.utils.transfer_grid import TransferGrid, TransferLine
 
 

@@ -2,18 +2,16 @@
 This module contains the model for the Example 3 of the manuscript.
 """
 import sys
-
 from typing import Callable
 
 import porepy as pp
-import mdnme
-
-from mdnme.estimates.helpers import ErrorEstimatesSaveData
-
 from porepy.examples.flow_benchmark_3d_case_3 import (
     FlowBenchmark3dCase3Model,
     solid_constants,
 )
+
+import mdnme
+from mdnme.estimates.helpers import ErrorEstimatesSaveData
 
 
 class SmallFeaturesSolutionStrategy(

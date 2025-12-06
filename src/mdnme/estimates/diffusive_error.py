@@ -13,28 +13,28 @@ from __future__ import annotations
 
 from typing import Union
 
-import mdnme
 import numpy as np
 import porepy as pp
 import quadpy
 import scipy.sparse as sps
 
+import mdnme
+from mdnme.estimates.helpers import is_nonmatching
 from mdnme.utils.internal_boundary_grid import (
     InternalBoundaryGrid,
-    InternalBoundaryLineGrid
+    InternalBoundaryLineGrid,
 )
-from mdnme.utils.transfer_grid import(
+from mdnme.utils.primal_projections import (
+    project_p1_1d_sz,
+    prolong_to_transfer,
+    scott_zhang_quasi_interpolant,
+)
+from mdnme.utils.transfer_grid import (
     TransferGrid,
     TransferLine,
     build_transfer_grid_nested,
     coarse_fine_or_build,
 )
-from mdnme.utils.primal_projections import (
-    prolong_to_transfer,
-    scott_zhang_quasi_interpolant,
-    project_p1_1d_sz,
-)
-from mdnme.estimates.helpers import is_nonmatching
 
 
 def compute_diffusive_error(

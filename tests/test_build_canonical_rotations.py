@@ -1,15 +1,11 @@
-import mdnme
-import porepy as pp
 import numpy as np
+import porepy as pp
 import pytest
 
-from mdnme.utils.grid_rotation import build_canonical_frames, canonical_frame
-
+import mdnme
+from mdnme.models.varela_jnum_2d.model import manu_incomp_fluid, manu_incomp_solid
 from mdnme.models.varela_jnum_3d.model import VarelaJNumSetup3D
-from mdnme.models.varela_jnum_2d.model import (
-    manu_incomp_fluid,
-    manu_incomp_solid,
-)
+from mdnme.utils.grid_rotation import build_canonical_frames, canonical_frame
 
 
 @pytest.fixture(scope="module")

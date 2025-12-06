@@ -3,7 +3,6 @@ This module contains functional tests on the solution and errors for the third e
 """
 from __future__ import annotations
 
-
 import numpy as np
 import porepy as pp
 

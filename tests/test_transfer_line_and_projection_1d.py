@@ -2,12 +2,12 @@ import numpy as np
 import porepy as pp
 import pytest
 
-from mdnme.utils.transfer_grid import TransferLine
 from mdnme.utils.primal_projections import (
+    project_p1_1d_sz,
     prolong_to_transfer_1d,
     scott_zhang_quasi_interpolant_1d,
-    project_p1_1d_sz,
 )
+from mdnme.utils.transfer_grid import TransferLine
 
 
 def make_tensor_grid_1d(breaks):

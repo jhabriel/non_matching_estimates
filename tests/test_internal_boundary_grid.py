@@ -1,15 +1,13 @@
 """Module for testing the correct construction of the internal boundary grid."""
-import porepy as pp
 import numpy as np
+import porepy as pp
 import pytest
 
+from mdnme.models.varela_jnum_2d.model import manu_incomp_fluid, manu_incomp_solid
+from mdnme.models.varela_jnum_3d.model import VarelaJNumSetup3D
 from mdnme.utils.internal_boundary_grid import InternalBoundaryGrid
 from mdnme.utils.transfer_grid import TransferGrid
-from mdnme.models.varela_jnum_3d.model import VarelaJNumSetup3D
-from mdnme.models.varela_jnum_2d.model import (
-    manu_incomp_fluid,
-    manu_incomp_solid,
-)
+
 
 @pytest.fixture(scope="module")
 def material_constants() -> dict:

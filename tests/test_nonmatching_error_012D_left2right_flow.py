@@ -1,19 +1,18 @@
-import pytest
-
-import porepy as pp
-import numpy as np
-import mdnme
-
 from typing import Callable, Literal
+
+import numpy as np
+import porepy as pp
+import pytest
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
 
-from mdnme.estimates.helpers import ErrorEstimatesSaveData
+import mdnme
 from mdnme.estimates.error_estimation import (
-    estimate_errors,
     compute_error_indicators,
-    transfer_errors_iterate_solutions,
     compute_sd_and_intf_errors_of_equal_dim,
+    estimate_errors,
+    transfer_errors_iterate_solutions,
 )
+from mdnme.estimates.helpers import ErrorEstimatesSaveData
 
 
 class Geometry(pp.PorePyModel):

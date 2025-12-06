@@ -1,15 +1,15 @@
 import numpy as np
 import porepy as pp
-import scipy.sparse as sps
 import pytest
+import scipy.sparse as sps
 
+from mdnme.utils.grid_utils import refine_grid
 from mdnme.utils.transfer_grid import (
     TransferGrid,
     coarse_fine_or_build,
-    transfer_permutation_by_centroids,
     permute_transfer_columns,
+    transfer_permutation_by_centroids,
 )
-from mdnme.utils.grid_utils import refine_grid
 
 
 @pytest.fixture(scope="module")

@@ -14,11 +14,7 @@ import porepy as pp
 #     Flemisch2018Case3Model,
 #     solid_constants,
 # )
-from mdnme.models.benchmark_2d_case_3 import (
-    FlowBenchmark2dCase3bModel,
-    solid_constants,
-)
-
+from mdnme.models.benchmark_2d_case_3 import FlowBenchmark2dCase3bModel, solid_constants
 
 pickle_mdg = False
 print_to_console = False

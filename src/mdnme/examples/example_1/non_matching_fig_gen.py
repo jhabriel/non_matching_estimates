@@ -41,18 +41,20 @@ TG_EDGE_WIDTHS = dict(ibg2msg=0.8,       frac2msg=0.8)
 TG_FACE_ALPHA = 0.0  # keep transfers as wireframes
 # ----------------------------------
 
-import numpy as np
 import matplotlib
+import numpy as np
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import porepy as pp
 
+import mdnme
+from mdnme.models.varela_jnum_2d.model import manu_incomp_fluid, manu_incomp_solid
+
 # mdnme imports
 from mdnme.models.varela_jnum_3d.model import VarelaJNumSetup3D
-from mdnme.models.varela_jnum_2d.model import manu_incomp_fluid, manu_incomp_solid
 from mdnme.utils.internal_boundary_grid import InternalBoundaryGrid
 from mdnme.utils.transfer_grid import TransferGrid
-import mdnme
 
 
 def export_transfer_grids(mdg, side: str, out_prefix: str = "tg") -> None:
@@ -170,8 +172,9 @@ def _grid_cell_polys2d(g: pp.Grid):
         polys.append(g.nodes[:, idx].T.copy())
     return polys
 
-from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 import matplotlib.colors as mcolors
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+
 
 def _add_wire_surface3d(ax, g: pp.Grid, *, edge="#333", lw=0.6, face_alpha=0.10):
     """Add a semi-transparent triangulated surface, edges emphasized (nodes are 3D)."""

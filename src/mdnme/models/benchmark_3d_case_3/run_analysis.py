@@ -10,18 +10,17 @@ from __future__ import annotations
 
 import pickle
 
+import mdamr
 import numpy as np
 import porepy as pp
-from porepy.utils.txt_io import TxtData, export_data_to_txt
-
-import mdamr
+from examples.flow_benchmark_3d_case_3 import solid_constants
 from mdamr.estimates.error_estimation import (
     compute_error_indicators,
     get_majorant,
     transfer_errors_iterate_solutions,
 )
 from mdamr.examples.example_3.model import Example3Model
-from examples.flow_benchmark_3d_case_3 import solid_constants
+from porepy.utils.txt_io import TxtData, export_data_to_txt
 
 pickle_mdg = False
 print_to_console = True

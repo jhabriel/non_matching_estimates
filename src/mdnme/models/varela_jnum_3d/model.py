@@ -16,13 +16,13 @@ References:
 from __future__ import annotations
 
 import porepy as pp
-from mdnme.models.varela_jnum_3d.geometry import VarelaJNumGeometry3D
-from mdnme.models.varela_jnum_3d.exact_solution import VarelaJNumExactSolution3D
 
 from mdnme.models.varela_jnum_2d.model import (
     VarelaJNumSetup2D,
     VarelaJNumSolutionStrategy2D,
 )
+from mdnme.models.varela_jnum_3d.exact_solution import VarelaJNumExactSolution3D
+from mdnme.models.varela_jnum_3d.geometry import VarelaJNumGeometry3D
 
 # PorePy typings
 number = pp.number

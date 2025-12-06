@@ -5,8 +5,8 @@ replace by a constant pressure boundary condition.
 
 """
 
-import porepy as pp
 import numpy as np
+import porepy as pp
 
 
 class NoFluxBoundaryConditions(pp.PorePyModel):

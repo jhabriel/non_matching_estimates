@@ -11,14 +11,13 @@ import scipy.sparse as sps
 import sympy as sym
 
 import mdnme
+from mdnme.estimates.diffusive_error import _get_high_pressure_trace, _get_low_pressure
 from mdnme.models.varela_jnum_3d.exact_solution import VarelaJNumExactSolution3D
-from mdnme.estimates.diffusive_error import (
-    _get_high_pressure_trace,
-    _get_low_pressure,
-)
 from mdnme.utils.internal_boundary_grid import InternalBoundaryGrid
-from mdnme.utils.primal_projections import prolong_to_transfer, \
-    scott_zhang_quasi_interpolant
+from mdnme.utils.primal_projections import (
+    prolong_to_transfer,
+    scott_zhang_quasi_interpolant,
+)
 from mdnme.utils.transfer_grid import TransferGrid
 
 

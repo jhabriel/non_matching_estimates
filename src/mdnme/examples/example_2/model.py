@@ -2,23 +2,21 @@
 
 from typing import Callable
 
+import numpy as np
 import porepy as pp
 
-from mdnme.estimates.helpers import ErrorEstimatesSaveData
-from mdnme.examples.example_2.boundary_conditions import BoundaryConditionsModified
-from mdnme.examples.example_2.geometry import GeometryNonMatching
-from mdnme.examples.example_2.flow_benchmark_3d_case_2 import (
-    FlowBenchmark3dCase2Model,
-    solid_constants_conductive,  # to be imported by "example_2.model"
-)
-
 from mdnme.estimates.error_estimation import (
-    estimate_errors,
     compute_error_indicators,
+    estimate_errors,
     transfer_errors_iterate_solutions,
 )
-
-import numpy as np
+from mdnme.estimates.helpers import ErrorEstimatesSaveData
+from mdnme.examples.example_2.boundary_conditions import BoundaryConditionsModified
+from mdnme.examples.example_2.flow_benchmark_3d_case_2 import (
+    solid_constants_conductive,  # to be imported by "example_2.model"
+)
+from mdnme.examples.example_2.flow_benchmark_3d_case_2 import FlowBenchmark3dCase2Model
+from mdnme.examples.example_2.geometry import GeometryNonMatching
 
 
 class Geiger3dSolutionStrategy(

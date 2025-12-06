@@ -1,12 +1,11 @@
 from dataclasses import dataclass
 from typing import Dict, List, Tuple
+
 import numpy as np
+import porepy as pp
 import scipy.sparse as sps
 
 import mdnme
-import porepy as pp
-
-
 from mdnme.utils.grid_utils import (
     ear_clip_triangulate,
     ensure_ccw,

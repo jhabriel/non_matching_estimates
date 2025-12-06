@@ -4,14 +4,13 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import cast, Literal, Tuple
+from typing import Literal, Tuple, cast
 
 import porepy as pp
+from porepy.fracs.fracture_network_3d import FractureNetwork3d
 
 from mdnme.examples.example_2.flow_benchmark_3d_case_2 import benchmark_3d_case_2
-from porepy.fracs.fracture_network_3d import FractureNetwork3d
 from mdnme.utils.nested_refinement import GeoNestedRefinementFactory
-
 
 # ---------- small helpers ----------
 

@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import cast, Literal, Tuple
+from typing import Literal, Tuple, cast
 
 import porepy as pp
-
 from porepy.applications.md_grids.mdg_library import benchmark_3d_case_3
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
+
 from mdnme.utils.nested_refinement import GeoNestedRefinementFactory
 
 # ---------- small helpers ----------

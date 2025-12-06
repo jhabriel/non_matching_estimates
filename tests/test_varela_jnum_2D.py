@@ -10,15 +10,12 @@ References:
 """
 from __future__ import annotations
 
-
 import numpy as np
 import porepy as pp
 import pytest
-
-import mdnme
-
 from porepy.grids.mortar_grid import MortarSides
 
+import mdnme
 from mdnme.models.varela_jnum_2d.model import (
     VarelaJNumSetup2D,
     manu_incomp_fluid,

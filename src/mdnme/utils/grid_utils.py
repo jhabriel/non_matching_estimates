@@ -2,7 +2,6 @@
 
 import numpy as np
 import porepy as pp
-
 from scipy.spatial import cKDTree
 
 

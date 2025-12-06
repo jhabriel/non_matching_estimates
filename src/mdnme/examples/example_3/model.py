@@ -2,32 +2,29 @@
 This module contains the model for the Example 3 of the manuscript.
 """
 import sys
-
 from typing import Callable
 
-import porepy as pp
-import mdnme
 import numpy as np
-
-from mdnme.estimates.helpers import ErrorEstimatesSaveData
-from mdnme.examples.example_3.boundary_conditions import (
-    NoFluxBoundaryConditions,
-    ModifiedBalanceEquation,
-)
-from mdnme.examples.example_3.geometry import GeometryNonMatching
-
-from mdnme.estimates.error_estimation import (
-    estimate_errors,
-    compute_error_indicators,
-    compute_local_errors,
-    transfer_errors_iterate_solutions,
-    aggregate_local_errors,
-)
-
+import porepy as pp
 from porepy.examples.flow_benchmark_3d_case_3 import (
     FlowBenchmark3dCase3Model,
     FractureSolidConstants,
 )
+
+import mdnme
+from mdnme.estimates.error_estimation import (
+    aggregate_local_errors,
+    compute_error_indicators,
+    compute_local_errors,
+    estimate_errors,
+    transfer_errors_iterate_solutions,
+)
+from mdnme.estimates.helpers import ErrorEstimatesSaveData
+from mdnme.examples.example_3.boundary_conditions import (
+    ModifiedBalanceEquation,
+    NoFluxBoundaryConditions,
+)
+from mdnme.examples.example_3.geometry import GeometryNonMatching
 
 solid_constants = FractureSolidConstants(
     residual_aperture=1e-2,

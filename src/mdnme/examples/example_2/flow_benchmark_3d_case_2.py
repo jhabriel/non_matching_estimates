@@ -23,7 +23,6 @@ from pathlib import Path
 from typing import Literal, Optional, Union, cast
 
 import numpy as np
-
 import porepy as pp
 from porepy.applications.discretizations.flux_discretization import FluxDiscretization
 from porepy.examples.flow_benchmark_2d_case_1 import (
@@ -31,7 +30,6 @@ from porepy.examples.flow_benchmark_2d_case_1 import (
     Permeability,
 )
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
-
 
 solid_constants_conductive = FractureSolidConstants(
     residual_aperture=1e-4,

@@ -10,20 +10,14 @@ References:
 """
 from __future__ import annotations
 
-
 import numpy as np
 import porepy as pp
 import pytest
-
-import mdnme
-
 from porepy.grids.refinement import GridSequenceFactory
 
+import mdnme
+from mdnme.models.varela_jnum_2d.model import manu_incomp_fluid, manu_incomp_solid
 from mdnme.models.varela_jnum_3d.model import VarelaJNumSetup3D
-from mdnme.models.varela_jnum_2d.model import (
-    manu_incomp_fluid,
-    manu_incomp_solid,
-    )
 from mdnme.models.varela_jnum_3d.true_errors import VarelaJNumTrueErrors3D
 
 

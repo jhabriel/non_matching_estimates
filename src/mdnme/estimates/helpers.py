@@ -4,6 +4,7 @@ import numpy as np
 import porepy as pp
 import scipy.sparse as sps
 
+
 def _nnz_per_axis(A: sps.spmatrix, axis: int, tol: float) -> np.ndarray:
     """Count 'significant' nonzeros (>tol) per row (axis=0) or column (axis=1)."""
     if not sps.isspmatrix(A):

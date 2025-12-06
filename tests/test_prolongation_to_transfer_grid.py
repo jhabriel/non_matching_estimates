@@ -4,10 +4,10 @@ transfer grid."""
 import numpy as np
 import porepy as pp
 import pytest
-import mdnme
 
-from mdnme.utils.transfer_grid import TransferGrid
+import mdnme
 from mdnme.utils.primal_projections import prolong_to_transfer
+from mdnme.utils.transfer_grid import TransferGrid
 
 
 @pytest.fixture(scope="module")

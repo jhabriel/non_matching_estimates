@@ -9,11 +9,12 @@ Reference:
 
 """
 
-import mdnme
 import numpy as np
 import porepy as pp
 import quadpy
 import sympy as sym
+
+import mdnme
 
 
 class VarelaJNumExactSolution2d:

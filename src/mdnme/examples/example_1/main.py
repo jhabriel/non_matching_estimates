@@ -8,12 +8,12 @@ from typing import Dict, List, Sequence, Tuple
 import numpy as np
 import porepy as pp
 
+from mdnme.estimates.error_estimation import estimate_errors
+from mdnme.models.varela_jnum_2d.model import manu_incomp_fluid, manu_incomp_solid
+
 # mdnme imports
 from mdnme.models.varela_jnum_3d.model import VarelaJNumSetup3D
-from mdnme.models.varela_jnum_2d.model import manu_incomp_fluid, manu_incomp_solid
 from mdnme.models.varela_jnum_3d.true_errors import VarelaJNumTrueErrors3D
-from mdnme.estimates.error_estimation import estimate_errors
-
 
 # -----------------------------
 # Experiment configuration

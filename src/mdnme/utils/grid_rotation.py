@@ -1,8 +1,10 @@
 from __future__ import annotations
+
 from typing import Dict, Tuple, Union
 
 import numpy as np
 import porepy as pp
+
 import mdnme  # where RotatedGrid lives
 
 GridLike = Union[pp.Grid, pp.MortarGrid]

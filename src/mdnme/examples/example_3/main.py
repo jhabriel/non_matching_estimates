@@ -1,14 +1,11 @@
 """This module contains the convergence analysis for numerical example 3."""
 
-import porepy as pp
 import numpy as np
+import porepy as pp
+from porepy.utils.txt_io import TxtData, export_data_to_txt
 
+from mdnme.estimates.error_estimation import aggregate_local_errors, get_majorant
 from mdnme.examples.example_3.model import SmallFeaturesModel, solid_constants
-from mdnme.estimates.error_estimation import (
-    aggregate_local_errors,
-    get_majorant,
-)
-from porepy.utils.txt_io import export_data_to_txt, TxtData
 
 # Loop through the matching and the non-matching case
 for is_nonmatching in [False, True]:

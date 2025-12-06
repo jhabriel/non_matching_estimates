@@ -1,18 +1,11 @@
 """This module contains the convergence analysis for numerical example 2."""
 
-import porepy as pp
-from porepy.utils.txt_io import export_data_to_txt, TxtData
-
 import numpy as np
+import porepy as pp
+from porepy.utils.txt_io import TxtData, export_data_to_txt
 
-from mdnme.examples.example_2.model import (
-    Geiger3dModel,
-    solid_constants_conductive,
-)
-from mdnme.estimates.error_estimation import (
-    aggregate_local_errors,
-    get_majorant,
-)
+from mdnme.estimates.error_estimation import aggregate_local_errors, get_majorant
+from mdnme.examples.example_2.model import Geiger3dModel, solid_constants_conductive
 
 # Initialize lists for exporting results
 sd_error_1d = []
