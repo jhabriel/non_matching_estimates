@@ -18,6 +18,8 @@ import porepy as pp
 from porepy.applications.md_grids.domains import nd_cube_domain
 from porepy.grids.refinement import GridSequenceFactory
 
+from mdnme.utils.grid_rotation import build_canonical_frames
+
 
 class VarelaJNumGeometry3D:
     """Generate fracture network and mixed-dimensional grid."""
@@ -324,28 +326,36 @@ class VarelaJNumGeometry3D:
             self.fractures,
             self.domain,
         )
-
         # Check if we should build a matching or a non-matching mdg
-        if self.params.get("non_matching") is not None:
-            if self.params.get("non_matching"):
-                is_nonmatching = True
-            else:
-                is_nonmatching = False
-        else:
-            is_nonmatching = False
+        is_nonmatching = bool(self.params.get("non_matching", False))
 
-        # Produce mdg
         if is_nonmatching:
 
-            # Create non-matching geometry via perturbation of internal nodes
+            # Non-matching requested: choose mechanism
             perturb_frac = self.params.get("perturb_fracture", False)
             perturb_mortar = self.params.get("perturb_mortar", False)
-
-            # Create non-matching geometry via nested refinement
             refine_fracture = self.params.get("refine_fracture", False)
             refine_mortar = self.params.get("refine_mortar", False)
 
+            # Sanity: at least one mechanism should be specified
+            if not (perturb_frac or perturb_mortar or refine_fracture or refine_mortar):
+                raise ValueError(
+                    "non_matching=True but no perturbation or refine option was "
+                    "defined. Set one of {'perturb_fracture', 'perturb_mortar', "
+                    "'refine_fracture', 'refine_mortar'} in params."
+                )
+
+            # >>> Perturbation-based nonmatchingness <<<
             if perturb_frac or perturb_mortar:
+
+                # NOTE: Do not put this outside the if-statement or things crash!
+                # Start from a matching mdg (will be overwritten below)
+                mdg_final = pp.create_mdg(
+                    grid_type=self.grid_type(),
+                    meshing_args=self.meshing_arguments(),
+                    fracture_network=self.fracture_network,
+                    **self.meshing_kwargs(),
+                )
 
                 # Sanity check on translation vector
                 if self.params.get('translation_vector') is None:
@@ -357,14 +367,7 @@ class VarelaJNumGeometry3D:
                 if np.isclose(y_move, 0) and np.isclose(z_move, 0):
                     raise ValueError('Expected translation in the y or z direction')
 
-                # Create a matching mdg first
-                mdg_final = pp.create_mdg(
-                    self.grid_type(),
-                    self.meshing_arguments(),
-                    self.fracture_network,
-                    **self.meshing_kwargs(),
-                )
-
+                # We only perturb the fracture grid
                 if perturb_frac and not perturb_mortar:
 
                     # Retrieve fracture grid
@@ -398,6 +401,7 @@ class VarelaJNumGeometry3D:
                         sd_map={frac_grid: pert_frac_grid}
                     )
 
+                # We only perturb the mortar grid
                 if perturb_mortar and not perturb_frac:
 
                     # Retrieve interface grid
@@ -445,6 +449,7 @@ class VarelaJNumGeometry3D:
                         interface_map={intf: sg_map}
                     )
 
+                # We perturb both the fracture and the mortar grid
                 if perturb_frac and perturb_mortar:
 
                     # 1: Perturb fracture grid
@@ -530,6 +535,7 @@ class VarelaJNumGeometry3D:
                         interface_map={intf: sg_map}
                     )
 
+            # >>> Refinement-based non-matchingness <<<
             if refine_fracture or refine_mortar:
 
                 if perturb_frac or perturb_mortar:
@@ -560,33 +566,33 @@ class VarelaJNumGeometry3D:
                     grid_sequence_params,
                 )
                 mdgs = list(factory)
-                mdg_coarse = mdgs[0]
+                mdg_final = mdgs[0]
                 mdg_fine = mdgs[1]
 
                 # Replace grids
                 if refine_fracture and not refine_mortar:
-                    mdg_coarse.replace_subdomains_and_interfaces(
+                    mdg_final.replace_subdomains_and_interfaces(
                         sd_map={
-                            mdg_coarse.subdomains(dim=2)[0]: mdg_fine.subdomains(dim=2)[0]
+                            mdg_final.subdomains(dim=2)[0]: mdg_fine.subdomains(dim=2)[0]
                         }
                     )
                 elif refine_mortar and not refine_fracture:
-                    mdg_coarse.replace_subdomains_and_interfaces(
+                    mdg_final.replace_subdomains_and_interfaces(
                         interface_map={
-                            mdg_coarse.interfaces(dim=2)[0]: mdg_fine.interfaces(dim=2)[0]
+                            mdg_final.interfaces(dim=2)[0]: mdg_fine.interfaces(dim=2)[0]
                         }
                     )
                 else:
-                    mdg_coarse.replace_subdomains_and_interfaces(
+                    mdg_final.replace_subdomains_and_interfaces(
                         sd_map={
-                            mdg_coarse.subdomains(dim=2)[0]: mdg_fine.subdomains(dim=2)[0]
+                            mdg_final.subdomains(dim=2)[0]: mdg_fine.subdomains(dim=2)[0]
                         },
                         interface_map={
-                            mdg_coarse.interfaces(dim=2)[0]: mdg_fine.interfaces(dim=2)[0]
+                            mdg_final.interfaces(dim=2)[0]: mdg_fine.interfaces(dim=2)[0]
                         }
                     )
-                mdg_final = mdg_coarse
 
+                # Make sure to recompute the geometry of boundary grids
                 for sd in mdg_final.subdomains():
                     bg = mdg_final.subdomain_to_boundary_grid(sd)
                     bg.compute_geometry()
@@ -601,12 +607,11 @@ class VarelaJNumGeometry3D:
             )
 
         # Finally, we have our mdg
-        self.mdg = mdg_final
+        self.mdg: pp.MixedDimensionalGrid = mdg_final.copy()
 
         # Dimensionality of highest-dimensional manifold
         self.nd: int = self.mdg.dim_max()
 
         # Create projections between local and global coordinates for fracture grids.
         pp.set_local_coordinate_projections(self.mdg)
-        from mdnme.utils.grid_rotation import build_canonical_frames
         build_canonical_frames(self.mdg)
