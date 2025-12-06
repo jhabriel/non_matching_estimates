@@ -11,11 +11,8 @@ from __future__ import annotations
 
 import porepy as pp
 
-# from mdamr.examples.benchmark_2d_case_3.model import (
-#     Flemisch2018Case3Model,
-#     solid_constants,
-# )
-from mdnme.models.benchmark_2d_case_3 import FlowBenchmark2dCase3bModel, solid_constants
+from mdnme.models.benchmark_2d_case_3.model import FlowBenchmark2dCase3bModel
+from porepy.examples.flow_benchmark_2d_case_3 import solid_constants
 
 pickle_mdg = False
 print_to_console = False

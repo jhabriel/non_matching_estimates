@@ -13,7 +13,23 @@ Layers (exploded in x):
 Transfer grids (as wire overlays):
   - x = 0.5 - Δ/2 : Transfer(IBG → interface side)
   - x = 0.5 + Δ/2 : Transfer(fracture → interface side)
+
 """
+
+import matplotlib
+import matplotlib.colors as mcolors
+import matplotlib.pyplot as plt
+import numpy as np
+import porepy as pp
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+
+import mdnme
+from mdnme.models.varela_jnum_2d.model import manu_incomp_fluid, manu_incomp_solid
+from mdnme.models.varela_jnum_3d.model import VarelaJNumSetup3D
+from mdnme.utils.internal_boundary_grid import InternalBoundaryGrid
+from mdnme.utils.transfer_grid import TransferGrid
+
+matplotlib.use("Agg")
 
 # ------------- CONFIG -------------
 H = 0.15
@@ -40,21 +56,6 @@ TG_EDGE_COLORS = dict(ibg2msg="#2ca02c", frac2msg="#9467bd")  # green/purple
 TG_EDGE_WIDTHS = dict(ibg2msg=0.8, frac2msg=0.8)
 TG_FACE_ALPHA = 0.0  # keep transfers as wireframes
 # ----------------------------------
-
-import matplotlib
-import numpy as np
-
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-import porepy as pp
-
-import mdnme
-from mdnme.models.varela_jnum_2d.model import manu_incomp_fluid, manu_incomp_solid
-
-# mdnme imports
-from mdnme.models.varela_jnum_3d.model import VarelaJNumSetup3D
-from mdnme.utils.internal_boundary_grid import InternalBoundaryGrid
-from mdnme.utils.transfer_grid import TransferGrid
 
 
 def export_transfer_grids(mdg, side: str, out_prefix: str = "tg") -> None:
@@ -178,10 +179,6 @@ def _grid_cell_polys2d(g: pp.Grid):
         idx = cn.indices[cn.indptr[j] : cn.indptr[j + 1]]
         polys.append(g.nodes[:, idx].T.copy())
     return polys
-
-
-import matplotlib.colors as mcolors
-from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 
 def _add_wire_surface3d(ax, g: pp.Grid, *, edge="#333", lw=0.6, face_alpha=0.10):
@@ -419,7 +416,8 @@ def make_figure_with_transfers(mdg: pp.MixedDimensionalGrid, side: str, outfile:
 
 if __name__ == "__main__":
     print(
-        f"[coupling+transfers] Building non-matching mdg (h={H}, translation={TRANSLATION}, side={SIDE}) …"
+        f"[coupling+transfers] Building non-matching mdg"
+        f" (h={H}, translation={TRANSLATION}, side={SIDE}) …"
     )
     mdg = build_mdg(H, non_matching=True, translation=TRANSLATION)
     exporter = pp.Exporter(mdg, "single_frac", "figs")

@@ -2,16 +2,11 @@
 This module contains the model for the Example 3 of the manuscript.
 """
 
-import sys
 from typing import Callable
 
 import porepy as pp
-from porepy.examples.flow_benchmark_3d_case_3 import (
-    FlowBenchmark3dCase3Model,
-    solid_constants,
-)
+from porepy.examples.flow_benchmark_3d_case_3 import FlowBenchmark3dCase3Model
 
-import mdnme
 from mdnme.estimates.helpers import ErrorEstimatesSaveData
 
 
@@ -58,12 +53,3 @@ class SmallFeaturesModel(  # type: ignore[misc]
     FlowBenchmark3dCase3Model,
 ):
     """Main model for running the analysis corresponding to example number 3."""
-
-
-# # %% Runner
-# params = {
-#     "material_constants": {"solid": solid_constants},
-#     "refinement_level": 0,
-# }
-# model = SmallFeaturesModel(params)
-# pp.run_time_dependent_model(model, params)

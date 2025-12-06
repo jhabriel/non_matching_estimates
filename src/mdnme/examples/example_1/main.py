@@ -237,7 +237,8 @@ def build_latex_table_majorant(rows: List[Tuple[str, List[str], List[str]]]) -> 
     header = (
         "\\begin{table}\n"
         "\\centering\n"
-        "\\caption{3D/2D verification results: majorants, true errors and effectivity indices.}\n"
+        "\\caption{3D/2D verification results: majorants, true errors and effectivity"
+        " indices.}\n"
         "\\label{tab:verification_majorant}\n"
         "\\begin{tabular}{lrrrrr}\n"
         "\\toprule\n"
@@ -271,7 +272,8 @@ def build_latex_table_local(rows: List[Tuple[str, List[str], List[str]]]) -> str
         "\\label{tab:verification_local}\n"
         "\\begin{tabular}{lrrrr}\n"
         "\\hline\n"
-        "$h$ & $\\eta_{\\Omega_2}$ & $\\eta_{\\Omega_1}$ & $\\eta_{\\Gamma_1}$ & $\\eta_{\\Gamma_2}$ \\\\\n"
+        "$h$ & $\\eta_{\\Omega_2}$ & $\\eta_{\\Omega_1}$ & $\\eta_{\\Gamma_1}$ & "
+        "$\\eta_{\\Gamma_2}$ \\\\\n"
         "\\toprule\n"
     )
     body_lines = []
@@ -393,7 +395,8 @@ def main() -> None:
         tex_majorant = build_latex_table_majorant(rows_majorant)
         TABLE_TEX_MAJORANT.write_text(tex_majorant)
         print(
-            f"\nLaTeX table (majorant/true/eff) written to: {TABLE_TEX_MAJORANT.resolve()}"
+            f"\nLaTeX table (majorant/true/eff) written to:"
+            f" {TABLE_TEX_MAJORANT.resolve()}"
         )
 
         tex_local = build_latex_table_local(rows_local)
