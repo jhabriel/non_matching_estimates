@@ -371,13 +371,15 @@ def main() -> None:
         rows_local.append((h_str, row_match_local, row_nonmatch_local))
 
     # Build and write LaTeX tables
-    tex_majorant = build_latex_table_majorant(rows_majorant)
-    TABLE_TEX_MAJORANT.write_text(tex_majorant)
-    print(f"\nLaTeX table (majorant/true/eff) written to: {TABLE_TEX_MAJORANT.resolve()}")
+    export_to_latex = False
+    if export_to_latex:
+        tex_majorant = build_latex_table_majorant(rows_majorant)
+        TABLE_TEX_MAJORANT.write_text(tex_majorant)
+        print(f"\nLaTeX table (majorant/true/eff) written to: {TABLE_TEX_MAJORANT.resolve()}")
 
-    tex_local = build_latex_table_local(rows_local)
-    TABLE_TEX_LOCAL.write_text(tex_local)
-    print(f"LaTeX table (local components) written to: {TABLE_TEX_LOCAL.resolve()}\n")
+        tex_local = build_latex_table_local(rows_local)
+        TABLE_TEX_LOCAL.write_text(tex_local)
+        print(f"LaTeX table (local components) written to: {TABLE_TEX_LOCAL.resolve()}\n")
 
     # Optional CSV export of raw numbers
     try:
