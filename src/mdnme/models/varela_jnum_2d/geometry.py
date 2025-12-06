@@ -134,11 +134,9 @@ class VarelaJNumGeometry2D:
             # first element is the target cell size for the matrix, the second
             # element is the target cell size for the interface grid, and the third
             # element is the target cell size for the fracture grid
-            cell_sizes: tuple[
-                float, float, float, float, float
-            ] = self.params[  # type:ignore
+            cell_sizes = self.params[  # type:ignore
                 "full_non_matching_cell_sizes"
-            ] 
+            ]
             assert len(cell_sizes) == 5
 
             # Make sure the matrix size is of the same size at both sides of the

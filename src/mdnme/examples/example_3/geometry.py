@@ -180,7 +180,7 @@ class GeometryNonMatching(pp.PorePyModel):
             for dim in [2]:
                 for sd_coarse, sd_fine in zip(
                     mdg_coarse.subdomains(dim=dim),  # type:ignore
-                    mdg_fine.subdomains(dim=dim)  # type:ignore
+                    mdg_fine.subdomains(dim=dim),  # type:ignore
                 ):
                     assert sd_coarse.dim == sd_fine.dim
                     sd_map[sd_coarse] = sd_fine

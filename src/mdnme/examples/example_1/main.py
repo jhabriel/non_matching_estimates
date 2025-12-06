@@ -72,7 +72,7 @@ class Metrics:
 # -----------------------------
 
 
-def _material_constants() -> Dict[str, pp.PhysicalConstants]:  #type:ignore
+def _material_constants() -> Dict[str, pp.PhysicalConstants]:  # type:ignore
     solid_constants = pp.SolidConstants(**manu_incomp_solid)  # type:ignore[arg-type]
     fluid_constants = pp.FluidComponent(**manu_incomp_fluid)  # type:ignore[arg-type]
     return {"solid": solid_constants, "fluid": fluid_constants}

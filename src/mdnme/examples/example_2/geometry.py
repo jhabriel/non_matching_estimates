@@ -106,7 +106,7 @@ class GeometryNonMatching(pp.PorePyModel):
             num_refinements = 1
             factory = GeoNestedRefinementFactory(
                 src_path=str(geo_path),
-                dim=dim,  #type: ignore
+                dim=dim,  # type: ignore
                 num_refinements=num_refinements,
                 out_stem=out_stem,  # will emit <out_stem>_0.msh, <out_stem>_1.msh, ...
             )

@@ -74,7 +74,6 @@ class SmallFeaturesSolutionStrategy(
             count += 1
 
     def visualize_fluid_sources(self) -> None:
-
         """Visualization of fluid sources."""
         for sd, data in self.mdg.subdomains(dim=2, return_data=True):
 
@@ -136,7 +135,7 @@ class SmallFeaturesSolutionStrategy(
         estimate_errors(
             self.mdg,
             sources=source_list,  # type: ignore
-            is_non_matching=is_non_matching  # type: ignore
+            is_non_matching=is_non_matching,  # type: ignore
         )
 
         # Compute local errors and error indicators

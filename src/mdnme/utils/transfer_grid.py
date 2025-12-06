@@ -34,7 +34,7 @@ class TransferGrid:
         self,
         g_source: pp.GridLike,
         g_target: pp.GridLike,
-        rotation_matrix: np.ndarray | None= None,
+        rotation_matrix: np.ndarray | None = None,
         tol: float = 1e-5,
         name: str = "transfer",
     ):
