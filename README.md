@@ -1,23 +1,22 @@
-[![PyTest](https://github.com/jhabriel/non_matching_estimates/actions/workflows/pytest.yml/badge.svg)](https://github.com/jhabriel/non_matching_estimates/actions/workflows/pytest.yml)
-[![Code Style & Typing](https://github.com/jhabriel/non_matching_estimates/actions/workflows/code_style_and_typing.yml/badge.svg)](https://github.com/jhabriel/non_matching_estimates/actions/workflows/code_style_and_typing.yml)
 [![License: LGPL v3](https://img.shields.io/badge/License-LGPL_v3-blue.svg)](https://www.gnu.org/licenses/lgpl-3.0)
 
-# mdnme: Mixed-Dimensional Error Estimates on Non-Matching Grids
+# `mdnme`: A posteriori error estimates for mixed-dimensional Darcy flow using non-matching grids
 
 <p align="center">
   <img src="./mdnme_logo.png" alt="Repository Logo" width="400" height="300">
 </p>
 
-**mdnme** is a Python package created to perform a posteriori error analysis on mixed-dimensional domains grids. The package is build on top of [PorePy](https://github.com/pmgbergen/porepy).
+**mdnme** is a Python package created to perform a posteriori error analysis for finite-volume approximations to the mixed-dimensional Darcy flow problem using non-matching grids. The package is build on top of [Porepy](https://github.com/pmgbergen/porepy) and uses (the latest open source version of) [quadpy](https://github.com/sigma-py/quadpy) for numerical integration.
 
-## Installation
+## Installation from source via `conda`
 
-Please, refer to the [installation instructions](https://github.com/jhabriel/non_matching_estimates/Install.md).
+Please, refer to the [installation instructions](Install.md).
 
 ## Reproducing the examples of the paper
 
-Examples from the article "A posteriori error estimates for mixed-dimensional elliptic equations on non-matching grids" (todo: add arxiv link) can be reproduced by running `main.py` in each example of the `examples` directory.
-Each file outputs `txt` files containing the results of the paper. You can also visualize the local error estimators by opening the generated `vtu` files in a proper software e.g., [Paraview](https://www.paraview.org).
+Examples from the article "A posteriori error estimates for mixed-dimensional Darcy flow using non-matching grids" can be reproduced by running the file `main.py` in each example from the `examples` directory.
+
+Each file outputs different `txt` files containing the numerical results reported in the paper. You can also visualize the local error estimators by opening the generated `vtu` files in a proper visualization software e.g., [Paraview](https://www.paraview.org).
 
 ## Citing
 
@@ -25,8 +24,8 @@ If you use **mdmne** in your research, we ask you to cite the following referenc
 
 todo: Add arxiv reference.
 
-## Problems, suggestions, improvements?
-Create an [issue](https://github.com/jhabriel/non_matching_estimates).
+## Create an issue
+For feature requests, troubleshootin and bug reports, please create an [issue](https://github.com/jhabriel/non_matching_estimates).
 
 ## License
 See [license md](./LICENSE.md).
