@@ -1,4 +1,6 @@
+[![DOI](https://zenodo.org/badge/900789549.svg)](https://doi.org/10.5281/zenodo.17844409)
 [![License: LGPL v3](https://img.shields.io/badge/License-LGPL_v3-blue.svg)](https://www.gnu.org/licenses/lgpl-3.0)
+
 
 # `mdnme`: A posteriori error estimates for mixed-dimensional Darcy flow using non-matching grids
 
