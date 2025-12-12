@@ -31,3 +31,7 @@ For feature requests, troubleshootin and bug reports, please create an [issue](h
 
 ## License
 See [license md](./LICENSE.md).
+
+## Funding 
+
+The development of this software has received funding from CONACYT trhough the project PRIA01-8 and from the Polythecnic Univeristy Taiwan-Paraguay.
