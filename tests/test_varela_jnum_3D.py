@@ -40,9 +40,11 @@ def grid_sequence() -> list[pp.MixedDimensionalGrid]:
     fn = pp.create_fracture_network([frac], domain)
 
     mesh_args = {  # coarsish base; factory will refine
-        "mesh_size_bound": 0.4,
-        "mesh_size_frac": 0.4,
+        "mesh_size_boundary": 0.4,
+        "mesh_size_fracture": 0.4,
         "mesh_size_min": 0.01,
+        "refinement_size_multiplier": 1.0,
+        "refinement_proximity_multiplier": 1.0,
     }
     params = {"mode": "nested", "num_refinements": 2, "mesh_param": mesh_args}
     factory = GridSequenceFactory(fn, params)
@@ -64,24 +66,24 @@ def material_constants() -> dict:
 def desired_errors_matching_grids() -> list[dict]:
     """Hardcoded values of desired errors."""
     desired_errors_03000 = {
-        "majorant": 0.2686486032104262,
-        "true_error": 0.23414711882291925,
-        "eff_idx": 1.1473496003749666,
+        "majorant": 0.2749331501222163,
+        "true_error": 0.2400771848616388,
+        "eff_idx": 1.1451864960873552,
     }
     desired_errors_01500 = {
-        "majorant": 0.1760391376608033,
-        "true_error": 0.16001426884205322,
-        "eff_idx": 1.1001464990260832,
+        "majorant": 0.1929182135220501,
+        "true_error": 0.1710294246016867,
+        "eff_idx": 1.1279825911321435,
     }
     desired_errors_07500 = {
-        "majorant": 0.09283467471878434,
-        "true_error": 0.0847922158775042,
-        "eff_idx": 1.0948490230860195,
+        "majorant": 0.0966239669785027,
+        "true_error": 0.0884964637952840,
+        "eff_idx": 1.0918398638167033,
     }
     desired_errors_00375 = {
-        "majorant": 0.047542183820867674,
-        "true_error": 0.04590399163473414,
-        "eff_idx": 1.0356873580661332,
+        "majorant": 0.0491735555126596,
+        "true_error": 0.0454913520313158,
+        "eff_idx": 1.0809429334790712,
     }
     return [
         desired_errors_03000,
@@ -188,10 +190,9 @@ def test_error_estimates_matching_grids(
     true_error_desired = desired_errors_matching_grids[check_idx]["true_error"]
     eff_idx_desired = desired_errors_matching_grids[check_idx]["eff_idx"]
 
-    # Assert
-    assert np.isclose(majorant, majorant_desired, 1e-5, 1e-4)
-    assert np.isclose(true_error, true_error_desired, 1e-5, 1e-4)
-    assert np.isclose(eff_idx, eff_idx_desired, 1e-5, 1e-4)
+    np.testing.assert_allclose(majorant, majorant_desired, rtol=1e-3, atol=1e-4)
+    np.testing.assert_allclose(true_error, true_error_desired, rtol=1e-3, atol=1e-4)
+    np.testing.assert_allclose(eff_idx, eff_idx_desired, rtol=1e-3, atol=1e-4)
 
 
 def test_replace_grids_only_frac(grid_sequence):

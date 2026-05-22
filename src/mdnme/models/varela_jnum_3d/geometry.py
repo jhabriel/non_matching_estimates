@@ -543,20 +543,15 @@ class VarelaJNumGeometry3D:
 
                 # Obtain GridSequenceFactory parameters from standard API
                 mesh_size_bound = self.params["meshing_arguments"]["cell_size"]
-                mesh_size_frac = self.params["meshing_arguments"].get(
-                    "cell_size_fracture", mesh_size_bound
-                )
-                mesh_size_min = self.params["meshing_arguments"].get(
-                    "cell_size_min", 0.05 * mesh_size_bound
-                )
 
                 grid_sequence_params = {
                     "mode": "nested",
                     "num_refinements": 2,
                     "mesh_param": {
-                        "mesh_size_bound": mesh_size_bound,
-                        "mesh_size_frac": mesh_size_frac,
-                        "mesh_size_min": mesh_size_min,
+                        "mesh_size_fracture": mesh_size_bound,
+                        "mesh_size_boundary": mesh_size_bound,
+                        "refinement_size_multiplier": 1.0,
+                        "refinement_proximity_multiplier": 1.0,
                     },
                     "grid_param": self.meshing_kwargs(),
                 }

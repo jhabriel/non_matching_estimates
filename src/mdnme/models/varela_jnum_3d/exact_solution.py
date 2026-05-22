@@ -68,6 +68,22 @@ class VarelaJNumExactSolution3D:
             sym.diff(q[0], x) + sym.diff(q[1], y) + sym.diff(q[2], z) for q in q_matrix
         ]
 
+        # Override f_matrix[4] (middle region) with the analytically simplified Laplacian.
+        # The auto-diff of bubble_fun * |x-0.5| produces d²/dx²(|x-0.5|) written as
+        # (u)^{-1/2} - u*(u)^{-3/2} (where u=(x-0.5)²), which is algebraically 0 but
+        # evaluates to ∞ - ∞ = NaN in numpy at x ≈ 0.5. The true Laplacian of p_matrix[4]
+        # = |x-0.5|^{1+n} + B(y,z)*|x-0.5| is:
+        #   Δp_4 = (1+n)·n · ((x-0.5)²)^{(n-1)/2} + ((x-0.5)²)^{1/2} · (B_yy + B_zz)
+        # Both terms are numerically stable everywhere, including at x = 0.5.
+        _r2 = (x - sym.Rational(1, 2)) ** 2
+        _by = (y - sym.Rational(1, 4)) ** 2 * (y - sym.Rational(3, 4)) ** 2
+        _bz = (z - sym.Rational(1, 4)) ** 2 * (z - sym.Rational(3, 4)) ** 2
+        f_matrix[4] = -(
+            (1 + n) * n * _r2 ** sym.Rational(1, 4)
+            + _r2 ** sym.Rational(1, 2)
+            * (sym.diff(_by, y, 2) * _bz + _by * sym.diff(_bz, z, 2))
+        )
+
         # Exact flux on the interface (mortar fluxes)
         q_intf = bubble_fun
 

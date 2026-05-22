@@ -84,6 +84,20 @@ class VarelaJNumTrueErrors3D(VarelaJNumExactSolution3D):
             for gradp in grad_p_matrix_sym
         ]
 
+        # Override x-component of gradient for the middle region (index 4).
+        # Auto-diff of bubble * |x-0.5| gives bubble*(x-0.5)/((x-0.5)^2)^{1/2},
+        # which evaluates to 0/0 = NaN in numpy at x = 0.5. The stable form uses
+        # np.sign, which returns 0 at x = 0.5 (correct limiting behavior).
+        _n = 1.5
+
+        def _grad4_x_stable(
+            xv: np.ndarray, yv: np.ndarray, zv: np.ndarray
+        ) -> np.ndarray:
+            b = (yv - 0.25) ** 2 * (yv - 0.75) ** 2 * (zv - 0.25) ** 2 * (zv - 0.75) ** 2
+            return (1 + _n) * (xv - 0.5) * ((xv - 0.5) ** 2) ** 0.25 + b * np.sign(xv - 0.5)
+
+        grad_p_matrix_fun[4][0] = _grad4_x_stable
+
         # Obtain reconstructed pressure and create list of coefficients
         recon_p = d_matrix["estimates"]["recon_sd_pressure"]
         pr = mdnme.utils.poly2col(recon_p)

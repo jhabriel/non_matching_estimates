@@ -145,18 +145,27 @@ class VarelaJNumTrueErrors2d(VarelaJNumExactSolution2d):
         recon_p = d_fracture["estimates"]["recon_sd_pressure"]
         pr = mdnme.utils.poly2col(recon_p)
 
+        # ---> Determine sign of the mapping from local ξ to physical y.
+        # Hardcoding -1 is only valid for the original mesh orientation; it can flip
+        # after remeshing or with different PorePy versions. Compute from rotation matrix.
+        sd_rot = mdnme.RotatedGrid(sd_fracture)
+        R = sd_rot.rotation_matrix                  # 3×3
+        active = np.where(sd_rot.dim_bool)[0]       # single active index for 1D frac
+        T_y = float(R[active[0], 1])               # ±1
+
+        y_cc = sd_fracture.cell_centers[1, :]       # physical y, shape (n_cells,)
+        xi_cc = sd_rot.cell_centers[0, :]           # local ξ, shape (n_cells,)
+        b_y = (y_cc - T_y * xi_cc).reshape(-1, 1)  # shape (n_cells, 1)
+
         # ---> Obtain elements and declare integration method
         method = quadpy.c1.newton_cotes_closed(10)
         elements = mdnme.utils.get_quadpy_elements(sd_fracture)
-        elements *= -1  # we have to use the real `y` coordinates here
 
         # ---> Compute true error
         def integrand(x):
-            # Exact pressure gradient
-            gradp_exact_rot = -grad_p_frac_fun(x)  # -1 due to rotation
-            # Reconstructed pressure gradient
+            y_phys = T_y * x + b_y               # ξ → physical y
+            gradp_exact_rot = T_y * grad_p_frac_fun(y_phys)
             gradp_recon_x = pr[0] * np.ones_like(x[0])
-            # Intregral
             int_x = (gradp_exact_rot - gradp_recon_x) ** 2
             return int_x
 
@@ -232,7 +241,6 @@ class VarelaJNumTrueErrors2d(VarelaJNumExactSolution2d):
             # Declare integration method
             method = quadpy.c1.newton_cotes_closed(10)
             elements = mdnme.utils.get_quadpy_elements(sidegrid)
-            elements *= -1  # We need to use real coordinates
 
             # Project relevant quantities to the side grid
             recon_deltap_side = projector * recon_deltap
@@ -247,7 +255,7 @@ class VarelaJNumTrueErrors2d(VarelaJNumExactSolution2d):
                 coors = x[np.newaxis, :, :]  # this is needed for 1D grids
                 recon_p_jump = mdnme.utils.evaluate_p1(
                     recon_deltap_side,
-                    -coors,  # negate due to rotation
+                    coors,
                 )
                 return (exact_deltap_side(x) - recon_p_jump) ** 2
 

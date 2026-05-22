@@ -394,7 +394,6 @@ class VarelaJNumExactSolution2d:
 
         method = quadpy.c1.newton_cotes_closed(10)
         elements = mdnme.utils.get_quadpy_elements(sd_frac)
-        elements *= -1  # we have to use the real `y` coordinates here
 
         def integrand(y):
             return f_fun(y)
@@ -458,7 +457,6 @@ class VarelaJNumExactSolution2d:
 
         method = quadpy.c1.newton_cotes_closed(10)
         elements = mdnme.utils.get_quadpy_elements(sd_frac)
-        elements *= -1  # we have to use the real `y` coordinates here
 
         weights = (sd_frac.cell_diameters() / np.pi) ** 2
 

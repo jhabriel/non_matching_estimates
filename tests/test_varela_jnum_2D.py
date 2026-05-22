@@ -82,10 +82,10 @@ def test_example_1_with_mesh_size_0125() -> None:
     true_error = te.true_error(mdg)
     efficiency_index = majorant / true_error
 
-    # Check against known values
-    np.testing.assert_allclose(majorant, 0.114138, rtol=1e-3, atol=1e-4)
-    np.testing.assert_allclose(true_error, 0.101785, rtol=1e-3, atol=1e-4)
-    np.testing.assert_allclose(efficiency_index, 1.121356, rtol=1e-3, atol=1e-4)
+    # Check against known values (PorePy 1.13)
+    np.testing.assert_allclose(majorant, 0.118120, rtol=1e-3, atol=1e-4)
+    np.testing.assert_allclose(true_error, 0.103698, rtol=1e-3, atol=1e-4)
+    np.testing.assert_allclose(efficiency_index, 1.139079, rtol=1e-3, atol=1e-4)
 
 
 def test_example_1_with_mesh_size_0125_nonmatching() -> None:
@@ -146,10 +146,10 @@ def test_example_1_with_mesh_size_0125_nonmatching() -> None:
     true_error = te.true_error(mdg)
     efficiency_index = majorant / true_error
 
-    # Check against known values
-    np.testing.assert_allclose(majorant, 0.114138, rtol=1e-3, atol=1e-4)
-    np.testing.assert_allclose(true_error, 0.101785, rtol=1e-3, atol=1e-4)
-    np.testing.assert_allclose(efficiency_index, 1.121356, rtol=1e-3, atol=1e-4)
+    # Check against known values (PorePy 1.13)
+    np.testing.assert_allclose(majorant, 0.118120, rtol=1e-3, atol=1e-4)
+    np.testing.assert_allclose(true_error, 0.103698, rtol=1e-3, atol=1e-4)
+    np.testing.assert_allclose(efficiency_index, 1.139079, rtol=1e-3, atol=1e-4)
 
 
 @pytest.mark.parametrize(

@@ -78,9 +78,11 @@ def grid_sequence():
     fn = pp.create_fracture_network([frac], domain)
 
     mesh_args = {  # coarsish base; factory will refine
-        "mesh_size_bound": 0.4,
-        "mesh_size_frac": 0.4,
+        "mesh_size_boundary": 0.4,
+        "mesh_size_fracture": 0.4,
         "mesh_size_min": 0.01,
+        "refinement_size_multiplier": 1.0,
+        "refinement_proximity_multiplier": 1.0,
     }
     params = {"mode": "nested", "num_refinements": 4, "mesh_param": mesh_args}
     factory = GridSequenceFactory(fn, params)
