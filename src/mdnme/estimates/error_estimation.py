@@ -97,12 +97,22 @@ def get_majorant(mdg: pp.MixedDimensionalGrid) -> float:
     # Errors associated to subdomains
     for sd, d in mdg.subdomains(return_data=True):
         if sd.dim != 0:
-            sd_diffusive += d["estimates"]["diffusive_error"].sum()
-            sd_residual += d["estimates"]["residual_error"].sum()
+            est = d["estimates"]
+            sd_diffusive += est["diffusive_error"].sum()
+            sd_residual += est["residual_error"].sum()
+            # GM residual term (non-matching only; absent key → 0)
+            gm_res = est.get("gm_residual_error")
+            if gm_res is not None:
+                sd_diffusive += float(np.asarray(gm_res).sum())
 
     # Errors associated to interfaces
     for intf, d in mdg.interfaces(return_data=True):
-        intf_diffusive += d["estimates"]["diffusive_error"].sum()
+        est = d["estimates"]
+        intf_diffusive += est["diffusive_error"].sum()
+        # GM perpendicular diffusive term (non-matching only; absent key → 0)
+        gm_perp = est.get("gm_diffusive_error_perp")
+        if gm_perp is not None:
+            intf_diffusive += float(np.asarray(gm_perp).sum())
 
     # Obtaining the majorant
     majorant = (sd_diffusive + intf_diffusive) ** 0.5 + sd_residual**0.5
@@ -189,21 +199,31 @@ def aggregate_local_errors(mdg: pp.MixedDimensionalGrid) -> dict:
     max_intf_dims = np.max(intf_dims)
     dims_intf = np.arange(min_intf_dims, max_intf_dims + 1)
 
-    # Loop over the mixed-dimensional grid and calculate errors
+    # Accumulate raw squared sums, apply sqrt once — avoids Σ√x_j ≥ √(Σx_j) overcount
     for dim in dims_sd:
-        # Handle the 0d case
         if dim == 0:
             continue
-        cum_error = 0.0
+        cum_sq = 0.0
         for sd, data in mdg.subdomains(dim=dim, return_data=True):
-            cum_error += compute_local_errors(sd, data)
-        d["subdomain_error"][dim] = cum_error
+            est = data["estimates"]
+            cum_sq += float(est["diffusive_error"].sum())
+            cum_sq += float(est["residual_error"].sum())
+            # GM residual term (non-matching only; absent key → 0)
+            gm_res = est.get("gm_residual_error")
+            if gm_res is not None:
+                cum_sq += float(np.asarray(gm_res).sum())
+        d["subdomain_error"][dim] = cum_sq ** 0.5
 
     for dim in dims_intf:
-        cum_error = 0.0
+        cum_sq = 0.0
         for intf, data in mdg.interfaces(dim=dim, return_data=True):
-            cum_error += compute_local_errors(intf, data)
-        d["interface_error"][dim] = cum_error
+            est = data["estimates"]
+            cum_sq += float(est["diffusive_error"].sum())
+            # GM perpendicular diffusive term (non-matching only; absent key → 0)
+            gm_perp = est.get("gm_diffusive_error_perp")
+            if gm_perp is not None:
+                cum_sq += float(np.asarray(gm_perp).sum())
+        d["interface_error"][dim] = cum_sq ** 0.5
 
     return d
 
