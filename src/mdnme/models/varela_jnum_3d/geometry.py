@@ -473,10 +473,19 @@ class VarelaJNumGeometry3D:
                     )
                     int_nodes_mask_frac = np.logical_not(bound_nodes_mask_frac)
 
-                    # Translate all internal nodes by a constant value `amp`
-                    # Direction of motion is determined by the translation vector
-                    pert_frac_grid.nodes[1][int_nodes_mask_frac] += y_move * amp_frac
-                    pert_frac_grid.nodes[2][int_nodes_mask_frac] += z_move * amp_frac
+                    # Translate interior nodes, but skip any node whose shift
+                    # would push it outside [0.25, 0.75]^2.
+                    y_shift_frac = y_move * amp_frac
+                    z_shift_frac = z_move * amp_frac
+                    would_exit_frac = (
+                        (pert_frac_grid.nodes[1] + y_shift_frac < 0.25)
+                        | (pert_frac_grid.nodes[1] + y_shift_frac > 0.75)
+                        | (pert_frac_grid.nodes[2] + z_shift_frac < 0.25)
+                        | (pert_frac_grid.nodes[2] + z_shift_frac > 0.75)
+                    )
+                    safe_mask_frac = int_nodes_mask_frac & ~would_exit_frac
+                    pert_frac_grid.nodes[1][safe_mask_frac] += y_shift_frac
+                    pert_frac_grid.nodes[2][safe_mask_frac] += z_shift_frac
                     pert_frac_grid.compute_geometry()
 
                     # 2: Perturb sidegrids of the interface grid
@@ -514,17 +523,20 @@ class VarelaJNumGeometry3D:
                         )
                         int_nodes_mask_mortar = np.logical_not(bound_nodes_mask_mortar)
 
-                        # Translate all internal nodes by a constant value `amp`
-                        # Direction of motion is determined by the translation vector
-                        # Note: We translate the nodes in the opposite side of the
-                        # translation vector when both fracture and mortar grid
-                        # internal nodes are perturbed
-                        pert_mg_side.nodes[1][int_nodes_mask_mortar] += (
-                            -y_move * amp_mortar
+                        # Translate interior nodes in the opposite direction to the
+                        # fracture shift. Skip nodes whose shift would push them
+                        # outside [0.25, 0.75]^2.
+                        y_shift_mg = -y_move * amp_mortar
+                        z_shift_mg = -z_move * amp_mortar
+                        would_exit_mg = (
+                            (pert_mg_side.nodes[1] + y_shift_mg < 0.25)
+                            | (pert_mg_side.nodes[1] + y_shift_mg > 0.75)
+                            | (pert_mg_side.nodes[2] + z_shift_mg < 0.25)
+                            | (pert_mg_side.nodes[2] + z_shift_mg > 0.75)
                         )
-                        pert_mg_side.nodes[2][int_nodes_mask_mortar] += (
-                            -z_move * amp_mortar
-                        )
+                        safe_mask_mg = int_nodes_mask_mortar & ~would_exit_mg
+                        pert_mg_side.nodes[1][safe_mask_mg] += y_shift_mg
+                        pert_mg_side.nodes[2][safe_mask_mg] += z_shift_mg
                         pert_mg_side.compute_geometry()
 
                         # Store in map
