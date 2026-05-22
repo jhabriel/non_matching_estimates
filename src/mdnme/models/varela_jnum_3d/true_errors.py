@@ -418,6 +418,17 @@ class VarelaJNumTrueErrors3D(VarelaJNumExactSolution3D):
             for q in self.q_matrix
         ]
 
+        # Override x-component of q for region 4 (middle). Sympy auto-diff of
+        # B(y,z)*|x-0.5| gives B*(x-0.5)/|x-0.5|, which is 0/0 at x=0.5.
+        # Stable form: q4_x = -(2.5*|x-0.5|^1.5 + B(y,z)) * sign(x-0.5).
+        def _q4_x_stable(
+            xv: np.ndarray, yv: np.ndarray, zv: np.ndarray
+        ) -> np.ndarray:
+            b = (yv - 0.25) ** 2 * (yv - 0.75) ** 2 * (zv - 0.25) ** 2 * (zv - 0.75) ** 2
+            return -(2.5 * ((xv - 0.5) ** 2) ** 0.75 + b) * np.sign(xv - 0.5)
+
+        q_fun[4][0] = _q4_x_stable
+
         # Reconstructed u_h (assume constant-per-cell coefficients via poly2col)
         recon_u = d_matrix["estimates"]["recon_sd_flux"]
         u = mdnme.utils.poly2col(recon_u)

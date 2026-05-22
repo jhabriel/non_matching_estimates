@@ -159,12 +159,20 @@ def _run_single(
     eta_left_intf = math.sqrt(float(diff_intf_left.sum()))
     eta_right_intf = math.sqrt(float(diff_intf_right.sum()))
 
+    # GM terms (non-matching only; zero for matching runs)
+    gm_res_mat = float(np.asarray(d_mat["estimates"].get("gm_residual_error") or 0).sum())
+    gm_res_frac = float(np.asarray(d_frac["estimates"].get("gm_residual_error") or 0).sum())
+    gm_perp = float(np.asarray(d_intf["estimates"].get("gm_diffusive_error_perp") or 0).sum())
+
     # Global majorant pieces (scalars)
     diff_error = math.sqrt(
         float(diff_sd_mat.sum())
         + float(diff_sd_frac.sum())
         + float(diff_intf_left.sum())
         + float(diff_intf_right.sum())
+        + gm_res_mat
+        + gm_res_frac
+        + gm_perp
     )
     residual_error = math.sqrt(resi_sd_mat + resi_sd_frac)
     majorant = diff_error + residual_error
