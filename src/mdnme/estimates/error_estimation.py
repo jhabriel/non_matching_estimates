@@ -5,6 +5,11 @@ import porepy as pp
 
 from mdnme.estimates.diffusive_error import compute_diffusive_error
 from mdnme.estimates.flux_extension import extend_fv_fluxes
+from mdnme.estimates.gm_error import (
+    compute_gm_diffusive_parallel,
+    compute_gm_diffusive_perp,
+    compute_gm_residual,
+)
 from mdnme.estimates.pressure_reconstruction import reconstruct_pressure
 from mdnme.estimates.residual_error import compute_residual_error
 from mdnme.utils.grid_rotation import build_canonical_frames
@@ -63,6 +68,12 @@ def estimate_errors(
 
     # Diffusive error
     compute_diffusive_error(mdg, is_non_matching)
+
+    # GM error terms (non-matching only; identically zero for matching)
+    if is_non_matching:
+        compute_gm_diffusive_parallel(mdg)
+        compute_gm_diffusive_perp(mdg)
+        compute_gm_residual(mdg)
 
     # Residual error
     if sources is None:
