@@ -434,10 +434,21 @@ class VarelaJNumGeometry3D:
                         )
                         int_nodes_mask = np.logical_not(bound_nodes_mask)
 
-                        # Translate all internal nodes by a constant value `amp`
-                        # Direction of motion is determined by the translation vector
-                        pert_mg_side.nodes[1][int_nodes_mask] += y_move * amp
-                        pert_mg_side.nodes[2][int_nodes_mask] += z_move * amp
+                        # Translate interior nodes, but skip any node whose shift
+                        # would push it outside [0.25, 0.75]^2 — at fine meshes
+                        # the amplitude can exceed the distance from an interior
+                        # node to the boundary, making degenerate cells.
+                        y_shift = y_move * amp
+                        z_shift = z_move * amp
+                        would_exit = (
+                            (pert_mg_side.nodes[1] + y_shift < 0.25)
+                            | (pert_mg_side.nodes[1] + y_shift > 0.75)
+                            | (pert_mg_side.nodes[2] + z_shift < 0.25)
+                            | (pert_mg_side.nodes[2] + z_shift > 0.75)
+                        )
+                        safe_mask = int_nodes_mask & ~would_exit
+                        pert_mg_side.nodes[1][safe_mask] += y_shift
+                        pert_mg_side.nodes[2][safe_mask] += z_shift
                         pert_mg_side.compute_geometry()
 
                         # Store in map
@@ -555,13 +566,20 @@ class VarelaJNumGeometry3D:
 
                 # Obtain GridSequenceFactory parameters from standard API
                 mesh_size_bound = self.params["meshing_arguments"]["cell_size"]
+                mesh_size_frac = self.params["meshing_arguments"].get(
+                    "cell_size_fracture", mesh_size_bound
+                )
+                mesh_size_min = self.params["meshing_arguments"].get(
+                    "cell_size_min", 0.05 * mesh_size_bound
+                )
 
                 grid_sequence_params = {
                     "mode": "nested",
                     "num_refinements": 2,
                     "mesh_param": {
-                        "mesh_size_fracture": mesh_size_bound,
+                        "mesh_size_fracture": mesh_size_frac,
                         "mesh_size_boundary": mesh_size_bound,
+                        "mesh_size_min": mesh_size_min,
                         "refinement_size_multiplier": 1.0,
                         "refinement_proximity_multiplier": 1.0,
                     },
