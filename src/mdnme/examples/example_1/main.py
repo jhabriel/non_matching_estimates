@@ -144,14 +144,14 @@ def _run_single(
         eta_gm_omega1 = 0.0
         gm_res_total = 0.0
 
-    # Majorant: sqrt(Σ_diff + Σ_GM) + sqrt(Σ_resi)  (GM residual term under diff sqrt)
+    # Majorant: sqrt(Σ_diff + η²_GM,⊥) + sqrt(Σ_resi + η²_GM,R)
     diff_sum = (
         float(diff_sd_mat.sum())
         + float(diff_sd_frac.sum())
         + float(diff_intf_arr.sum())
     )
     resi_sum = resi_sd_mat + resi_sd_frac
-    majorant = math.sqrt(diff_sum + gm_perp_total + gm_res_total) + math.sqrt(resi_sum)
+    majorant = math.sqrt(diff_sum + gm_perp_total) + math.sqrt(resi_sum + gm_res_total)
 
     te = VarelaJNumTrueErrors3D(setup)
     true_p = float(te.true_error_primal())

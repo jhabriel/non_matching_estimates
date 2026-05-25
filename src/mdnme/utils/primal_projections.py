@@ -111,6 +111,11 @@ def scott_zhang_quasi_interpolant(tg: TransferGrid, u_tr: np.ndarray) -> np.ndar
         V = np.vstack((X_tr[:, verts], np.ones(3)))  # 3x3
         V_inv_tr.append(np.linalg.inv(V))
 
+    # transfer cell centroids for last-resort nearest-neighbour lookup
+    tr_centroids = np.array(
+        [X_tr[:, verts].mean(axis=1) for verts in tri_tr]
+    )  # (n_tr, 2)
+
     # --- SZ nodal values on target ---
     assert isinstance(g_tgt, pp.Grid)
     n_tgt_nodes = g_tgt.num_nodes
@@ -156,8 +161,11 @@ def scott_zhang_quasi_interpolant(tg: TransferGrid, u_tr: np.ndarray) -> np.ndar
                     if np.all(lam >= -eps):
                         j = j_try
                         break
+            # last resort: nearest transfer cell centroid
+            # (handles quadrature points that land exactly on a shared edge/vertex)
             if j is None:
-                raise RuntimeError("Quadrature point not found in any transfer cell")
+                dists = np.sum((tr_centroids - xq) ** 2, axis=1)
+                j = int(np.argmin(dists))
 
             # ********* FIX 1: evaluate affine poly of cell j directly *********
             # u_tr is (n_tr, 3): [a, b, c] per transfer cell
