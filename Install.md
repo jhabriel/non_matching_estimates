@@ -21,7 +21,7 @@ conda update -n base -c default conda
 ### Create a new conda environment
 To avoid any potential conflicts with other packages, we recommend creating a new environment with `python 3.11` installed:
 ```
-conda create --name mdnme python=3.11
+conda create --name mdnme python=3.12
 ```
 
 ### Activate your environment
@@ -51,11 +51,11 @@ Note that this will also install the latest open-source versions of `orthopy` an
 ## Install `porepy`
 
 ### Install required packages by `porepy`
-We can now clone the PorePy repository and install the required packages. Note that we require the commit b5202e8 to be installed for this project:
+We can now clone the PorePy repository and install the required packages. Note that we require the commit 305a86da3 to be installed for this project:
 ```
 git clone https://github.com/pmgbergen/porepy.git porepy
 cd porepy
-git checkout b5202e81fc6a2c203fae3d4be066dd866978f882
+git checkout 305a86da385a59108d37095c6353782abed22f10
 ```
 
 ### Install `porepy` via `pip`
