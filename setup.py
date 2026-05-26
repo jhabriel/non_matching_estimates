@@ -21,7 +21,7 @@ with open("requirements.txt") as f:
 
 setup(
     name="mdnme",  # Required
-    version="0.0.1",  # Required
+    version="0.3",  # Required
     description="A posteriori error estimates on mixed-dimensional non-matching grids",  # Optional
     long_description=long_description,  # Optional
     long_description_content_type="text/markdown",  # Optional (see note above)
