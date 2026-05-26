@@ -95,14 +95,14 @@ def benchmark_3d_case_2(
     full_path.chmod(777)
 
     # Create mixed-dimensional grid
-    mdg = pp.fracture_importer.dfm_from_gmsh(str(full_path), dim=3)
+    mdg = pp.fracture_importer.dfm_from_gmsh(full_path, dim=3)
 
     # Also import fracture network
     fracture_network_path = benchmark_path / "fracture_network.csv"
     # Set file permissions. This turned out to be important for GH actions.
     fracture_network_path.chmod(777)
 
-    network = pp.fracture_importer.network_3d_from_csv(str(fracture_network_path))
+    network = pp.fracture_importer.network_from_csv(str(fracture_network_path))
 
     return mdg, network
 

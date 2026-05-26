@@ -94,7 +94,7 @@ class GeoNestedRefinementFactory:
         out_name = f"{self.out_stem}_{self._counter}.msh"
         gmsh.write(out_name)
         # Import to PorePy; this builds the mixed-dimensional grid with mortars, etc.
-        mdg = pp.fracture_importer.dfm_from_gmsh(out_name, self.dim)
+        mdg = pp.fracture_importer.dfm_from_gmsh(Path(out_name), self.dim)
         # Set local coordinate projections (important for your IBG/TG/SZ pipeline)
         pp.set_local_coordinate_projections(mdg)
         return mdg

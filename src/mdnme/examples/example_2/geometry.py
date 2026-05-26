@@ -25,32 +25,28 @@ def _stem_for_refinement_level(refinement_level: Literal[0, 1, 2, 3]) -> str:
     raise ValueError("Refinement level not supported. Use 0, 1, or 2.")
 
 
+_MD_GRIDS = Path(__file__).parent / "md_grids"
+
+
 def _paths_for_level(
-    refinement_level: Literal[0, 1, 2], folder: str = "md_grids"
+    refinement_level: Literal[0, 1, 2],
 ) -> Tuple[Path, Path, Path, str]:
     """
-    Returns (geo_path, msh_path, csv_path, out_stem)
-        geo_path: <stem>.geo (expected at project root or folder root; see below)
-        msh_path: <folder>/<stem>_nonmatch.msh
-        csv_path: <folder>/fracture_network.csv
-        out_stem: <folder>/<stem> (used by factory; it writes <out_stem>_<k>.msh)
+    Returns (geo_path, msh_path, csv_path, out_stem) — all absolute paths
+    rooted at the md_grids/ directory next to this file.
+
+        geo_path : md_grids/<stem>.geo
+        msh_path : md_grids/<stem>_nonmatch.msh  (read if exists; written by factory)
+        csv_path : md_grids/fracture_network.csv
+        out_stem : md_grids/<stem>   (factory writes <out_stem>_<k>.msh)
     """
     stem = _stem_for_refinement_level(refinement_level)
-    folder_path = Path(folder)
-    folder_path.mkdir(parents=True, exist_ok=True)
+    _MD_GRIDS.mkdir(parents=True, exist_ok=True)
 
-    # where we read/write the non-matching mesh
-    msh_path = folder_path / f"{stem}_nonmatch.msh"
-    # where we keep the fracture network CSV
-    csv_path = folder_path / "fracture_network.csv"
-
-    # .geo can be either in the folder or in the project root—check both
-    geo_local = folder_path / f"{stem}.geo"
-    geo_root = Path(f"{stem}.geo")
-    geo_path = geo_local if geo_local.exists() else geo_root
-
-    # out_stem for Gmsh writes (factory will create <out_stem>_k.msh files)
-    out_stem = str(folder_path / stem)
+    geo_path = _MD_GRIDS / f"{stem}.geo"
+    msh_path = _MD_GRIDS / f"{stem}_nonmatch.msh"
+    csv_path = _MD_GRIDS / "fracture_network.csv"
+    out_stem = str(_MD_GRIDS / stem)
     return geo_path, msh_path, csv_path, out_stem
 
 
@@ -68,8 +64,8 @@ def create_mdg_from_msh_file(refinement_level: Literal[0, 1, 2]):
     if not csv_path.exists():
         raise FileNotFoundError(f"Missing fracture network CSV: {csv_path}")
 
-    mdg = pp.fracture_importer.dfm_from_gmsh(str(msh_path), dim=3)
-    fn = pp.fracture_importer.network_3d_from_csv(str(csv_path), dim=3)
+    mdg = pp.fracture_importer.dfm_from_gmsh(msh_path, dim=3)
+    fn = pp.fracture_importer.network_from_csv(str(csv_path), dim=3)
     return mdg, fn
 
 
@@ -148,7 +144,7 @@ class GeometryNonMatching(pp.PorePyModel):
 
             # adopt the in-memory mdg/net
             self.mdg = mdg_coarse.copy()
-            self.fracture_network = pp.fracture_importer.network_3d_from_csv(
+            self.fracture_network = pp.fracture_importer.network_from_csv(
                 str(csv_path), dim=3
             )
 

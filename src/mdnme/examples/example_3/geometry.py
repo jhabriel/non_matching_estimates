@@ -11,6 +11,9 @@ from porepy.fracs.fracture_network_3d import FractureNetwork3d
 
 from mdnme.utils.nested_refinement import GeoNestedRefinementFactory
 
+# Absolute path to the grids/ subdirectory next to this file
+_GRIDS = Path(__file__).parent / "grids"
+
 
 def _stem_for_refinement_level(refinement_level: Literal[0, 1, 2, 3]) -> str:
     """Map refinement_level -> base stem used in both .geo and .msh names."""
@@ -26,31 +29,24 @@ def _stem_for_refinement_level(refinement_level: Literal[0, 1, 2, 3]) -> str:
 
 
 def _paths_for_level(
-    refinement_level: Literal[0, 1, 2, 3], folder: str = "grids"
+    refinement_level: Literal[0, 1, 2, 3],
+    out_folder: str = "grids",
 ) -> Tuple[Path, Path, Path, str]:
-    """
-    Returns (geo_path, msh_path, csv_path, out_stem)
-    geo_path: <stem>.geo (expected at project root or folder root; see below)
-    msh_path: <folder>/<stem>_nonmatch.msh
-    csv_path: <folder>/fracture_network.csv
-    out_stem: <folder>/<stem> (used by factory; it writes <out_stem>_<k>.msh)
+    """Return (geo_path, msh_path, csv_path, out_stem) for a refinement level.
+
+    geo_path  — source .geo file (always inside grids/)
+    msh_path  — where the non-matching .msh will be written (out_folder)
+    csv_path  — fracture network CSV (always inside grids/)
+    out_stem  — basename passed to GeoNestedRefinementFactory
     """
     stem = _stem_for_refinement_level(refinement_level)
-    folder_path = Path(folder)
-    folder_path.mkdir(parents=True, exist_ok=True)
+    out_path = Path(out_folder)
+    out_path.mkdir(parents=True, exist_ok=True)
 
-    # where we read/write the non-matching mesh
-    msh_path = folder_path / f"{stem}_nonmatch.msh"
-    # where we keep the fracture network CSV
-    csv_path = folder_path / "fracture_network.csv"
-
-    # .geo can be either in the folder or in the project root—check both
-    geo_local = folder_path / f"{stem}.geo"
-    geo_root = Path(f"{stem}.geo")
-    geo_path = geo_local if geo_local.exists() else geo_root
-
-    # out_stem for Gmsh writes (factory will create <out_stem>_k.msh files)
-    out_stem = str(folder_path / stem)
+    geo_path = _GRIDS / f"{stem}.geo"
+    msh_path = out_path / f"{stem}_nonmatch.msh"
+    csv_path = _GRIDS / "fracture_network.csv"
+    out_stem = str(out_path / stem)
     return geo_path, msh_path, csv_path, out_stem
 
 
@@ -68,8 +64,8 @@ def create_mdg_from_msh_file(refinement_level: Literal[0, 1, 2, 3]):
     if not csv_path.exists():
         raise FileNotFoundError(f"Missing fracture network CSV: {csv_path}")
 
-    mdg = pp.fracture_importer.dfm_from_gmsh(str(msh_path), dim=3)
-    fn = pp.fracture_importer.network_3d_from_csv(str(csv_path), dim=3)
+    mdg = pp.fracture_importer.dfm_from_gmsh(msh_path, dim=3)
+    fn = pp.fracture_importer.network_from_csv(str(csv_path), dim=3)
     return mdg, fn
 
 
@@ -85,8 +81,7 @@ class GeometryNonMatching(pp.PorePyModel):
         non_matching: bool = self.params.get("non_matching", False)
 
         # Read the fracture network directly from the csv file
-        fn = pp.fracture_importer.network_3d_from_csv("grids/fracture_network.csv")
-        fn.impose_external_boundary()  # needed to set the bounding box
+        fn = pp.fracture_importer.network_from_csv(str(_GRIDS / "fracture_network.csv"))
 
         # Get grid type and meshing arguments
         grid_type = self.params.get("grid_type", "simplex")
@@ -149,11 +144,15 @@ class GeometryNonMatching(pp.PorePyModel):
                 # Create a nested refinement (one-level) of the whole mdg
                 dim = 3
                 num_refinements = 1
+                refinement_level = self.params.get("refinement_level", 0)
+                geo_path, _, _, out_stem = _paths_for_level(
+                    refinement_level, out_folder="grids"
+                )
                 factory = GeoNestedRefinementFactory(
-                    src_path=str("grids/mesh30k.geo"),
+                    src_path=str(geo_path),
                     dim=dim,  # type:ignore
                     num_refinements=num_refinements,
-                    out_stem="non_match",
+                    out_stem=out_stem,
                 )
 
                 # Retrieve the coarse and the fine mdg. First item of the list

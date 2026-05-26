@@ -1,74 +1,123 @@
-"""This module contains the convergence analysis for numerical example 2."""
+"""Convergence study for the Geiger 3D benchmark (Flow Benchmark 3D Case 2).
+
+No exact solution is available, so we report majorant and local error
+indicators per subdomain/interface dimension only.
+"""
+
+from __future__ import annotations
+
+import pathlib
+from dataclasses import dataclass, field
+from typing import Dict, List
 
 import numpy as np
 import porepy as pp
-from porepy.utils.txt_io import TxtData, export_data_to_txt
 
 from mdnme.estimates.error_estimation import aggregate_local_errors, get_majorant
 from mdnme.examples.example_2.flow_benchmark_3d_case_2 import solid_constants_conductive
 from mdnme.examples.example_2.model import Geiger3dModel
 
-# Initialize lists for exporting results
-sd_error_1d_list: list[np.ndarray] = []
-sd_error_2d_list: list[np.ndarray] = []
-sd_error_3d_list: list[np.ndarray] = []
-intf_error_0d_list: list[np.ndarray] = []
-intf_error_1d_list: list[np.ndarray] = []
-intf_error_2d_list: list[np.ndarray] = []
-majorant_list: list[float] = []
+# -----------------------------------------------------------------------
+# Configuration
+# -----------------------------------------------------------------------
+REFINEMENT_LEVELS: List[int] = [0, 1, 2]
+FMT = "{:.4e}"
+OUTDIR = pathlib.Path(".")
+CSV_RAW = OUTDIR / "results_geiger3d.csv"
 
-# Define refinement levels
-REFINEMENT_LEVELS = [0, 1, 2]
 
-# Loop over the three refinement levels
-for lvl in REFINEMENT_LEVELS:
+@dataclass
+class Metrics:
+    refinement_level: int
+    non_matching: bool
+    majorant: float
+    # subdomain error aggregated by dim (keys: 1, 2, 3)
+    sd_error: Dict[int, float] = field(default_factory=dict)
+    # interface error aggregated by dim (keys: 0, 1, 2)
+    intf_error: Dict[int, float] = field(default_factory=dict)
 
-    # Setup the model and solve using MPFA
+
+def _run_single(refinement_level: int, *, non_matching: bool) -> Metrics:
     params = {
         "material_constants": {"solid": solid_constants_conductive},
-        "refinement_level": lvl,
-        "non_matching": True,
+        "refinement_level": refinement_level,
+        "non_matching": non_matching,
         "times_to_export": [],
-        "export_results": True,
-        "folder_name": "geiger3d",
+        "export_results": False,
     }
-    print(f"Setting up the model for refinement level {lvl}.")
-    model = Geiger3dModel(params)  # type:ignore
-    print(f"Done setting up the model for refinement ")
-
-    print(f"Running model for refinement level {lvl}.")
+    model = Geiger3dModel(params)  # type: ignore[arg-type]
     pp.run_time_dependent_model(model, params)
-    print(f"Done running model.")
 
-    # Compute errors of same dimensionality and the global majorant
-    local_errors = aggregate_local_errors(model.mdg)
-    sd_error_1d_list.append(local_errors["subdomain_error"][1])
-    sd_error_2d_list.append(local_errors["subdomain_error"][2])
-    sd_error_3d_list.append(local_errors["subdomain_error"][3])
-    intf_error_0d_list.append(local_errors["interface_error"][0])
-    intf_error_1d_list.append(local_errors["interface_error"][1])
-    intf_error_2d_list.append(local_errors["interface_error"][2])
-    majorant_list.append(get_majorant(model.mdg))
+    mdg = model.mdg
+    local = aggregate_local_errors(mdg)
+    majorant = get_majorant(mdg)
 
-# Export results
-sd_error_1d: TxtData = TxtData(header="sd_1d", array=np.asarray(sd_error_1d_list))
-sd_error_2d: TxtData = TxtData(header="sd_2d", array=np.asarray(sd_error_2d_list))
-sd_error_3d: TxtData = TxtData(header="sd_3d", array=np.asarray(sd_error_3d_list))
-intf_error_0d: TxtData = TxtData(header="intf_0d", array=np.asarray(intf_error_0d_list))
-intf_error_1d: TxtData = TxtData(header="intf_1d", array=np.asarray(intf_error_1d_list))
-intf_error_2d: TxtData = TxtData(header="intf_2d", array=np.asarray(intf_error_2d_list))
-majorant: TxtData = TxtData(header="majorant", array=np.asarray(majorant_list))
-txt_data: list[TxtData] = [
-    majorant,
-    sd_error_1d,
-    sd_error_2d,
-    sd_error_3d,
-    intf_error_0d,
-    intf_error_1d,
-    intf_error_2d,
-]
+    return Metrics(
+        refinement_level=refinement_level,
+        non_matching=non_matching,
+        majorant=majorant,
+        sd_error=local["subdomain_error"],
+        intf_error=local["interface_error"],
+    )
 
-# Finally, export the results in a `txt` file
-print("{Exporting results to TXT file.}")
-export_data_to_txt(txt_data, "geiger_3d_errors.txt")
-print("{Done exporting results to TXT file.}")
+
+def _print_summary(metrics: List[Metrics]) -> None:
+    header = (
+        f"{'lvl':>4} {'NM':>3}  {'majorant':>12}"
+        f"  {'eta_3D':>12}  {'eta_2D':>12}  {'eta_1D':>12}"
+        f"  {'intf_2D':>12}  {'intf_1D':>12}  {'intf_0D':>12}"
+    )
+    print(header)
+    print("-" * len(header))
+    for m in metrics:
+        print(
+            f"{m.refinement_level:>4} {'Y' if m.non_matching else 'N':>3}"
+            f"  {FMT.format(m.majorant):>12}"
+            f"  {FMT.format(m.sd_error.get(3, np.nan)):>12}"
+            f"  {FMT.format(m.sd_error.get(2, np.nan)):>12}"
+            f"  {FMT.format(m.sd_error.get(1, np.nan)):>12}"
+            f"  {FMT.format(m.intf_error.get(2, np.nan)):>12}"
+            f"  {FMT.format(m.intf_error.get(1, np.nan)):>12}"
+            f"  {FMT.format(m.intf_error.get(0, np.nan)):>12}"
+        )
+
+
+def _export_csv(metrics: List[Metrics]) -> None:
+    header = (
+        "refinement_level,non_matching,majorant,"
+        "sd_error_3d,sd_error_2d,sd_error_1d,"
+        "intf_error_2d,intf_error_1d,intf_error_0d"
+    )
+    lines = [header]
+    for m in metrics:
+        lines.append(
+            f"{m.refinement_level},{int(m.non_matching)},"
+            f"{m.majorant:.6e},"
+            f"{m.sd_error.get(3, np.nan):.6e},"
+            f"{m.sd_error.get(2, np.nan):.6e},"
+            f"{m.sd_error.get(1, np.nan):.6e},"
+            f"{m.intf_error.get(2, np.nan):.6e},"
+            f"{m.intf_error.get(1, np.nan):.6e},"
+            f"{m.intf_error.get(0, np.nan):.6e}"
+        )
+    CSV_RAW.write_text("\n".join(lines) + "\n")
+    print(f"\nRaw results written to: {CSV_RAW.resolve()}")
+
+
+def main() -> None:
+    all_metrics: List[Metrics] = []
+
+    for lvl in REFINEMENT_LEVELS:
+        print(f"\n=== Refinement level {lvl} | Matching ===")
+        all_metrics.append(_run_single(lvl, non_matching=False))
+
+        print(f"\n=== Refinement level {lvl} | Non-matching ===")
+        all_metrics.append(_run_single(lvl, non_matching=True))
+
+    print("\n\n=== Summary ===")
+    _print_summary(all_metrics)
+    _export_csv(all_metrics)
+
+
+if __name__ == "__main__":
+    main()
