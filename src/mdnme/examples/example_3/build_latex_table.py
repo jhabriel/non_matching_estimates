@@ -27,7 +27,7 @@ from typing import Dict, List, Optional
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-OUTFILE = pathlib.Path("small_features_table.tex")
+OUTFILE = pathlib.Path(__file__).parent / "small_features_table.tex"
 
 ROW_LABELS = {0: "Matching", 1: "Non-matching"}
 

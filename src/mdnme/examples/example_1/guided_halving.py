@@ -54,7 +54,7 @@ N_STEPS = 3         # guided refinement steps after level 0
 H_FRAC_INIT = 0.30  # initial fracture mesh size
 
 FMT = "{:.2e}"
-OUTDIR = pathlib.Path(".")
+OUTDIR = pathlib.Path(__file__).parent
 
 
 # ── Data class ────────────────────────────────────────────────────────────────

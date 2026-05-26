@@ -28,7 +28,7 @@ from typing import Dict, List, Optional
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-OUTFILE = pathlib.Path("geiger3d_table.tex")
+OUTFILE = pathlib.Path(__file__).parent / "geiger3d_table.tex"
 
 MESH_LABELS = {0: "Coarse", 1: "Intermediate", 2: "Fine"}
 

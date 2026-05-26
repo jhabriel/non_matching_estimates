@@ -28,7 +28,7 @@ from mdnme.examples.example_2.model import Geiger3dModel
 REFINEMENT_LEVELS: List[int] = [0, 1, 2]
 MAX_WORKERS: int = 3
 FMT = "{:.4e}"
-OUTDIR = pathlib.Path(".")
+OUTDIR = pathlib.Path(__file__).parent
 CSV_RAW = OUTDIR / "results_geiger3d.csv"
 
 

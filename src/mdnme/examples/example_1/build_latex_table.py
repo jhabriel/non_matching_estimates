@@ -32,7 +32,7 @@ import numpy as np
 # Config
 # ---------------------------------------------------------------------------
 H_LEVELS = [0.3, 0.15, 0.075, 0.0375]
-OUTFILE = pathlib.Path("results_consolidated.tex")
+OUTFILE = pathlib.Path(__file__).parent / "results_consolidated.tex"
 
 # Keys that are identically zero for the matching case (GM indicators)
 GM_KEYS = {"eta_gm_gamma1", "eta_gm_gamma2", "eta_gm_omega1", "eta_gm_omega2"}

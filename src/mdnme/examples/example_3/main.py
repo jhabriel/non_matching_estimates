@@ -23,7 +23,7 @@ from mdnme.examples.example_3.model import SmallFeaturesModel, solid_constants
 # -----------------------------------------------------------------------
 SOURCE_RATE: float = 0.1
 FMT = "{:.4e}"
-OUTDIR = pathlib.Path(".")
+OUTDIR = pathlib.Path(__file__).parent
 CSV_RAW = OUTDIR / "results_small_features.csv"
 
 
